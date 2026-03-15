@@ -40,6 +40,25 @@ import HostAnalytics from './pages/host/HostAnalytics';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import AdminReports from './pages/admin/AdminReports';
+import AdminUnits from './pages/admin/AdminUnits';
+import AdminReviews from './pages/admin/AdminReviews';
+import ActivityLogs from './pages/admin/ActivityLogs';
+import Security from './pages/admin/Security';
+import AdminMessages from './pages/admin/AdminMessages';
+import Financial from './pages/admin/Financial';
+import HostVerification from './pages/admin/HostVerification';
+import ChatbotAnalytics from './pages/admin/ChatbotAnalytics';
+import AdminProfile from './pages/admin/AdminProfile';
+import AdminNotifications from './pages/admin/AdminNotifications';
+import CommunicationAdminManagement from './pages/admin/CommunicationAdminManagement';
+
+// Communication Admin components
+import CommunicationAdminDashboard from './pages/admin/CommunicationAdminDashboard';
+import CommunicationAdminMessages from './pages/admin/CommunicationAdminMessages';
+import CommunicationAdminChatbotAnalytics from './pages/admin/CommunicationAdminChatbotAnalytics';
+import CommunicationAdminSettings from './pages/admin/CommunicationAdminSettings';
+import CommunicationAdminProfile from './pages/admin/CommunicationAdminProfile';
+import CommunicationAdminNotifications from './pages/admin/CommunicationAdminNotifications';
 
 function App() {
   return (
@@ -82,7 +101,26 @@ function App() {
               {/* Admin routes */}
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<UserManagement />} />
+              <Route path="/admin/units" element={<AdminUnits />} />
+              <Route path="/admin/reviews" element={<AdminReviews />} />
+              <Route path="/admin/activity-logs" element={<ActivityLogs />} />
+              <Route path="/admin/security" element={<Security />} />
+              <Route path="/admin/messages" element={<AdminMessages />} />
+              <Route path="/admin/chatbot-analytics" element={<ChatbotAnalytics />} />
+              <Route path="/admin/financial" element={<Financial />} />
               <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/admin/host-verification" element={<HostVerification />} />
+              <Route path="/admin/profile" element={<AdminProfile />} />
+              <Route path="/admin/notifications" element={<AdminNotifications />} />
+              <Route path="/admin/comm-admin-management" element={<CommunicationAdminManagement />} />
+              
+              {/* Communication Admin routes */}
+              <Route path="/comm-admin/dashboard" element={<CommunicationAdminDashboard />} />
+              <Route path="/comm-admin/messages" element={<CommunicationAdminMessages />} />
+              <Route path="/comm-admin/chatbot-analytics" element={<CommunicationAdminChatbotAnalytics />} />
+              <Route path="/comm-admin/settings" element={<CommunicationAdminSettings />} />
+              <Route path="/comm-admin/profile" element={<CommunicationAdminProfile />} />
+              <Route path="/comm-admin/notifications" element={<CommunicationAdminNotifications />} />
             </Routes>
           </main>
         </div>

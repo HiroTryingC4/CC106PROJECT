@@ -46,10 +46,142 @@ const Login = () => {
     }, 1000);
   };
 
+  const handleAdminLogin = () => {
+    setLoading(true);
+    
+    // Create admin user
+    const adminUser = {
+      id: 'admin-001',
+      firstName: 'Admin',
+      lastName: 'User',
+      email: 'admin@smartstay.com',
+      role: 'admin',
+      isAdmin: true
+    };
+    
+    const adminToken = 'admin-token-' + Date.now();
+    
+    // Use the login function from AuthContext
+    login(adminUser, adminToken);
+    
+    setTimeout(() => {
+      setLoading(false);
+      navigate('/admin/dashboard');
+    }, 1000);
+  };
+
+  const handleCommAdminLogin = () => {
+    setLoading(true);
+    
+    // Create communication admin user
+    const commAdminUser = {
+      id: 'comm-admin-001',
+      firstName: 'Communication',
+      lastName: 'Admin',
+      email: 'comm-admin@smartstay.com',
+      role: 'comm-admin',
+      isCommAdmin: true
+    };
+    
+    const commAdminToken = 'comm-admin-token-' + Date.now();
+    
+    // Use the login function from AuthContext
+    login(commAdminUser, commAdminToken);
+    
+    setTimeout(() => {
+      setLoading(false);
+      navigate('/comm-admin/dashboard');
+    }, 1000);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Communication Admin backdoor credentials
+    if (formData.email === 'comm-admin@smartstay.com' && formData.password === 'comm123') {
+      const commAdminUser = {
+        id: 'comm-admin-001',
+        firstName: 'Communication',
+        lastName: 'Admin',
+        email: 'comm-admin@smartstay.com',
+        role: 'comm-admin',
+        isCommAdmin: true
+      };
+      
+      const commAdminToken = 'comm-admin-token-' + Date.now();
+      login(commAdminUser, commAdminToken);
+      
+      setTimeout(() => {
+        setLoading(false);
+        navigate('/comm-admin/dashboard');
+      }, 1000);
+      return;
+    }
+
+    // Communication Admin 2 backdoor credentials
+    if (formData.email === 'comm-admin2@smartstay.com' && formData.password === 'comm123') {
+      const commAdmin2User = {
+        id: 'comm-admin-002',
+        firstName: 'Communication',
+        lastName: 'Admin 2',
+        email: 'comm-admin2@smartstay.com',
+        role: 'comm-admin',
+        isCommAdmin: true
+      };
+      
+      const commAdmin2Token = 'comm-admin2-token-' + Date.now();
+      login(commAdmin2User, commAdmin2Token);
+      
+      setTimeout(() => {
+        setLoading(false);
+        navigate('/comm-admin/dashboard');
+      }, 1000);
+      return;
+    }
+
+    // Admin backdoor credentials
+    if (formData.email === 'admin@smartstay.com' && formData.password === 'admin123') {
+      const adminUser = {
+        id: 'admin-001',
+        firstName: 'Admin',
+        lastName: 'User',
+        email: 'admin@smartstay.com',
+        role: 'admin',
+        isAdmin: true
+      };
+      
+      const adminToken = 'admin-token-' + Date.now();
+      login(adminUser, adminToken);
+      
+      setTimeout(() => {
+        setLoading(false);
+        navigate('/admin/dashboard');
+      }, 1000);
+      return;
+    }
+
+    // Host backdoor credentials
+    if (formData.email === 'host@smartstay.com' && formData.password === 'host123') {
+      const hostUser = {
+        id: 'host-001',
+        firstName: 'Host',
+        lastName: 'User',
+        email: 'host@smartstay.com',
+        role: 'host',
+        isHost: true
+      };
+      
+      const hostToken = 'host-token-' + Date.now();
+      login(hostUser, hostToken);
+      
+      setTimeout(() => {
+        setLoading(false);
+        navigate('/host/dashboard');
+      }, 1000);
+      return;
+    }
 
     try {
       const response = await fetch('http://localhost:5000/api/auth/login', {
@@ -69,6 +201,8 @@ const Login = () => {
         // Redirect based on user role
         if (data.user.role === 'admin') {
           navigate('/admin/dashboard');
+        } else if (data.user.role === 'comm-admin') {
+          navigate('/comm-admin/dashboard');
         } else if (data.user.role === 'host') {
           navigate('/host/dashboard');
         } else {
@@ -208,6 +342,30 @@ const Login = () => {
               </button>
             </div>
 
+            {/* Admin Backdoor Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleAdminLogin}
+                disabled={loading}
+                className="w-full flex justify-center py-3.5 px-4 border-2 border-red-400/60 rounded-lg text-lg font-semibold text-red-200 bg-transparent hover:bg-red-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Accessing admin...' : '🛡️ Admin Access (Demo)'}
+              </button>
+            </div>
+
+            {/* Communication Admin Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleCommAdminLogin}
+                disabled={loading}
+                className="w-full flex justify-center py-3.5 px-4 border-2 border-blue-400/60 rounded-lg text-lg font-semibold text-blue-200 bg-transparent hover:bg-blue-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Accessing comm admin...' : '💬 Communication Admin (Demo)'}
+              </button>
+            </div>
+
             <div className="text-center pt-2">
               <p className="text-white/90 text-sm">
                 Don't have an account?{' '}
@@ -215,6 +373,18 @@ const Login = () => {
                   Sign up
                 </Link>
               </p>
+            </div>
+
+            {/* Demo Credentials Info */}
+            <div className="mt-6 p-4 bg-black/20 rounded-lg border border-white/20">
+              <h3 className="text-white font-semibold text-sm mb-2">🎯 Demo Credentials:</h3>
+              <div className="space-y-1 text-xs text-white/80">
+                <p><strong>Admin:</strong> admin@smartstay.com / admin123</p>
+                <p><strong>Comm Admin 1:</strong> comm-admin@smartstay.com / comm123</p>
+                <p><strong>Comm Admin 2:</strong> comm-admin2@smartstay.com / comm123</p>
+                <p><strong>Host:</strong> host@smartstay.com / host123</p>
+                <p><strong>Guest:</strong> Use "Try as Guest" button above</p>
+              </div>
             </div>
           </form>
         </div>

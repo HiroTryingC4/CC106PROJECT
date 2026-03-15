@@ -4,12 +4,16 @@ import {
   PaperAirplaneIcon, 
   MagnifyingGlassIcon,
   EllipsisVerticalIcon,
-  ChatBubbleLeftRightIcon 
+  ChatBubbleLeftRightIcon,
+  LifebuoyIcon
 } from '@heroicons/react/24/outline';
 
 const GuestMessages = () => {
   const [selectedConversation, setSelectedConversation] = useState(1);
   const [newMessage, setNewMessage] = useState('');
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportSubject, setSupportSubject] = useState('');
 
   const conversations = [
     {
@@ -93,6 +97,16 @@ const GuestMessages = () => {
     }
   };
 
+  const handleSendSupportMessage = () => {
+    if (supportMessage.trim() && supportSubject.trim()) {
+      // Handle sending support message to communication center
+      alert('Your message has been sent to our support team. We will get back to you soon!');
+      setSupportMessage('');
+      setSupportSubject('');
+      setShowSupportModal(false);
+    }
+  };
+
   const selectedConv = conversations.find(c => c.id === selectedConversation);
 
   return (
@@ -102,7 +116,17 @@ const GuestMessages = () => {
           {/* Conversations List */}
           <div className="w-1/3 border-r border-gray-200 flex flex-col">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Messages</h2>
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
+                <button
+                  onClick={() => setShowSupportModal(true)}
+                  className="text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 flex items-center space-x-1"
+                  style={{backgroundColor: '#4E7B22'}}
+                >
+                  <LifebuoyIcon className="w-4 h-4" />
+                  <span>Support</span>
+                </button>
+              </div>
               <div className="relative">
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
                 <input
@@ -235,6 +259,63 @@ const GuestMessages = () => {
             )}
           </div>
         </div>
+
+        {/* Support Modal */}
+        {showSupportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Contact Support</h3>
+                <button 
+                  onClick={() => setShowSupportModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                  <input
+                    type="text"
+                    value={supportSubject}
+                    onChange={(e) => setSupportSubject(e.target.value)}
+                    placeholder="What do you need help with?"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4E7B22] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <textarea
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    placeholder="Please describe your issue or question in detail..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4E7B22] focus:border-transparent resize-none"
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={handleSendSupportMessage}
+                    disabled={!supportMessage.trim() || !supportSubject.trim()}
+                    className="flex-1 bg-[#4E7B22] text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Send Message
+                  </button>
+                  <button
+                    onClick={() => setShowSupportModal(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </GuestLayout>
   );
