@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -13,12 +13,83 @@ import {
   BanknotesIcon,
   DocumentChartBarIcon,
   ClipboardDocumentListIcon,
-  ClockIcon
+  ClockIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 const Home = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      sender: 'support',
+      text: 'Hello! Welcome to Smart Stay. I\'m here to help you with any questions or issues you may have.',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      avatar: 'SS'
+    }
+  ]);
+  const [newMessage, setNewMessage] = useState('');
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (newMessage.trim()) {
+      const userMessage = {
+        id: messages.length + 1,
+        sender: 'user',
+        text: newMessage,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: '👤'
+      };
+      
+      setMessages([...messages, userMessage]);
+      
+      // Store message for admin to see
+      const adminMessage = {
+        id: Date.now(), // Use timestamp as unique ID
+        from: 'guest@smartstay.com',
+        fromName: 'Guest User',
+        to: 'support@smartstay.com',
+        subject: 'Guest Inquiry from Website',
+        preview: newMessage.length > 100 ? newMessage.substring(0, 100) + '...' : newMessage,
+        fullMessage: newMessage,
+        timestamp: new Date().toLocaleString(),
+        status: 'unread',
+        priority: 'normal',
+        category: 'general',
+        userType: 'guest',
+        repliedBy: null,
+        repliedAt: null,
+        replyStatus: 'pending',
+        source: 'website_contact' // Mark as coming from website contact
+      };
+      
+      // Get existing messages from localStorage
+      const existingMessages = JSON.parse(localStorage.getItem('adminMessages') || '[]');
+      
+      // Add new message to the beginning of the array (most recent first)
+      const updatedMessages = [adminMessage, ...existingMessages];
+      
+      // Store back to localStorage
+      localStorage.setItem('adminMessages', JSON.stringify(updatedMessages));
+      
+      setNewMessage('');
+      
+      // Auto-reply from support
+      setTimeout(() => {
+        const supportReply = {
+          id: messages.length + 2,
+          sender: 'support',
+          text: 'Thank you for reaching out! I\'ve received your message and our support team will get back to you within 24 hours. Is there anything else I can help you with right now?',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          avatar: 'SS'
+        };
+        setMessages(prev => [...prev, supportReply]);
+      }, 1000);
+    }
+  };
 
   useEffect(() => {
     // Redirect authenticated users to their respective dashboards
@@ -42,12 +113,6 @@ const Home = () => {
             backgroundImage: "url('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')"
           }}
         ></div>
-        
-        <div className="absolute top-4 right-4 z-20">
-          <Link to="/host/register" className="bg-gray-800 bg-opacity-70 text-white px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base rounded-full hover:bg-opacity-90 transition-all">
-            Become a Host
-          </Link>
-        </div>
 
         <div className="relative z-10 flex items-center justify-center min-h-screen py-20">
           <div className="text-center text-white px-4 max-w-6xl mx-auto">
@@ -415,11 +480,18 @@ const Home = () => {
             
             <div>
               <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Contact</h4>
-              <div className="space-y-1 sm:space-y-2 text-gray-400 text-sm sm:text-base">
+              <div className="space-y-1 sm:space-y-2 text-gray-400 text-sm sm:text-base mb-6">
                 <p>Email: info@smartstay.com</p>
                 <p>Phone: +1 (234) 567-8900</p>
                 <p>Address: 123 Main St, City, State</p>
               </div>
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="w-full flex items-center justify-center space-x-2 bg-[#4E7B22] text-white hover:bg-green-600 transition-colors px-4 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl"
+              >
+                <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                <span>Report Issue / Contact Admin</span>
+              </button>
             </div>
           </div>
           
@@ -428,6 +500,110 @@ const Home = () => {
           </div>
         </div>
       </footer>
+
+      {/* Messages Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full h-[700px] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-[#4E7B22] rounded-full flex items-center justify-center text-white font-bold">
+                  SS
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Smart Stay Support</h3>
+                  <p className="text-sm text-gray-500">Online</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <XMarkIcon className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+              <div className="space-y-4">
+                {messages.map((message) => (
+                  <div key={message.id}>
+                    {message.sender === 'support' ? (
+                      // Support message (left side)
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 bg-[#4E7B22] rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                          SS
+                        </div>
+                        <div className="flex-1">
+                          <div className="bg-white rounded-lg p-3 shadow-sm border">
+                            <p className="text-gray-800 text-sm leading-relaxed">{message.text}</p>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1 ml-1">{message.time}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      // User message (right side)
+                      <div className="flex justify-end">
+                        <div className="max-w-[80%]">
+                          <div className="bg-[#4E7B22] text-white rounded-lg p-3 shadow-sm">
+                            <p className="text-sm leading-relaxed">{message.text}</p>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1 text-right mr-1">{message.time}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-[#4E7B22] focus:border-transparent outline-none text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!newMessage.trim()}
+                  className="w-12 h-12 bg-[#4E7B22] text-white rounded-full flex items-center justify-center hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </form>
+              
+              {/* Quick Actions */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <button
+                  onClick={() => setNewMessage('I have a booking issue with my reservation')}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  Booking Issue
+                </button>
+                <button
+                  onClick={() => setNewMessage('I need help with payment processing')}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  Payment Help
+                </button>
+                <button
+                  onClick={() => setNewMessage('I have a question about property amenities')}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  Property Question
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

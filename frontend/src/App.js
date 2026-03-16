@@ -11,8 +11,12 @@ import Home from './pages/Home';
 import Units from './pages/Units';
 import Recommendations from './pages/Recommendations';
 import FAQs from './pages/FAQs';
+import TermsOfService from './pages/TermsOfService';
+import HelpCenter from './pages/HelpCenter';
+import Contact from './pages/Contact';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import MessagingDemo from './pages/MessagingDemo';
 
 // Guest components
 import GuestDashboard from './pages/guest/GuestDashboard';
@@ -33,6 +37,17 @@ import GuestNotifications from './pages/guest/GuestNotifications';
 
 // Host components  
 import HostDashboard from './pages/host/HostDashboard';
+import HostUnits from './pages/host/HostUnits';
+import AddUnit from './pages/host/AddUnit';
+import EditUnit from './pages/host/EditUnit';
+import HostBookings from './pages/host/HostBookings';
+import HostPayments from './pages/host/HostPayments';
+import HostFinancial from './pages/host/HostFinancial';
+import HostMessages from './pages/host/HostMessages';
+import HostReports from './pages/host/HostReports';
+import HostPromoCodes from './pages/host/HostPromoCodes';
+import HostSettings from './pages/host/HostSettings';
+import HostNotifications from './pages/host/HostNotifications';
 import PropertyManagement from './pages/host/PropertyManagement';
 import HostAnalytics from './pages/host/HostAnalytics';
 
@@ -73,8 +88,12 @@ function App() {
               <Route path="/units" element={<Units />} />
               <Route path="/recommendations" element={<Recommendations />} />
               <Route path="/faqs" element={<FAQs />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/help-center" element={<HelpCenter />} />
+              <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/messaging-demo" element={<MessagingDemo />} />
               
               {/* Guest routes */}
               <Route path="/guest/dashboard" element={<GuestDashboard />} />
@@ -95,6 +114,17 @@ function App() {
               
               {/* Host routes */}
               <Route path="/host/dashboard" element={<HostDashboard />} />
+              <Route path="/host/units" element={<HostUnits />} />
+              <Route path="/host/units/add" element={<AddUnit />} />
+              <Route path="/host/units/edit/:id" element={<EditUnit />} />
+              <Route path="/host/bookings" element={<HostBookings />} />
+              <Route path="/host/payments" element={<HostPayments />} />
+              <Route path="/host/financial" element={<HostFinancial />} />
+              <Route path="/host/messages" element={<HostMessages />} />
+              <Route path="/host/reports" element={<HostReports />} />
+              <Route path="/host/promo-codes" element={<HostPromoCodes />} />
+              <Route path="/host/settings" element={<HostSettings />} />
+              <Route path="/host/notifications" element={<HostNotifications />} />
               <Route path="/host/properties" element={<PropertyManagement />} />
               <Route path="/host/analytics" element={<HostAnalytics />} />
               

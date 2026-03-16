@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet Map Styles */
+@import 'leaflet/dist/leaflet.css';
+
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900;
@@ -27,6 +30,19 @@
 
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
+  }
+
+  /* Custom Leaflet Map Styles */
+  .leaflet-container {
+    @apply rounded-lg;
+  }
+  
+  .leaflet-popup-content-wrapper {
+    @apply rounded-lg;
+  }
+  
+  .leaflet-popup-tip {
+    @apply bg-white;
   }
 }
 

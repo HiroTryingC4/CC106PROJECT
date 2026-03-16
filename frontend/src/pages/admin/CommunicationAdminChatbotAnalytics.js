@@ -8,12 +8,12 @@ import {
   ExclamationTriangleIcon,
   ArrowTrendingUpIcon,
   EyeIcon,
-  CalendarIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 const CommunicationAdminChatbotAnalytics = () => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
+  const [showAllConversations, setShowAllConversations] = useState(false);
 
   const stats = [
     {
@@ -101,6 +101,60 @@ const CommunicationAdminChatbotAnalytics = () => {
       status: 'ongoing',
       timestamp: '25 minutes ago',
       satisfaction: 'negative'
+    },
+    {
+      id: 5,
+      user: 'alex.brown@example.com',
+      messages: 6,
+      duration: '4m 18s',
+      status: 'resolved',
+      timestamp: '32 minutes ago',
+      satisfaction: 'positive'
+    },
+    {
+      id: 6,
+      user: 'emma.davis@example.com',
+      messages: 9,
+      duration: '8m 45s',
+      status: 'escalated',
+      timestamp: '45 minutes ago',
+      satisfaction: 'negative'
+    },
+    {
+      id: 7,
+      user: 'david.miller@example.com',
+      messages: 4,
+      duration: '2m 33s',
+      status: 'resolved',
+      timestamp: '1 hour ago',
+      satisfaction: 'positive'
+    },
+    {
+      id: 8,
+      user: 'lisa.garcia@example.com',
+      messages: 7,
+      duration: '5m 12s',
+      status: 'ongoing',
+      timestamp: '1 hour ago',
+      satisfaction: 'neutral'
+    },
+    {
+      id: 9,
+      user: 'robert.taylor@example.com',
+      messages: 11,
+      duration: '12m 28s',
+      status: 'resolved',
+      timestamp: '2 hours ago',
+      satisfaction: 'positive'
+    },
+    {
+      id: 10,
+      user: 'maria.rodriguez@example.com',
+      messages: 15,
+      duration: '18m 45s',
+      status: 'escalated',
+      timestamp: '2 hours ago',
+      satisfaction: 'negative'
     }
   ];
 
@@ -129,6 +183,15 @@ const CommunicationAdminChatbotAnalytics = () => {
       case 'neutral': return '😐';
       default: return '❓';
     }
+  };
+
+  // Function to get displayed conversations based on view state
+  const getDisplayedConversations = () => {
+    return showAllConversations ? recentConversations : recentConversations.slice(0, 4);
+  };
+
+  const handleViewAllToggle = () => {
+    setShowAllConversations(!showAllConversations);
   };
 
   return (
@@ -294,10 +357,18 @@ const CommunicationAdminChatbotAnalytics = () => {
         {/* Recent Conversations */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Conversations</h3>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-[#4E7B22] text-white rounded-lg hover:bg-green-700">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Recent Conversations</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Showing {getDisplayedConversations().length} of {recentConversations.length} conversations
+              </p>
+            </div>
+            <button 
+              onClick={handleViewAllToggle}
+              className="flex items-center space-x-2 px-4 py-2 bg-[#4E7B22] text-white rounded-lg hover:bg-green-700"
+            >
               <EyeIcon className="w-4 h-4" />
-              <span>View All</span>
+              <span>{showAllConversations ? 'Show Less' : 'View All'}</span>
             </button>
           </div>
 
@@ -314,7 +385,7 @@ const CommunicationAdminChatbotAnalytics = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentConversations.map((conversation) => (
+                {getDisplayedConversations().map((conversation) => (
                   <tr key={conversation.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

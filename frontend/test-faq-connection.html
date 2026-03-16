@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FAQ Connection Test</title>
+</head>
+<body>
+    <h1>FAQ System Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        // Test localStorage FAQ connection
+        function testFaqConnection() {
+            const output = document.getElementById('output');
+            
+            // Check if FAQs exist in localStorage
+            const storedFaqs = localStorage.getItem('smartStayFaqs');
+            
+            if (storedFaqs) {
+                const faqs = JSON.parse(storedFaqs);
+                output.innerHTML = `
+                    <h2>✅ FAQs Found in localStorage</h2>
+                    <p><strong>Count:</strong> ${faqs.length} FAQs</p>
+                    <h3>FAQ List:</h3>
+                    <ul>
+                        ${faqs.map(faq => `
+                            <li><strong>${faq.category}:</strong> ${faq.question}</li>
+                        `).join('')}
+                    </ul>
+                    <h3>Raw Data:</h3>
+                    <pre style="background: #f5f5f5; padding: 10px; overflow: auto;">${JSON.stringify(faqs, null, 2)}</pre>
+                `;
+            } else {
+                output.innerHTML = `
+                    <h2>❌ No FAQs Found</h2>
+                    <p>localStorage key 'smartStayFaqs' is empty or doesn't exist.</p>
+                    <p>Try adding FAQs through the Communication Admin panel first.</p>
+                `;
+            }
+        }
+        
+        // Run test on page load
+        testFaqConnection();
+        
+        // Listen for FAQ updates
+        window.addEventListener('faqsUpdated', () => {
+            console.log('FAQ update event received!');
+            testFaqConnection();
+        });
+        
+        // Add refresh button
+        document.body.innerHTML += '<br><button onclick="testFaqConnection()">Refresh Test</button>';
+        document.body.innerHTML += '<br><button onclick="localStorage.clear(); testFaqConnection();">Clear localStorage</button>';
+    </script>
+</body>
+</html>

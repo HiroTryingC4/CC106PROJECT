@@ -39,8 +39,11 @@ const Navbar = () => {
     setShowProfileDropdown(!showProfileDropdown);
   };
 
+  // Check if we're on a public page (landing page, units, etc.)
+  const isPublicPage = !isAuthenticated || location.pathname === '/' || location.pathname === '/units' || location.pathname === '/recommendations' || location.pathname === '/faqs' || location.pathname === '/login' || location.pathname === '/register';
+
   return (
-    <nav className="shadow-sm" style={{backgroundColor: '#F8FFD3'}}>
+    <nav className="shadow-sm" style={{backgroundColor: isPublicPage ? 'white' : '#F8FFD3'}}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -50,9 +53,55 @@ const Navbar = () => {
             </Link>
           </div>
 
+          {/* Navigation Links - Show only on public pages */}
+          {isPublicPage && (
+            <div className="hidden md:flex items-center space-x-8">
+              <Link 
+                to="/" 
+                className={`px-3 py-2 text-sm font-medium ${
+                  location.pathname === '/' 
+                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
+                    : 'text-gray-500 hover:text-[#4E7B22]'
+                }`}
+              >
+                Home
+              </Link>
+              <Link 
+                to="/units" 
+                className={`px-3 py-2 text-sm font-medium ${
+                  location.pathname === '/units' 
+                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
+                    : 'text-gray-500 hover:text-[#4E7B22]'
+                }`}
+              >
+                Units
+              </Link>
+              <Link 
+                to="/recommendations" 
+                className={`px-3 py-2 text-sm font-medium ${
+                  location.pathname === '/recommendations' 
+                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
+                    : 'text-gray-500 hover:text-[#4E7B22]'
+                }`}
+              >
+                Recommendations
+              </Link>
+              <Link 
+                to="/faqs" 
+                className={`px-3 py-2 text-sm font-medium ${
+                  location.pathname === '/faqs' 
+                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
+                    : 'text-gray-500 hover:text-[#4E7B22]'
+                }`}
+              >
+                FAQS
+              </Link>
+            </div>
+          )}
+
           {/* Right side icons */}
           <div className="flex items-center space-x-3">
-            {isAuthenticated && user ? (
+            {isAuthenticated && user && !isPublicPage ? (
               <>
                 {/* Notification Icon - Bell */}
                 <button
@@ -61,6 +110,8 @@ const Navbar = () => {
                       navigate('/admin/notifications');
                     } else if (user?.role === 'comm-admin') {
                       navigate('/comm-admin/notifications');
+                    } else if (user?.role === 'host') {
+                      navigate('/host/notifications');
                     } else {
                       navigate('/guest/notifications');
                     }
@@ -195,23 +246,88 @@ const Navbar = () => {
               <>
                 <Link 
                   to="/login" 
-                  className="text-gray-800 hover:text-gray-600 font-medium px-4 py-2 border border-gray-400 rounded-lg hover:border-gray-600 transition-colors"
+                  className="text-gray-700 hover:text-[#4E7B22] px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:border-[#4E7B22] transition-colors"
                 >
                   Log In
                 </Link>
                 <Link 
                   to="/register" 
-                  className="text-white font-medium px-4 py-2 rounded-lg transition-colors"
-                  style={{backgroundColor: '#4E7B22'}}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#225808'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#4E7B22'}
+                  className="bg-[#4E7B22] text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                 >
                   Sign Up
                 </Link>
               </>
             )}
+
+            {/* Mobile menu button - Show only on public pages */}
+            {isPublicPage && (
+              <div className="md:hidden">
+                <button 
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  {isOpen ? (
+                    <XMarkIcon className="h-6 w-6" />
+                  ) : (
+                    <Bars3Icon className="h-6 w-6" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Mobile menu - Show only on public pages */}
+        {isPublicPage && isOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
+              <Link 
+                to="/" 
+                className={`block px-3 py-2 text-base font-medium ${
+                  location.pathname === '/' 
+                    ? 'text-[#4E7B22] bg-green-50' 
+                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                Home
+              </Link>
+              <Link 
+                to="/units" 
+                className={`block px-3 py-2 text-base font-medium ${
+                  location.pathname === '/units' 
+                    ? 'text-[#4E7B22] bg-green-50' 
+                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                Units
+              </Link>
+              <Link 
+                to="/recommendations" 
+                className={`block px-3 py-2 text-base font-medium ${
+                  location.pathname === '/recommendations' 
+                    ? 'text-[#4E7B22] bg-green-50' 
+                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                Recommendations
+              </Link>
+              <Link 
+                to="/faqs" 
+                className={`block px-3 py-2 text-base font-medium ${
+                  location.pathname === '/faqs' 
+                    ? 'text-[#4E7B22] bg-green-50' 
+                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                FAQS
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

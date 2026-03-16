@@ -32,121 +32,204 @@ const CommunicationAdminMessages = () => {
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [showQuickActions, setShowQuickActions] = useState(null);
+  const [showAddFaqModal, setShowAddFaqModal] = useState(false);
+  const [newFaq, setNewFaq] = useState({ question: '', answer: '', category: 'General' });
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
   const [welcomeMessage, setWelcomeMessage] = useState("Hello! I'm your smart assistant. How can I help you today?");
   const [fallbackMessage, setFallbackMessage] = useState("I'm not sure I understand that. Could you rephrase that?");
   const [responseDelay, setResponseDelay] = useState(3000);
 
-  const faqs = [
-    {
-      id: 1,
-      question: "How do I book a unit?",
-      answer: "To book a unit, browse available properties, select your desired unit, choose your check in and check out dates, and complete the booking process with payment"
-    },
-    {
-      id: 2,
-      question: "What payment methods do you accept?",
-      answer: "We accept payments via QR code. After booking, you'll receive a QR code to scan and complete your payment securely"
-    },
-    {
-      id: 3,
-      question: "What is the cancellation policy?",
-      answer: "You can cancel your booking up to 48 hours before check-in for a full refund. Cancellations within 48 hours are subject to a 50% fee."
-    },
-    {
-      id: 4,
-      question: "How do I check in?",
-      answer: "Check-in instructions will be sent to your email 24 hours before your arrival. You'll receive the unit access code and any special instructions."
-    }
-  ];
+  const [faqs, setFaqs] = useState([]);
 
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      from: 'guest.trial@smartstay.com',
-      fromName: 'Jess Trial (Guest)',
-      to: 'support@smartstay.com',
-      subject: 'Question about booking cancellation',
-      preview: 'Hi, I need to cancel my booking for next week due to an emergency. What is the cancellation policy and will I get a refund?',
-      fullMessage: 'Hi Support Team,\n\nI hope this message finds you well. I need to cancel my booking for the Luxury Beachfront Condo (Booking #12345) scheduled for next week due to a family emergency.\n\nCould you please let me know:\n1. What is your cancellation policy?\n2. Will I be eligible for a refund?\n3. How long does the refund process take?\n\nI apologize for the short notice and appreciate your understanding.\n\nBest regards,\nJess Trial',
-      timestamp: '2024-03-15 14:30:25',
-      status: 'unread',
-      priority: 'normal',
-      category: 'booking',
-      userType: 'guest',
-      repliedBy: null,
-      repliedAt: null,
-      replyStatus: 'pending'
-    },
-    {
-      id: 2,
-      from: 'john.guest@example.com',
-      fromName: 'John Smith (Guest)',
-      to: 'support@smartstay.com',
-      subject: 'Payment issue with my booking',
-      preview: 'I tried to complete payment for my booking but the QR code is not working...',
-      fullMessage: 'Hello,\n\nI am trying to complete payment for my booking (Booking #67890) but I am having issues with the QR code payment system. The code appears to be invalid or expired.\n\nCould you please help me resolve this issue? I need to complete the payment today to secure my reservation.\n\nThank you for your assistance.\n\nJohn Smith\nPhone: +1234567890',
-      timestamp: '2024-03-15 13:45:12',
-      status: 'unread',
-      priority: 'high',
-      category: 'payment',
-      userType: 'guest',
-      repliedBy: 'adm1',
-      repliedAt: '2024-03-15 15:20:30',
-      replyStatus: 'replied'
-    },
-    {
-      id: 3,
-      from: 'sarah.host@example.com',
-      fromName: 'Sarah Wilson (Host)',
-      to: 'support@smartstay.com',
-      subject: 'Guest communication issue',
-      preview: 'I am having trouble communicating with my guest about check-in details...',
-      fullMessage: 'Dear Support Team,\n\nI am having difficulty communicating with my guest (Booking #11111) about check-in details. They are not responding to my messages through the platform.\n\nThe guest is supposed to check in tomorrow and I need to provide them with:\n- Access codes\n- Parking instructions\n- House rules\n\nCould you please help facilitate this communication or provide an alternative contact method?\n\nThank you,\nSarah Wilson\nProperty: Downtown Apartment',
-      timestamp: '2024-03-15 12:20:33',
-      status: 'read',
-      priority: 'urgent',
-      category: 'communication',
-      userType: 'host',
-      repliedBy: null,
-      repliedAt: null,
-      replyStatus: 'pending'
-    },
-    {
-      id: 4,
-      from: 'mike.guest@example.com',
-      fromName: 'Mike Johnson (Guest)',
-      to: 'support@smartstay.com',
-      subject: 'Request for additional amenities',
-      preview: 'Can I request additional towels and pillows for my stay?',
-      fullMessage: 'Hi there,\n\nI am currently staying at the Mountain View Cabin (Booking #22222) and would like to request some additional amenities:\n\n- 2 extra towels\n- 1 additional pillow\n- Information about local restaurants\n\nThe property is beautiful and I am enjoying my stay. Just need these small additions to make it perfect.\n\nPlease let me know if this is possible and how to arrange it.\n\nBest regards,\nMike Johnson\nRoom: Mountain View Cabin',
-      timestamp: '2024-03-15 11:15:45',
-      status: 'read',
-      priority: 'low',
-      category: 'amenities',
-      userType: 'guest',
-      repliedBy: 'adm2',
-      repliedAt: '2024-03-15 14:45:12',
-      replyStatus: 'replied'
-    },
-    {
-      id: 5,
-      from: 'emma.guest@example.com',
-      fromName: 'Emma Davis (Guest)',
-      to: 'support@smartstay.com',
-      subject: 'Feedback and compliments',
-      preview: 'I wanted to share my wonderful experience at your property...',
-      fullMessage: 'Dear Smart Stay Team,\n\nI just completed my stay at the Seaside Villa and wanted to share my feedback. The experience was absolutely wonderful!\n\nHighlights of my stay:\n- Immaculate cleanliness\n- Beautiful ocean view\n- Responsive host communication\n- Great location near restaurants\n- All amenities as described\n\nI will definitely be booking with Smart Stay again and recommending to friends and family.\n\nThank you for providing such excellent service!\n\nWarm regards,\nEmma Davis\nStay dates: March 10-14, 2024',
-      timestamp: '2024-03-15 10:30:15',
-      status: 'read',
-      priority: 'normal',
-      category: 'feedback',
-      userType: 'guest',
-      repliedBy: null,
-      repliedAt: null,
-      replyStatus: 'pending'
+  // Load FAQs from localStorage
+  React.useEffect(() => {
+    loadFaqs();
+  }, []);
+
+  const loadFaqs = () => {
+    console.log('Communication Admin: Loading FAQs...');
+    const defaultFaqs = [
+      // General FAQs
+      {
+        id: 1,
+        category: "General",
+        question: "What is Smart Stay?",
+        answer: "Smart Stay is an AI-driven web-based platform for intelligent property booking and host financial management. We provide smart recommendations, automated chatbot support, and comprehensive analytics for both guests and hosts."
+      },
+      {
+        id: 2,
+        category: "General",
+        question: "How do I create an account?",
+        answer: "You can create an account by clicking the 'Sign Up' button on our homepage. Choose whether you want to register as a guest or host, fill in your details, and verify your email address to get started."
+      },
+      {
+        id: 3,
+        category: "General",
+        question: "Is Smart Stay free to use?",
+        answer: "Yes, Smart Stay is free to browse and search properties. Guests can create accounts and browse listings at no cost. Hosts can list their first property for free, with optional premium features available for enhanced visibility and analytics."
+      },
+      {
+        id: 4,
+        category: "General",
+        question: "What makes Smart Stay different from other booking platforms?",
+        answer: "Smart Stay uses advanced AI technology to provide personalized property recommendations, automated customer support through our intelligent chatbot, comprehensive financial analytics for hosts, and seamless QR code payment processing for secure transactions."
+      },
+      
+      // Guest FAQs
+      {
+        id: 5,
+        category: "Guests FAQ",
+        question: "How can I book a property?",
+        answer: "To book a property: 1) Browse available properties using our search filters, 2) Select your desired dates and number of guests, 3) Review property details and host information, 4) Complete the booking form with your details, 5) Make payment using our secure QR code system."
+      },
+      {
+        id: 6,
+        category: "Guests FAQ",
+        question: "Can I browse properties without an account?",
+        answer: "Yes, you can browse all available properties, view photos, read descriptions, and check availability without creating an account. However, you'll need to create a free account to make bookings and access personalized recommendations."
+      },
+      {
+        id: 7,
+        category: "Guests FAQ",
+        question: "How does the AI recommendation system work?",
+        answer: "Our AI recommendation system analyzes your browsing history, previous bookings, preferences, and search patterns to suggest properties that match your interests. The more you use Smart Stay, the better our recommendations become."
+      },
+      {
+        id: 8,
+        category: "Guests FAQ",
+        question: "What payment methods do you accept?",
+        answer: "We accept payments via QR code technology supporting major payment platforms including GCash, PayMaya, and bank transfers. After booking confirmation, you'll receive a secure QR code to complete your payment."
+      }
+    ];
+
+    try {
+      // Get FAQs from localStorage
+      const storedFaqs = JSON.parse(localStorage.getItem('smartStayFaqs') || '[]');
+      console.log('Communication Admin: Found stored FAQs:', storedFaqs.length);
+      
+      // If no stored FAQs, use default ones and store them
+      if (storedFaqs.length === 0) {
+        console.log('Communication Admin: Initializing default FAQs');
+        localStorage.setItem('smartStayFaqs', JSON.stringify(defaultFaqs));
+        setFaqs(defaultFaqs);
+        // Dispatch event to notify other components
+        window.dispatchEvent(new CustomEvent('faqsUpdated'));
+      } else {
+        setFaqs(storedFaqs);
+      }
+    } catch (error) {
+      console.error('Communication Admin: Error loading FAQs:', error);
+      setFaqs(defaultFaqs);
+      localStorage.setItem('smartStayFaqs', JSON.stringify(defaultFaqs));
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('faqsUpdated'));
     }
-  ]);
+  };
+
+  const [messages, setMessages] = useState([]);
+
+  // Load messages from localStorage and merge with static messages
+  React.useEffect(() => {
+    loadMessages();
+  }, []);
+
+  const loadMessages = () => {
+    const staticMessages = [
+      {
+        id: 1,
+        from: 'guest.trial@smartstay.com',
+        fromName: 'Jess Trial (Guest)',
+        to: 'support@smartstay.com',
+        subject: 'Question about booking cancellation',
+        preview: 'Hi, I need to cancel my booking for next week due to an emergency. What is the cancellation policy and will I get a refund?',
+        fullMessage: 'Hi Support Team,\n\nI hope this message finds you well. I need to cancel my booking for the Luxury Beachfront Condo (Booking #12345) scheduled for next week due to a family emergency.\n\nCould you please let me know:\n1. What is your cancellation policy?\n2. Will I be eligible for a refund?\n3. How long does the refund process take?\n\nI apologize for the short notice and appreciate your understanding.\n\nBest regards,\nJess Trial',
+        timestamp: '2024-03-15 14:30:25',
+        status: 'unread',
+        priority: 'normal',
+        category: 'booking',
+        userType: 'guest',
+        repliedBy: null,
+        repliedAt: null,
+        replyStatus: 'pending'
+      },
+      {
+        id: 2,
+        from: 'john.guest@example.com',
+        fromName: 'John Smith (Guest)',
+        to: 'support@smartstay.com',
+        subject: 'Payment issue with my booking',
+        preview: 'I tried to complete payment for my booking but the QR code is not working...',
+        fullMessage: 'Hello,\n\nI am trying to complete payment for my booking (Booking #67890) but I am having issues with the QR code payment system. The code appears to be invalid or expired.\n\nCould you please help me resolve this issue? I need to complete the payment today to secure my reservation.\n\nThank you for your assistance.\n\nJohn Smith\nPhone: +1234567890',
+        timestamp: '2024-03-15 13:45:12',
+        status: 'unread',
+        priority: 'high',
+        category: 'payment',
+        userType: 'guest',
+        repliedBy: 'adm1',
+        repliedAt: '2024-03-15 15:20:30',
+        replyStatus: 'replied'
+      },
+      {
+        id: 3,
+        from: 'sarah.host@example.com',
+        fromName: 'Sarah Wilson (Host)',
+        to: 'support@smartstay.com',
+        subject: 'Guest communication issue',
+        preview: 'I am having trouble communicating with my guest about check-in details...',
+        fullMessage: 'Dear Support Team,\n\nI am having difficulty communicating with my guest (Booking #11111) about check-in details. They are not responding to my messages through the platform.\n\nThe guest is supposed to check in tomorrow and I need to provide them with:\n- Access codes\n- Parking instructions\n- House rules\n\nCould you please help facilitate this communication or provide an alternative contact method?\n\nThank you,\nSarah Wilson\nProperty: Downtown Apartment',
+        timestamp: '2024-03-15 12:20:33',
+        status: 'read',
+        priority: 'urgent',
+        category: 'communication',
+        userType: 'host',
+        repliedBy: null,
+        repliedAt: null,
+        replyStatus: 'pending'
+      },
+      {
+        id: 4,
+        from: 'mike.guest@example.com',
+        fromName: 'Mike Johnson (Guest)',
+        to: 'support@smartstay.com',
+        subject: 'Request for additional amenities',
+        preview: 'Can I request additional towels and pillows for my stay?',
+        fullMessage: 'Hi there,\n\nI am currently staying at the Mountain View Cabin (Booking #22222) and would like to request some additional amenities:\n\n- 2 extra towels\n- 1 additional pillow\n- Information about local restaurants\n\nThe property is beautiful and I am enjoying my stay. Just need these small additions to make it perfect.\n\nPlease let me know if this is possible and how to arrange it.\n\nBest regards,\nMike Johnson\nRoom: Mountain View Cabin',
+        timestamp: '2024-03-15 11:15:45',
+        status: 'read',
+        priority: 'low',
+        category: 'amenities',
+        userType: 'guest',
+        repliedBy: 'adm2',
+        repliedAt: '2024-03-15 14:45:12',
+        replyStatus: 'replied'
+      },
+      {
+        id: 5,
+        from: 'emma.guest@example.com',
+        fromName: 'Emma Davis (Guest)',
+        to: 'support@smartstay.com',
+        subject: 'Feedback and compliments',
+        preview: 'I wanted to share my wonderful experience at your property...',
+        fullMessage: 'Dear Smart Stay Team,\n\nI just completed my stay at the Seaside Villa and wanted to share my feedback. The experience was absolutely wonderful!\n\nHighlights of my stay:\n- Immaculate cleanliness\n- Beautiful ocean view\n- Responsive host communication\n- Great location near restaurants\n- All amenities as described\n\nI will definitely be booking with Smart Stay again and recommending to friends and family.\n\nThank you for providing such excellent service!\n\nWarm regards,\nEmma Davis\nStay dates: March 10-14, 2024',
+        timestamp: '2024-03-15 10:30:15',
+        status: 'read',
+        priority: 'normal',
+        category: 'feedback',
+        userType: 'guest',
+        repliedBy: null,
+        repliedAt: null,
+        replyStatus: 'pending'
+      }
+    ];
+
+    // Get messages from localStorage
+    const storedMessages = JSON.parse(localStorage.getItem('adminMessages') || '[]');
+    
+    // Merge stored messages with static messages (stored messages first as they're more recent)
+    const allMessages = [...storedMessages, ...staticMessages];
+    
+    setMessages(allMessages);
+  };
 
   const filteredMessages = messages.filter(message => {
     const matchesSearch = message.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -229,8 +312,24 @@ const CommunicationAdminMessages = () => {
       alert(`Reply sent to ${selectedMessage?.fromName || 'guest'}: "${replyMessage}"`);
       
       // Update message status to show it was replied to
-      setMessages(prevMessages =>
-        prevMessages.map(message =>
+      const updatedMessages = messages.map(message =>
+        message.id === selectedMessage.id
+          ? {
+              ...message,
+              replyStatus: 'replied',
+              repliedBy: adminLabel,
+              repliedAt: currentTime,
+              status: 'read'
+            }
+          : message
+      );
+      
+      setMessages(updatedMessages);
+      
+      // Update localStorage if this message came from website contact
+      if (selectedMessage.source === 'website_contact') {
+        const storedMessages = JSON.parse(localStorage.getItem('adminMessages') || '[]');
+        const updatedStoredMessages = storedMessages.map(message =>
           message.id === selectedMessage.id
             ? {
                 ...message,
@@ -240,8 +339,9 @@ const CommunicationAdminMessages = () => {
                 status: 'read'
               }
             : message
-        )
-      );
+        );
+        localStorage.setItem('adminMessages', JSON.stringify(updatedStoredMessages));
+      }
       
       setReplyMessage('');
       setShowReplyModal(false);
@@ -290,6 +390,51 @@ const CommunicationAdminMessages = () => {
   const handleSearchMessage = (message) => {
     setSearchTerm(message.fromName);
     setShowQuickActions(null);
+  };
+
+  const handleAddFaq = (e) => {
+    e.preventDefault();
+    
+    if (!newFaq.question.trim() || !newFaq.answer.trim()) {
+      alert('Please fill in both question and answer fields');
+      return;
+    }
+
+    const newFaqItem = {
+      id: Date.now(), // Use timestamp for unique ID
+      category: newFaq.category,
+      question: newFaq.question.trim(),
+      answer: newFaq.answer.trim()
+    };
+
+    const updatedFaqs = [...faqs, newFaqItem];
+    setFaqs(updatedFaqs);
+    
+    // Save to localStorage
+    localStorage.setItem('smartStayFaqs', JSON.stringify(updatedFaqs));
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('faqsUpdated'));
+    
+    setNewFaq({ question: '', answer: '', category: 'General' });
+    setShowAddFaqModal(false);
+    alert('FAQ added successfully!');
+  };
+
+  const handleDeleteFaq = (faqId) => {
+    const faqToDelete = faqs.find(f => f.id === faqId);
+    if (window.confirm(`Are you sure you want to delete the FAQ: "${faqToDelete.question}"?`)) {
+      const updatedFaqs = faqs.filter(f => f.id !== faqId);
+      setFaqs(updatedFaqs);
+      
+      // Save to localStorage
+      localStorage.setItem('smartStayFaqs', JSON.stringify(updatedFaqs));
+      
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('faqsUpdated'));
+      
+      alert('FAQ deleted successfully!');
+    }
   };
 
   return (
@@ -378,6 +523,15 @@ const CommunicationAdminMessages = () => {
                     <option value="unread">Unread</option>
                     <option value="read">Read</option>
                   </select>
+                  <button
+                    onClick={loadMessages}
+                    className="px-4 py-2 bg-[#4E7B22] text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Refresh</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -415,6 +569,12 @@ const CommunicationAdminMessages = () => {
                               <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getReplyStatusColor(message.replyStatus)}`}>
                                 {message.replyStatus}
                               </span>
+                              {message.source === 'website_contact' && (
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 flex items-center space-x-1">
+                                  <span>🌐</span>
+                                  <span>Website</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -600,31 +760,69 @@ const CommunicationAdminMessages = () => {
           {/* FAQ Management */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h4 className="text-lg font-semibold text-gray-900">Frequently Asked Questions</h4>
-              <button className="bg-[#4E7B22] text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
-                <PlusIcon className="w-4 h-4" />
-                <span>ADD FAQ</span>
-              </button>
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900">Frequently Asked Questions</h4>
+                <p className="text-sm text-gray-600 mt-1">These FAQs appear on the public FAQ page for all visitors</p>
+              </div>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={loadFaqs}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                >
+                  Refresh
+                </button>
+                <button 
+                  onClick={() => setShowAddFaqModal(true)}
+                  className="bg-[#4E7B22] text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  <span>ADD FAQ</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>📝 Note:</strong> FAQs you add here will automatically appear on the public FAQ page at <code>/faqs</code> for all website visitors.
+              </p>
             </div>
 
             <div className="space-y-4">
-              {faqs.map((faq) => (
-                <div key={faq.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
-                        {faq.id}
-                      </div>
-                      <h5 className="font-medium text-gray-900">{faq.question}</h5>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="text-green-600 hover:text-green-800 text-sm">Edit</button>
-                      <button className="text-red-600 hover:text-red-800 text-sm">Delete</button>
-                    </div>
-                  </div>
-                  <p className="text-gray-600 text-sm ml-8">{faq.answer}</p>
+              {faqs.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No FAQs added yet. Click "ADD FAQ" to create your first FAQ.</p>
                 </div>
-              ))}
+              ) : (
+                faqs.map((faq) => (
+                  <div key={faq.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-[#4E7B22] rounded-full flex items-center justify-center text-xs font-medium text-white">
+                          {faqs.indexOf(faq) + 1}
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h5 className="font-medium text-gray-900">{faq.question}</h5>
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                              {faq.category || 'General'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button className="text-green-600 hover:text-green-800 text-sm">Edit</button>
+                        <button 
+                          onClick={() => handleDeleteFaq(faq.id)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-gray-600 text-sm ml-8">{faq.answer}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -790,6 +988,105 @@ const CommunicationAdminMessages = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add FAQ Modal */}
+        {showAddFaqModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Add New FAQ</h3>
+                <button 
+                  onClick={() => {
+                    setShowAddFaqModal(false);
+                    setNewFaq({ question: '', answer: '', category: 'General' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <form onSubmit={handleAddFaq} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newFaq.category}
+                    onChange={(e) => setNewFaq({...newFaq, category: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4E7B22] focus:border-transparent"
+                    required
+                  >
+                    <option value="General">General</option>
+                    <option value="Guests FAQ">Guests FAQ</option>
+                    <option value="Hosts FAQ">Hosts FAQ</option>
+                    <option value="Booking">Booking</option>
+                    <option value="Payment">Payment</option>
+                    <option value="Support">Support</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Question <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newFaq.question}
+                    onChange={(e) => setNewFaq({...newFaq, question: e.target.value})}
+                    placeholder="Enter the frequently asked question..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4E7B22] focus:border-transparent"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Answer <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={newFaq.answer}
+                    onChange={(e) => setNewFaq({...newFaq, answer: e.target.value})}
+                    placeholder="Enter the detailed answer to this question..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4E7B22] focus:border-transparent resize-none"
+                    required
+                  />
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">💡 Tips for Good FAQs:</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Keep questions clear and specific</li>
+                    <li>• Provide complete and helpful answers</li>
+                    <li>• Use simple language that guests can understand</li>
+                    <li>• Include relevant details like timeframes or contact info</li>
+                  </ul>
+                </div>
+                
+                <div className="flex space-x-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="bg-[#4E7B22] text-white px-6 py-3 rounded-2xl hover:bg-green-700 font-medium text-sm flex items-center space-x-2"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    <span>Add FAQ</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddFaqModal(false);
+                      setNewFaq({ question: '', answer: '', category: 'General' });
+                    }}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 font-medium text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

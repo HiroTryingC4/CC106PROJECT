@@ -249,7 +249,16 @@ const Register = () => {
                 style={{accentColor: 'white'}}
               />
               <label htmlFor="terms" className="ml-2 block text-sm text-white/90">
-                I agree to the Terms of Service and Privacy Policy
+                I agree to the{' '}
+                <Link 
+                  to="/terms-of-service" 
+                  className="underline hover:text-white transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Terms of Service
+                </Link>
+                {' '}and Privacy Policy
               </label>
             </div>
 

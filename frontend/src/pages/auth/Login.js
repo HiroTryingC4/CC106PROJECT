@@ -46,6 +46,30 @@ const Login = () => {
     }, 1000);
   };
 
+  const handleHostLogin = () => {
+    setLoading(true);
+    
+    // Create host user
+    const hostUser = {
+      id: 'host-001',
+      firstName: 'Host',
+      lastName: 'User',
+      email: 'host@smartstay.com',
+      role: 'host',
+      isHost: true
+    };
+    
+    const hostToken = 'host-token-' + Date.now();
+    
+    // Use the login function from AuthContext
+    login(hostUser, hostToken);
+    
+    setTimeout(() => {
+      setLoading(false);
+      navigate('/host/dashboard');
+    }, 1000);
+  };
+
   const handleAdminLogin = () => {
     setLoading(true);
     
@@ -98,6 +122,27 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Host backdoor credentials
+    if (formData.email === 'host@smartstay.com' && formData.password === 'host123') {
+      const hostUser = {
+        id: 'host-001',
+        firstName: 'Host',
+        lastName: 'User',
+        email: 'host@smartstay.com',
+        role: 'host',
+        isHost: true
+      };
+      
+      const hostToken = 'host-token-' + Date.now();
+      login(hostUser, hostToken);
+      
+      setTimeout(() => {
+        setLoading(false);
+        navigate('/host/dashboard');
+      }, 1000);
+      return;
+    }
 
     // Communication Admin backdoor credentials
     if (formData.email === 'comm-admin@smartstay.com' && formData.password === 'comm123') {
@@ -363,6 +408,18 @@ const Login = () => {
                 className="w-full flex justify-center py-3.5 px-4 border-2 border-blue-400/60 rounded-lg text-lg font-semibold text-blue-200 bg-transparent hover:bg-blue-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Accessing comm admin...' : '💬 Communication Admin (Demo)'}
+              </button>
+            </div>
+
+            {/* Host Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleHostLogin}
+                disabled={loading}
+                className="w-full flex justify-center py-3.5 px-4 border-2 border-green-400/60 rounded-lg text-lg font-semibold text-green-200 bg-transparent hover:bg-green-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Accessing host panel...' : '🏠 Host Access (Demo)'}
               </button>
             </div>
 
