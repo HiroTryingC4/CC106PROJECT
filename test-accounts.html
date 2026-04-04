@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartStay Test Accounts</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .account-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .role-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .admin { background-color: #dc3545; }
+        .communication-admin { background-color: #6f42c1; }
+        .host-verified { background-color: #28a745; }
+        .host-unverified { background-color: #ffc107; color: #000; }
+        .guest { background-color: #007bff; }
+        .credentials {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .description {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏨 SmartStay Test Accounts</h1>
+    <p style="text-align: center; color: #666;">Click "Test Login" to verify each account works correctly</p>
+
+    <div class="account-card">
+        <div class="account-header">
+            <h3>Admin Account</h3>
+            <span class="role-badge admin">ADMIN</span>
+        </div>
+        <div class="credentials">
+            Email: admin@smartstay.com<br>
+            Password: admin123
+        </div>
+        <div class="description">Full admin access to all platform features</div>
+        <button class="test-button" onclick="testLogin('admin@smartstay.com', 'admin123', 'admin-status')">Test Login</button>
+        <div id="admin-status" class="status" style="display: none;"></div>
+    </div>
+
+    <div class="account-card">
+        <div class="account-header">
+            <h3>Communication Admin</h3>
+            <span class="role-badge communication-admin">COM ADMIN</span>
+        </div>
+        <div class="credentials">
+            Email: comadmin@smartstay.com<br>
+            Password: comadmin123
+        </div>
+        <div class="description">Access to communication and messaging features</div>
+        <button class="test-button" onclick="testLogin('comadmin@smartstay.com', 'comadmin123', 'comadmin-status')">Test Login</button>
+        <div id="comadmin-status" class="status" style="display: none;"></div>
+    </div>
+
+    <div class="account-card">
+        <div class="account-header">
+            <h3>Verified Host</h3>
+            <span class="role-badge host-verified">HOST ✅</span>
+        </div>
+        <div class="credentials">
+            Email: host@smartstay.com<br>
+            Password: host123
+        </div>
+        <div class="description">Fully verified host with access to all host features</div>
+        <button class="test-button" onclick="testLogin('host@smartstay.com', 'host123', 'host-status')">Test Login</button>
+        <div id="host-status" class="status" style="display: none;"></div>
+    </div>
+
+    <div class="account-card">
+        <div class="account-header">
+            <h3>Unverified Host</h3>
+            <span class="role-badge host-unverified">HOST ⏳</span>
+        </div>
+        <div class="credentials">
+            Email: newhost@smartstay.com<br>
+            Password: newhost123
+        </div>
+        <div class="description">New host account that hasn't completed verification yet</div>
+        <button class="test-button" onclick="testLogin('newhost@smartstay.com', 'newhost123', 'newhost-status')">Test Login</button>
+        <div id="newhost-status" class="status" style="display: none;"></div>
+    </div>
+
+    <div class="account-card">
+        <div class="account-header">
+            <h3>Guest Account</h3>
+            <span class="role-badge guest">GUEST</span>
+        </div>
+        <div class="credentials">
+            Email: guest@smartstay.com<br>
+            Password: guest123
+        </div>
+        <div class="description">Regular guest user for booking properties</div>
+        <button class="test-button" onclick="testLogin('guest@smartstay.com', 'guest123', 'guest-status')">Test Login</button>
+        <div id="guest-status" class="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function testLogin(email, password, statusId) {
+            const statusDiv = document.getElementById(statusId);
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'status';
+            statusDiv.textContent = 'Testing login...';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.className = 'status success';
+                    statusDiv.innerHTML = `
+                        ✅ Login successful!<br>
+                        <strong>User:</strong> ${data.user.firstName} ${data.user.lastName}<br>
+                        <strong>Role:</strong> ${data.user.role}<br>
+                        <strong>Status:</strong> ${data.user.verificationStatus}
+                    `;
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `❌ Login failed: ${data.message}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Network error: ${error.message}`;
+            }
+        }
+
+        // Test all accounts on page load
+        window.addEventListener('load', () => {
+            console.log('SmartStay Test Accounts page loaded');
+            console.log('Backend should be running on http://localhost:5000');
+            console.log('Frontend should be running on http://localhost:3000');
+        });
+    </script>
+</body>
+</html>

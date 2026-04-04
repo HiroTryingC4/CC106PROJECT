@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/common/AdminLayout';
 import { 
   ArrowLeftIcon,
@@ -14,111 +14,46 @@ const HostVerification = () => {
   const navigate = useNavigate();
   const [selectedHost, setSelectedHost] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [verificationRequests, setVerificationRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successModal, setSuccessModal] = useState({ show: false, message: '', type: 'success' });
+  const [rejectModal, setRejectModal] = useState({ show: false, verificationId: null });
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  const verificationRequests = [
-    {
-      id: '#1',
-      hostName: 'Johyeon Jo',
-      email: 'johyeon.jo@gmail.com',
-      businessName: 'hummingbird int.',
-      submitted: '2/21/2026',
-      status: 'approved',
-      details: {
-        businessAddress: '123 Business St, Seoul, Korea 12345',
-        businessType: 'Property Management',
-        idType: 'Passport',
-        idNumber: 'K87654321',
-        taxId: '12-3456789',
-        idPhoto: '/api/placeholder/400/250', // ID document photo
-        ownerIdPhoto: '/api/placeholder/400/250', // Owner holding ID photo
-        proofOfOwnership: 'Property deed and LLC registration - Document ID: DOC-2024-001',
-        additionalDocs: 'Business license, Liability insurance, Property management certification'
+  // Fetch verification requests from API
+  useEffect(() => {
+    const fetchVerifications = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('No authentication token found');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch('http://localhost:5000/api/admin/host-verifications', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationRequests(data.data || []);
+        } else {
+          setError('Failed to fetch verifications');
+        }
+      } catch (err) {
+        console.error('Error fetching verifications:', err);
+        setError('Error loading verifications');
+      } finally {
+        setLoading(false);
       }
-    },
-    {
-      id: '#2',
-      hostName: 'Linda Walker',
-      email: 'linda.walker@gmail.com',
-      businessName: '719 Rentals',
-      submitted: '2/15/2024',
-      status: 'pending',
-      details: {
-        businessAddress: '789 Sunset Boulevard, Los Angeles, CA 90028',
-        businessType: 'Rental Homes',
-        idType: 'Passport',
-        idNumber: 'PB7654321',
-        taxId: '12-3456789',
-        idPhoto: '/api/placeholder/400/250', // ID document photo
-        ownerIdPhoto: '/api/placeholder/400/250', // Owner holding ID photo
-        proofOfOwnership: 'Property deed and LLC registration - Document ID: DOC-2024-003',
-        additionalDocs: 'Business license, Liability insurance, Property management certification'
-      }
-    },
-    {
-      id: '#3',
-      hostName: 'Shelly Scott',
-      email: 'shelly.scott@gmail.com',
-      businessName: 'Block 14, Est',
-      submitted: '2/21/2026',
-      status: 'approved'
-    },
-    {
-      id: '#4',
-      hostName: 'undefined undefined',
-      email: 'dwdwdw@gmail.com',
-      businessName: 'ddddd',
-      submitted: '2/21/2026',
-      status: 'rejected'
-    },
-    {
-      id: '#5',
-      hostName: 'undefined undefined',
-      email: 'dwdwdw@gmail.com',
-      businessName: 'wdwdwf',
-      submitted: '2/21/2026',
-      status: 'rejected'
-    },
-    {
-      id: '#6',
-      hostName: 'Noah Austin',
-      email: 'noah.austin@gmail.com',
-      businessName: 'Austin Villa',
-      submitted: '2/21/2026',
-      status: 'approved'
-    },
-    {
-      id: '#7',
-      hostName: 'Owen Knight',
-      email: 'owen.knight@gmail.com',
-      businessName: 'Light Cavalry',
-      submitted: '2/21/2026',
-      status: 'pending'
-    },
-    {
-      id: '#8',
-      hostName: 'Dom Kang',
-      email: 'dom.kang@gmail.com',
-      businessName: '4458 bck.',
-      submitted: '2/26/2026',
-      status: 'approved'
-    },
-    {
-      id: '#9',
-      hostName: 'June Lee',
-      email: 'june.lee@gmail.com',
-      businessName: 'Sports Space',
-      submitted: '3/9/2026',
-      status: 'approved'
-    },
-    {
-      id: '#10',
-      hostName: 'Minu Yun',
-      email: 'minu.yun@gmail.com',
-      businessName: 'Yun Hotel',
-      submitted: '3/10/2026',
-      status: 'approved'
-    },
-  ];
+    };
+
+    fetchVerifications();
+  }, []);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -143,14 +78,72 @@ const HostVerification = () => {
     setShowDetailsModal(true);
   };
 
-  const handleApprove = (hostId) => {
-    console.log('Approving host:', hostId);
-    // Update status logic here
+  const handleApprove = async (verificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/admin/host-verifications/${verificationId}/approve`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the verification in the list
+        setVerificationRequests(verificationRequests.map(v => 
+          v.id === verificationId ? { ...v, status: 'approved' } : v
+        ));
+        setShowDetailsModal(false);
+        setSuccessModal({ show: true, message: 'Host verification approved successfully!', type: 'success' });
+      } else {
+        setSuccessModal({ show: true, message: 'Failed to approve verification', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error approving verification:', error);
+      setSuccessModal({ show: true, message: 'Error approving verification', type: 'error' });
+    }
   };
 
-  const handleReject = (hostId) => {
-    console.log('Rejecting host:', hostId);
-    // Update status logic here
+  const handleReject = async (verificationId) => {
+    setRejectModal({ show: true, verificationId });
+  };
+
+  const submitRejection = async () => {
+    if (!rejectionReason.trim()) {
+      setSuccessModal({ show: true, message: 'Please enter a rejection reason', type: 'error' });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/admin/host-verifications/${rejectModal.verificationId}/reject`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason: rejectionReason })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the verification in the list
+        setVerificationRequests(verificationRequests.map(v => 
+          v.id === rejectModal.verificationId ? { ...v, status: 'rejected' } : v
+        ));
+        setShowDetailsModal(false);
+        setRejectModal({ show: false, verificationId: null });
+        setRejectionReason('');
+        setSuccessModal({ show: true, message: 'Host verification rejected successfully!', type: 'success' });
+      } else {
+        setSuccessModal({ show: true, message: 'Failed to reject verification', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error rejecting verification:', error);
+      setSuccessModal({ show: true, message: 'Error rejecting verification', type: 'error' });
+    }
   };
 
   return (
@@ -174,7 +167,30 @@ const HostVerification = () => {
           <p className="text-gray-600 mt-2">Review and approve host verification requests</p>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && verificationRequests.length === 0 && (
+          <div className="text-center py-12">
+            <ExclamationTriangleIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No verification requests found</p>
+          </div>
+        )}
+
         {/* Verification Requests Table */}
+        {!loading && !error && verificationRequests.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -217,6 +233,7 @@ const HostVerification = () => {
             </table>
           </div>
         </div>
+        )}
 
         {/* Verification Details Modal */}
         {showDetailsModal && selectedHost && (
@@ -703,6 +720,110 @@ const HostVerification = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success/Error Modal */}
+        {successModal.show && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden transform transition-all">
+              {/* Icon Section */}
+              <div className={`py-8 px-6 flex justify-center ${successModal.type === 'success' ? 'bg-gradient-to-br from-green-50 to-green-100' : 'bg-gradient-to-br from-red-50 to-red-100'}`}>
+                {successModal.type === 'success' ? (
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-green-400 rounded-full opacity-20 animate-ping"></div>
+                    <div className="relative w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckIcon className="w-10 h-10 text-green-600" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-red-400 rounded-full opacity-20 animate-pulse"></div>
+                    <div className="relative w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                      <ExclamationTriangleIcon className="w-10 h-10 text-red-600" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Content Section */}
+              <div className="px-6 py-8 text-center">
+                <h3 className={`text-2xl font-bold mb-2 ${successModal.type === 'success' ? 'text-green-900' : 'text-red-900'}`}>
+                  {successModal.type === 'success' ? 'Success!' : 'Error'}
+                </h3>
+                <p className={`text-lg mb-6 ${successModal.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+                  {successModal.message}
+                </p>
+              </div>
+
+              {/* Button Section */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <button
+                  onClick={() => setSuccessModal({ show: false, message: '', type: 'success' })}
+                  className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2 ${
+                    successModal.type === 'success'
+                      ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl'
+                      : 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  <CheckIcon className="w-5 h-5" />
+                  <span>OK</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rejection Modal */}
+        {rejectModal.show && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-6 flex items-center space-x-4">
+                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Reject Verification</h3>
+                  <p className="text-red-100 text-sm">Please provide a reason for rejection</p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="px-6 py-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">Rejection Reason</label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Explain why this verification is being rejected..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
+                    rows="4"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">{rejectionReason.length}/500 characters</p>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex space-x-3">
+                <button
+                  onClick={() => {
+                    setRejectModal({ show: false, verificationId: null });
+                    setRejectionReason('');
+                  }}
+                  className="flex-1 py-3 px-4 rounded-lg font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitRejection}
+                  className="flex-1 py-3 px-4 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                  <span>Reject</span>
+                </button>
               </div>
             </div>
           </div>

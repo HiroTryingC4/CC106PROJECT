@@ -1,43 +1,97 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { ArrowLeftIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/outline';
+import axios from 'axios';
 
 const UnitDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [unit, setUnit] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedDates, setSelectedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 1)); // February 2026
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Sample unit data - in real app this would come from API
-  const unit = {
-    id: 1,
-    title: 'Luxury Beachfront Condo',
-    type: 'CONDO',
-    rating: 4.8,
-    reviews: 45,
-    location: '123 Ocean Drive, Miami Beach, FL',
-    host: 'KSSIMPRIAL@GMAIL.COM',
-    description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
-    bedrooms: 2,
-    bathrooms: 2,
-    maxGuests: 4,
-    price: 5000,
-    amenities: ['WiFi', 'Air Conditioning', 'Kitchen', 'Parking', 'Pool', 'Beach Access'],
-    images: [
-      '/images/luxury-condo-main.jpg',
-      '/images/luxury-condo-bedroom.jpg',
-      '/images/luxury-condo-kitchen.jpg',
-      '/images/luxury-condo-bathroom.jpg',
-      '/images/luxury-condo-balcony.jpg'
-    ],
-    rules: 'No smoking. No pets. Check-in after 3 PM. Check-out before 11 AM.',
-    bookingType: 'both', // 'fixed', 'hourly', or 'both'
-    hourlyRate: 500, // hourly rate if applicable
-    minorsAllowed: true,
-    minAge: 0, // minimum age allowed (0 means no restriction)
-    requiresAdultSupervision: true // if minors need adult supervision
+  // Fetch property details from API
+  useEffect(() => {
+    const fetchPropertyDetails = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`http://localhost:5000/api/properties/${id}`);
+        
+        // API returns property directly, not wrapped in data object
+        const property = response.data;
+        
+        if (property && property.id) {
+          setUnit({
+            id: property.id,
+            title: property.title,
+            type: property.type.toUpperCase(),
+            rating: property.rating,
+            reviews: property.reviewCount,
+            location: `${property.address.street}, ${property.address.city}, ${property.address.state}`,
+            host: property.hostId,
+            description: property.description,
+            bedrooms: property.bedrooms,
+            bathrooms: property.bathrooms,
+            maxGuests: property.maxGuests,
+            price: property.pricePerNight,
+            amenities: property.amenities || [],
+            images: property.images || ['/images/property-placeholder.jpg'],
+            rules: 'No smoking. No pets. Check-in after 3 PM. Check-out before 11 AM.',
+            bookingType: 'both',
+            hourlyRate: Math.floor(property.pricePerNight / 2),
+            minorsAllowed: true,
+            minAge: 0,
+            requiresAdultSupervision: true
+          });
+        }
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching property:', err);
+        setError('Failed to load property details');
+        setSampleProperty();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchPropertyDetails();
+    }
+  }, [id]);
+
+  const setSampleProperty = () => {
+    setUnit({
+      id: 1,
+      title: 'Luxury Beachfront Condo',
+      type: 'CONDO',
+      rating: 4.8,
+      reviews: 45,
+      location: '123 Ocean Drive, Miami Beach, FL',
+      host: 'KSSIMPRIAL@GMAIL.COM',
+      description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
+      bedrooms: 2,
+      bathrooms: 2,
+      maxGuests: 4,
+      price: 5000,
+      amenities: ['WiFi', 'Air Conditioning', 'Kitchen', 'Parking', 'Pool', 'Beach Access'],
+      images: [
+        '/images/luxury-condo-main.jpg',
+        '/images/luxury-condo-bedroom.jpg',
+        '/images/luxury-condo-kitchen.jpg',
+        '/images/luxury-condo-bathroom.jpg',
+        '/images/luxury-condo-balcony.jpg'
+      ],
+      rules: 'No smoking. No pets. Check-in after 3 PM. Check-out before 11 AM.',
+      bookingType: 'both',
+      hourlyRate: 500,
+      minorsAllowed: true,
+      minAge: 0,
+      requiresAdultSupervision: true
+    });
   };
 
   const getDaysInMonth = (date) => {
@@ -145,6 +199,30 @@ const UnitDetails = () => {
           <span>Back</span>
         </button>
 
+        {loading && (
+          <div className="flex justify-center items-center py-24">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+              <p className="mt-3 text-gray-500">Loading property details...</p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-6 rounded-lg text-red-700">
+            <p>{error}</p>
+            <button 
+              onClick={() => navigate('/guest/units')}
+              className="mt-4 text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90"
+              style={{backgroundColor: '#4E7B22'}}
+            >
+              Back to Properties
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && unit && (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Image with Navigation */}
           <div className="relative">
@@ -539,6 +617,8 @@ const UnitDetails = () => {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">House Rules</h3>
           <p className="text-red-600">{unit.rules}</p>
         </div>
+        </>
+        )}
 
         {/* Floating Chat Button */}
         <div className="fixed bottom-6 right-6">

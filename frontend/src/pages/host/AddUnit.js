@@ -54,6 +54,11 @@ const AddUnit = () => {
   const [hourlyPricing, setHourlyPricing] = useState([]);
   const [mapPosition, setMapPosition] = useState([14.5995, 120.9842]); // Default to Manila, Philippines
   const [markerPosition, setMarkerPosition] = useState(null);
+  const [timeAvailability, setTimeAvailability] = useState({
+    checkInTime: '15:00',    // 3:00 PM default
+    checkOutTime: '11:00',   // 11:00 AM default
+    enableTimeSlots: true
+  });
 
   // Component for handling map clicks
   const LocationMarker = () => {
@@ -337,6 +342,73 @@ const AddUnit = () => {
                 </div>
               </div>
             </div>
+
+            {/* Time Availability */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center space-x-2 mb-6">
+                <InformationCircleIcon className="w-6 h-6 text-green-600" />
+                <h3 className="text-xl font-semibold text-gray-900">Fixed Time Slots</h3>
+              </div>
+              
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-green-800 mb-2">
+                  <strong>Set your availability hours:</strong> Define when guests can check-in and check-out. Only these time slots will be available for booking.
+                </p>
+                <ul className="text-xs text-green-700 space-y-1 ml-4">
+                  <li>• Example: Check-in at 6:00 AM, Check-out at 12:00 AM (midnight)</li>
+                  <li>• Guests will only see these times as available options</li>
+                  <li>• This applies to all bookings on your unit</li>
+                </ul>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Check-in Time <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={timeAvailability.checkInTime}
+                    onChange={(e) => setTimeAvailability(prev => ({
+                      ...prev,
+                      checkInTime: e.target.value
+                    }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Current: {new Date(`2000-01-01T${timeAvailability.checkInTime}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Check-out Time <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={timeAvailability.checkOutTime}
+                    onChange={(e) => setTimeAvailability(prev => ({
+                      ...prev,
+                      checkOutTime: e.target.value
+                    }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Current: {new Date(`2000-01-01T${timeAvailability.checkOutTime}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <InformationCircleIcon className="w-4 h-4 text-yellow-600 mt-0.5" />
+                  <p className="text-sm text-yellow-800">
+                    <strong>Example:</strong> If you set Check-in at 6:00 AM and Check-out at 12:00 AM, guests will only be able to book during these hours. The system will only show these time slots when making a reservation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Property Details */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>

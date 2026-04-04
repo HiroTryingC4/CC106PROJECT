@@ -1,47 +1,84 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
 
 const GuestDashboard = () => {
-  const { user } = useAuth();
-  const bookings = [
-    {
-      id: 'Booking #1',
-      dates: '6/15/2024 - 6/20/2024',
-      price: '₱750',
-      status: 'confirmed',
-      statusColor: 'bg-green-100 text-green-800'
-    },
-    {
-      id: 'Booking #2',
-      dates: '7/1/2024 - 7/7/2024',
-      price: '₱1520',
-      status: 'pending',
-      statusColor: 'bg-yellow-100 text-yellow-800'
-    },
-    {
-      id: 'Booking #3',
-      dates: '5/1/2024 - 5/3/2024',
-      price: '₱540',
-      status: 'completed',
-      statusColor: 'bg-blue-100 text-blue-800'
-    },
-    {
-      id: 'Booking #4',
-      dates: '2/22/2024 - 2/25/2024',
-      price: '₱21321',
-      status: 'confirmed',
-      statusColor: 'bg-green-100 text-green-800'
-    },
-    {
-      id: 'Booking #5',
-      dates: '2/24/2024 - 2/25/2024',
-      price: '₱21321',
-      status: 'confirmed',
-      statusColor: 'bg-green-100 text-green-800'
+  const { user, token } = useAuth();
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('http://localhost:5000/api/bookings', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (response.data.data) {
+          const formattedBookings = response.data.data.map(booking => ({
+            id: `Booking #${booking.id}`,
+            dates: `${new Date(booking.checkIn).toLocaleDateString()} - ${new Date(booking.checkOut).toLocaleDateString()}`,
+            price: `₱${booking.totalAmount.toLocaleString()}`,
+            status: booking.status,
+            statusColor: booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800',
+            propertyId: booking.propertyId,
+            guests: booking.guests,
+            paymentStatus: booking.paymentStatus
+          }));
+          setBookings(formattedBookings);
+        }
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setError('Failed to load bookings');
+        // Fallback to sample data if API fails
+        setSampleBookings();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchBookings();
+    } else {
+      setSampleBookings();
+      setLoading(false);
     }
-  ];
+  }, [token]);
+
+  const setSampleBookings = () => {
+    setBookings([
+      {
+        id: 'Booking #1',
+        dates: '6/15/2024 - 6/20/2024',
+        price: '₱750',
+        status: 'confirmed',
+        statusColor: 'bg-green-100 text-green-800'
+      },
+      {
+        id: 'Booking #2',
+        dates: '7/1/2024 - 7/7/2024',
+        price: '₱1520',
+        status: 'pending',
+        statusColor: 'bg-yellow-100 text-yellow-800'
+      },
+      {
+        id: 'Booking #3',
+        dates: '5/1/2024 - 5/3/2024',
+        price: '₱540',
+        status: 'completed',
+        statusColor: 'bg-blue-100 text-blue-800'
+      }
+    ]);
+  };
 
   return (
     <GuestLayout>
@@ -77,19 +114,21 @@ const GuestDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Total Bookings</h3>
-            <p className="text-3xl font-bold text-blue-600">17</p>
+            <p className="text-3xl font-bold text-blue-600">{bookings.length}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Upcoming</h3>
-            <p className="text-3xl font-bold text-green-600">2</p>
+            <p className="text-3xl font-bold text-green-600">{bookings.filter(b => b.status === 'confirmed').length}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Completed</h3>
-            <p className="text-3xl font-bold text-blue-600">17</p>
+            <p className="text-3xl font-bold text-blue-600">{bookings.filter(b => b.status === 'completed').length}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Total Spend</h3>
-            <p className="text-3xl font-bold text-purple-600">₱23031</p>
+            <p className="text-3xl font-bold text-purple-600">
+              ₱{bookings.reduce((sum, b) => sum + (parseInt(b.price.replace(/[^0-9]/g, '')) || 0), 0).toLocaleString()}
+            </p>
           </div>
         </div>
 
@@ -103,27 +142,49 @@ const GuestDashboard = () => {
               </button>
             </div>
           </div>
-          <div className="divide-y divide-gray-200">
-            {bookings.map((booking, index) => (
-              <div key={index} className="p-6 flex justify-between items-center">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-4">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{booking.id}</h3>
-                      <p className="text-sm text-gray-500">{booking.dates}</p>
-                      <p className="text-sm font-medium text-blue-600">{booking.price}</p>
+          
+          {loading && (
+            <div className="p-12 text-center text-gray-500">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="mt-2">Loading bookings...</p>
+            </div>
+          )}
+          
+          {error && (
+            <div className="p-6 bg-red-50 border border-red-200 text-red-700">
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+          
+          {!loading && bookings.length === 0 && (
+            <div className="p-12 text-center text-gray-500">
+              <p>No bookings yet. Start exploring properties!</p>
+            </div>
+          )}
+          
+          {!loading && bookings.length > 0 && (
+            <div className="divide-y divide-gray-200">
+              {bookings.map((booking, index) => (
+                <div key={index} className="p-6 flex justify-between items-center">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-4">
+                      <div>
+                        <h3 className="font-medium text-gray-900">{booking.id}</h3>
+                        <p className="text-sm text-gray-500">{booking.dates}</p>
+                        <p className="text-sm font-medium text-blue-600">{booking.price}</p>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.statusColor}`}>
+                        {booking.status}
+                      </span>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.statusColor}`}>
-                      {booking.status}
-                    </span>
                   </div>
+                  <button className="text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90" style={{backgroundColor: '#4E7B22'}}>
+                    View
+                  </button>
                 </div>
-                <button className="text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90" style={{backgroundColor: '#4E7B22'}}>
-                  View
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Browsing Insights */}

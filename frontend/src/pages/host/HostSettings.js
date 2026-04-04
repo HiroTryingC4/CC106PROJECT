@@ -1,23 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   UserIcon,
-  ChatBubbleLeftRightIcon,
-  ShieldCheckIcon,
-  CheckIcon,
-  PencilIcon,
-  TrashIcon
+  CheckIcon
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../../contexts/AuthContext';
 
 const HostSettings = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState({
-    firstName: 'Jessica',
-    lastName: 'Sarmiento',
-    email: 'jessicasarmiento@gmail.com',
-    phone: '+63 (0912 - 345 -6789)',
-    bio: 'Experienced host with a passion for hospitality. I love sharing my properties and helping guests have memorable stays. pa-cute lang'
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    company: '',
+    bio: ''
   });
+
+  // Load profile data from logged-in user
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        company: user.company || '',
+        bio: user.bio || 'Share more about yourself and your hosting experience.'
+      });
+    }
+  }, [user]);
 
   const [security, setSecurity] = useState({
     currentPassword: '',

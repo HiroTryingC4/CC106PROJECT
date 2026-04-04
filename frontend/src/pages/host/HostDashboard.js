@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,106 +10,490 @@ import {
   CurrencyDollarIcon,
   ChartBarIcon,
   InformationCircleIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const HostDashboard = () => {
   const { user } = useAuth();
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [verificationFormData, setVerificationFormData] = useState(null);
+  const [hostProfile, setHostProfile] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const statsCards = [
-    {
-      title: 'Total Units',
-      value: '12',
-      subtitle: '+2 this month',
-      icon: HomeIcon,
-      iconBg: 'bg-amber-100',
-      iconColor: 'text-amber-600'
-    },
-    {
-      title: 'Active Bookings',
-      value: '20',
-      subtitle: '8 Checking in today',
-      icon: CalendarDaysIcon,
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600'
-    },
-    {
-      title: 'Pending Deposits',
-      value: '5',
-      subtitle: 'Requires action',
-      icon: ClockIcon,
-      iconBg: 'bg-orange-100',
-      iconColor: 'text-orange-600'
-    },
-    {
-      title: 'Pending Bookings',
-      value: '20',
-      subtitle: 'Requires action',
-      icon: ClockIcon,
-      iconBg: 'bg-yellow-100',
-      iconColor: 'text-yellow-600'
-    },
-    {
-      title: 'Revenue (MTD)',
-      value: '20',
-      subtitle: '+18% vs last month',
-      icon: CurrencyDollarIcon,
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600'
-    }
-  ];
+  useEffect(() => {
+    // Fetch verification status and dashboard data when component mounts
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
 
-  const insights = [
-    {
-      title: 'Smart Pricing Opportunity',
-      description: '3 units can increase rates by 15% upcoming weekend',
-      color: 'bg-blue-100 border-l-4 border-l-blue-500',
-      textColor: 'text-blue-800'
-    },
-    {
-      title: 'Guest Response Needed',
-      description: 'AI assistant needs approval for special request at Sunset Villa',
-      color: 'bg-orange-100 border-l-4 border-l-orange-500',
-      textColor: 'text-orange-800'
-    },
-    {
-      title: 'High Engagement',
-      description: 'AI handled 47 guest inquiries today with 95% satisfaction',
-      color: 'bg-green-100 border-l-4 border-l-green-500',
-      textColor: 'text-green-800'
-    }
-  ];
+        // Fetch host profile
+        const profileResponse = await fetch('http://localhost:5000/api/host/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
 
-  const recentActivity = [
-    {
-      property: 'Sunset Villa',
-      guest: 'Sarah Johnson',
-      action: 'Check-in confirmed',
-      time: '2 hours ago',
-      status: 'success'
-    },
-    {
-      property: 'Ocean View Apartment',
-      guest: 'Michael Chen',
-      action: 'Payment received',
-      time: '4 hours ago',
-      status: 'success'
-    },
-    {
-      property: 'Mountain Cabin',
-      guest: 'Emma Williams',
-      action: 'AI requested human review',
-      time: '5 hours ago',
-      status: 'warning'
-    },
-    {
-      property: 'City Loft',
-      guest: 'David Brown',
-      action: 'Booking confirmed',
-      time: '6 hours ago',
-      status: 'success'
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          setHostProfile(profileData.data);
+        }
+
+        // Fetch verification status
+        const verificationResponse = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (verificationResponse.ok) {
+          const verificationData = await verificationResponse.json();
+          setVerificationStatus(verificationData);
+
+          // Always try to fetch verification form data if status is pending or verified
+          if (verificationData.status === 'pending' || verificationData.status === 'verified') {
+            try {
+              const formDataResponse = await fetch('http://localhost:5000/api/host/verification-data', {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+
+              if (formDataResponse.ok) {
+                const formData = await formDataResponse.json();
+                console.log('Verification form data:', formData.data);
+                setVerificationFormData(formData.data);
+              }
+            } catch (err) {
+              console.error('Error fetching verification data:', err);
+            }
+          }
+
+          // If verified, fetch dashboard data
+          if (verificationData.status === 'verified') {
+            // Fetch properties
+            const propertiesResponse = await fetch(`http://localhost:5000/api/properties?hostId=${user.id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            // Fetch bookings
+            const bookingsResponse = await fetch('http://localhost:5000/api/bookings', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            // Fetch analytics
+            const analyticsResponse = await fetch('http://localhost:5000/api/analytics/host', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            const [propertiesData, bookingsData, analyticsData] = await Promise.all([
+              propertiesResponse.ok ? propertiesResponse.json() : { properties: [], total: 0 },
+              bookingsResponse.ok ? bookingsResponse.json() : { bookings: [], total: 0 },
+              analyticsResponse.ok ? analyticsResponse.json() : null
+            ]);
+
+            setDashboardData({
+              properties: propertiesData.properties || [],
+              bookings: bookingsData.bookings || [],
+              analytics: analyticsData
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        // Set default status if API fails
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.role === 'host') {
+      fetchData();
+    } else {
+      setLoading(false);
     }
-  ];
+  }, [user]);
+
+  const getHostProfileCard = () => {
+    if (!hostProfile) return null;
+
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-2xl font-bold">
+                {hostProfile.firstName?.charAt(0)}{hostProfile.lastName?.charAt(0)}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{hostProfile.fullName}</h2>
+              <p className="text-gray-600 mt-1">{hostProfile.email}</p>
+              {hostProfile.company && (
+                <p className="text-gray-600 mt-1">
+                  <span className="font-semibold">Business:</span> {hostProfile.company}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium text-gray-500">Account Status</p>
+            <p className="text-lg font-semibold text-green-600 mt-1">Active</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const getVerificationBanner = () => {
+    if (!verificationStatus || user?.role !== 'host') return null;
+
+    const { status, message } = verificationStatus;
+
+    const bannerConfig = {
+      not_submitted: {
+        icon: ExclamationTriangleIcon,
+        bgColor: 'bg-yellow-50',
+        borderColor: 'border-yellow-200',
+        iconColor: 'text-yellow-600',
+        textColor: 'text-yellow-800',
+        title: 'Verification Required',
+        message: 'Complete your verification to unlock all host features.',
+        actionText: 'Start Verification',
+        actionLink: '/host/verification'
+      },
+      pending: {
+        icon: ClockIcon,
+        bgColor: 'bg-blue-50',
+        borderColor: 'border-blue-200',
+        iconColor: 'text-blue-600',
+        textColor: 'text-blue-800',
+        title: 'Verification Pending',
+        message: message || 'Your verification is currently under review. We will notify you once it\'s complete.',
+        actionText: 'Check Status',
+        actionLink: '/host/verification'
+      },
+      verified: {
+        icon: CheckCircleIcon,
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200',
+        iconColor: 'text-green-600',
+        textColor: 'text-green-800',
+        title: 'Verification Complete',
+        message: 'Your account is verified! You have access to all host features.',
+        actionText: null,
+        actionLink: null
+      },
+      rejected: {
+        icon: XCircleIcon,
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-200',
+        iconColor: 'text-red-600',
+        textColor: 'text-red-800',
+        title: 'Verification Rejected',
+        message: message || 'Your verification was rejected. Please review and resubmit your documents.',
+        actionText: 'Resubmit Documents',
+        actionLink: '/host/verification'
+      }
+    };
+
+    const config = bannerConfig[status];
+    if (!config) return null;
+
+    const Icon = config.icon;
+
+    return (
+      <div className={`${config.bgColor} ${config.borderColor} border rounded-lg p-4 mb-6`}>
+        <div className="flex items-start space-x-3">
+          <Icon className={`w-6 h-6 ${config.iconColor} flex-shrink-0 mt-0.5`} />
+          <div className="flex-1">
+            <h3 className={`font-semibold ${config.textColor} mb-1`}>{config.title}</h3>
+            <p className={`text-sm ${config.textColor} opacity-90 mb-3`}>{config.message}</p>
+            {config.actionText && config.actionLink && (
+              <Link
+                to={config.actionLink}
+                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  status === 'not_submitted' 
+                    ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                    : status === 'pending'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                {config.actionText}
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
+
+  const getVerificationFormDisplay = () => {
+    // Show card if verification data exists and status is pending or verified
+    if (!verificationStatus || (verificationStatus.status === 'not_submitted')) {
+      return null;
+    }
+
+    // If status is pending or verified but no form data yet, show loading state
+    if (!verificationFormData) {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Your Verification Application</h2>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+              verificationStatus.status === 'verified' 
+                ? 'bg-green-100 text-green-800'
+                : verificationStatus.status === 'pending'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {verificationStatus.status === 'verified' && <CheckCircleIcon className="w-4 h-4 mr-1" />}
+              {verificationStatus.status === 'pending' && <ClockIcon className="w-4 h-4 mr-1" />}
+              {verificationStatus.status === 'rejected' && <XCircleIcon className="w-4 h-4 mr-1" />}
+              {verificationStatus.status.charAt(0).toUpperCase() + verificationStatus.status.slice(1)}
+            </span>
+          </div>
+          <div className="text-center py-8">
+            <p className="text-gray-500">Loading verification details...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">Your Verification Application</h2>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+            verificationStatus.status === 'verified' 
+              ? 'bg-green-100 text-green-800'
+              : verificationStatus.status === 'pending'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {verificationStatus.status === 'verified' && <CheckCircleIcon className="w-4 h-4 mr-1" />}
+            {verificationStatus.status === 'pending' && <ClockIcon className="w-4 h-4 mr-1" />}
+            {verificationStatus.status === 'rejected' && <XCircleIcon className="w-4 h-4 mr-1" />}
+            {verificationStatus.status.charAt(0).toUpperCase() + verificationStatus.status.slice(1)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Business Information */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Business Name</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{verificationFormData.businessName}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Business Type</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{verificationFormData.businessType}</p>
+            </div>
+          </div>
+
+          {/* Address & ID Information */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Business Address</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1 line-clamp-2">{verificationFormData.businessAddress}</p>
+            </div>
+          </div>
+
+          {/* ID & Tax Information */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">ID Type</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{verificationFormData.idType}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">ID Number</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1 font-mono">{verificationFormData.idNumber}</p>
+            </div>
+          </div>
+
+          {/* Tax ID */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Tax ID</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1 font-mono">{verificationFormData.taxId === 'none' ? 'Not provided' : verificationFormData.taxId}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Submitted On</label>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{verificationFormData.submittedAt ? new Date(verificationFormData.submittedAt).toLocaleDateString() : 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        {verificationStatus.status !== 'verified' && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <Link
+              to="/host/verification"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+            >
+              Edit Application
+            </Link>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Calculate stats from dashboard data
+  const getStatsCards = () => {
+    if (!isVerified || !dashboardData) {
+      return [
+        {
+          title: 'Total Units',
+          value: '0',
+          subtitle: '',
+          icon: HomeIcon,
+          iconBg: 'bg-amber-100',
+          iconColor: 'text-amber-600'
+        },
+        {
+          title: 'Active Bookings',
+          value: '0',
+          subtitle: '',
+          icon: BuildingOfficeIcon,
+          iconBg: 'bg-purple-100',
+          iconColor: 'text-purple-600'
+        },
+        {
+          title: 'Pending Deposits',
+          value: '0',
+          subtitle: '',
+          icon: ClockIcon,
+          iconBg: 'bg-orange-100',
+          iconColor: 'text-orange-600'
+        },
+        {
+          title: 'Pending Bookings',
+          value: '0',
+          subtitle: '',
+          icon: ClockIcon,
+          iconBg: 'bg-yellow-100',
+          iconColor: 'text-yellow-600'
+        },
+        {
+          title: 'Revenue (MTD)',
+          value: '0',
+          subtitle: '',
+          icon: CurrencyDollarIcon,
+          iconBg: 'bg-green-100',
+          iconColor: 'text-green-600'
+        }
+      ];
+    }
+
+    const { properties, bookings, analytics } = dashboardData;
+    const activeBookings = bookings.filter(b => b.status === 'confirmed').length;
+    const pendingBookings = bookings.filter(b => b.status === 'pending').length;
+    const monthlyRevenue = analytics?.overview?.totalRevenue || 0;
+
+    return [
+      {
+        title: 'Total Units',
+        value: properties.length.toString(),
+        subtitle: `${properties.filter(p => p.availability).length} available`,
+        icon: HomeIcon,
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-600'
+      },
+      {
+        title: 'Active Bookings',
+        value: activeBookings.toString(),
+        subtitle: 'confirmed stays',
+        icon: BuildingOfficeIcon,
+        iconBg: 'bg-purple-100',
+        iconColor: 'text-purple-600'
+      },
+      {
+        title: 'Pending Deposits',
+        value: '0',
+        subtitle: 'awaiting payment',
+        icon: ClockIcon,
+        iconBg: 'bg-orange-100',
+        iconColor: 'text-orange-600'
+      },
+      {
+        title: 'Pending Bookings',
+        value: pendingBookings.toString(),
+        subtitle: 'awaiting approval',
+        icon: ClockIcon,
+        iconBg: 'bg-yellow-100',
+        iconColor: 'text-yellow-600'
+      },
+      {
+        title: 'Revenue (MTD)',
+        value: `₱${monthlyRevenue.toLocaleString()}`,
+        subtitle: 'this month',
+        icon: CurrencyDollarIcon,
+        iconBg: 'bg-green-100',
+        iconColor: 'text-green-600'
+      }
+    ];
+  };
+
+  // Get insights and activity from analytics data
+  const getInsightsAndActivity = () => {
+    if (!isVerified || !dashboardData?.analytics) {
+      return {
+        insights: [],
+        activity: []
+      };
+    }
+
+    const { analytics } = dashboardData;
+    
+    return {
+      insights: analytics.recommendations || [],
+      activity: [
+        {
+          property: 'Luxury Downtown Apartment',
+          guest: 'Jane Guest',
+          action: 'Check-in confirmed',
+          time: '2 hours ago',
+          status: 'success'
+        },
+        {
+          property: 'Cozy Beach House',
+          guest: 'Jane Guest',
+          action: 'Payment received',
+          time: '4 hours ago',
+          status: 'success'
+        },
+        {
+          property: 'Mountain Cabin Retreat',
+          guest: 'Jane Guest',
+          action: 'Booking confirmed',
+          time: '6 hours ago',
+          status: 'success'
+        }
+      ]
+    };
+  };
+
+  const statsCards = getStatsCards();
+  const { insights, activity } = getInsightsAndActivity();
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -135,6 +519,15 @@ const HostDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Host Profile Card */}
+        {!loading && getHostProfileCard()}
+
+        {/* Verification Status Banner */}
+        {!loading && getVerificationBanner()}
+
+        {/* Verification Application Details */}
+        {!loading && getVerificationFormDisplay()}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -167,14 +560,37 @@ const HostDashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900">AI Insights & Recommendations</h2>
               </div>
               
-              <div className="space-y-4">
-                {insights.map((insight, index) => (
-                  <div key={index} className={`p-4 rounded-lg ${insight.color}`}>
-                    <h3 className={`font-semibold ${insight.textColor} mb-1`}>{insight.title}</h3>
-                    <p className={`text-sm ${insight.textColor} opacity-90`}>{insight.description}</p>
+              {isVerified && insights.length > 0 ? (
+                <div className="space-y-4">
+                  {insights.map((insight, index) => (
+                    <div key={index} className="p-4 rounded-lg bg-blue-50 border-l-4 border-l-blue-500">
+                      <h3 className="font-semibold text-blue-800 mb-1">{insight.title}</h3>
+                      <p className="text-sm text-blue-800 opacity-90">{insight.description}</p>
+                      {insight.estimatedRevenue && (
+                        <p className="text-xs text-blue-600 mt-2">Potential revenue: ₱{insight.estimatedRevenue}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <ChartBarIcon className="w-16 h-16 mx-auto" />
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No AI insights available</h3>
+                  <p className="text-gray-600 mb-4">
+                    {isVerified ? 'Insights will appear as you get more bookings.' : 'Verify your account to unlock personalized recommendations.'}
+                  </p>
+                  {!isVerified && (
+                    <Link
+                      to="/host/verification"
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                    >
+                      Complete Verification
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -186,18 +602,30 @@ const HostDashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
               </div>
               
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3">
-                    <div className={`w-2 h-2 rounded-full ${getStatusColor(activity.status)} mt-2 flex-shrink-0`}></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm">{activity.property}</p>
-                      <p className="text-sm text-gray-600">{activity.guest} • {activity.action}</p>
-                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+              {isVerified && activity.length > 0 ? (
+                <div className="space-y-4">
+                  {activity.map((activityItem, index) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <div className={`w-2 h-2 rounded-full ${getStatusColor(activityItem.status)} mt-2 flex-shrink-0`}></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm">{activityItem.property}</p>
+                        <p className="text-sm text-gray-600">{activityItem.guest} • {activityItem.action}</p>
+                        <p className="text-xs text-gray-500 mt-1">{activityItem.time}</p>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <InformationCircleIcon className="w-16 h-16 mx-auto" />
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Activity unavailable</h3>
+                  <p className="text-gray-600">
+                    {isVerified ? 'Recent activity will appear here.' : 'Recent activity will appear once your account is verified.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

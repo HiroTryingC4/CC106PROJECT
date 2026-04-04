@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeftIcon, CheckCircleIcon, ClockIcon, PrinterIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { token, user } = useAuth();
   const bookingData = location.state?.bookingData;
   
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -89,26 +92,49 @@ const PaymentPage = () => {
   const handleFinalConfirmation = async () => {
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // Create booking confirmation data
-      const confirmation = {
-        bookingId: 'BK' + Date.now(),
-        transactionId: 'TXN' + Date.now(),
-        paymentDate: new Date().toLocaleDateString(),
-        paymentTime: new Date().toLocaleTimeString(),
-        paymentAmount: parseFloat(paymentAmount),
-        paymentMethod: paymentMethod.toUpperCase(),
-        referenceNumber: referenceNumber,
-        remainingBalance: booking.totalAmount - parseFloat(paymentAmount),
-        status: 'Confirmed - Pending Payment Verification'
+    try {
+      // Create payment record
+      const paymentPayload = {
+        bookingId: bookingData?.bookingId || 1,
+        amount: parseFloat(paymentAmount),
+        currency: 'PHP',
+        status: 'pending',
+        paymentMethod: paymentMethod === 'gcash' ? 'gcash' : 'bank_transfer',
+        transactionId: referenceNumber,
+        processingFee: parseFloat((parseFloat(paymentAmount) * 0.03).toFixed(2)),
+        hostPayout: parseFloat((parseFloat(paymentAmount) * 0.97).toFixed(2))
       };
-      
-      setBookingConfirmation(confirmation);
+
+      const response = await axios.post('http://localhost:5000/api/payments', paymentPayload, {
+        headers: {
+          Authorization: `Bearer ${token || 'guest_5'}`
+        }
+      });
+
+      if (response.data.data) {
+        // Create booking confirmation data
+        const confirmation = {
+          bookingId: bookingData?.bookingId || 'BK' + Date.now(),
+          transactionId: response.data.data.id || referenceNumber,
+          paymentDate: new Date().toLocaleDateString(),
+          paymentTime: new Date().toLocaleTimeString(),
+          paymentAmount: parseFloat(paymentAmount),
+          paymentMethod: paymentMethod.toUpperCase(),
+          referenceNumber: referenceNumber,
+          remainingBalance: booking.totalAmount - parseFloat(paymentAmount),
+          status: 'Confirmed - Payment Received'
+        };
+        
+        setBookingConfirmation(confirmation);
+        setShowReview(false);
+        setShowConfirmation(true);
+      }
+    } catch (err) {
+      console.error('Error processing payment:', err);
+      alert('Failed to process payment. Please try again.');
+    } finally {
       setIsSubmitting(false);
-      setShowReview(false);
-      setShowConfirmation(true);
-    }, 2000);
+    }
   };
 
   const handlePrintReceipt = () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   TagIcon,
@@ -10,11 +10,49 @@ import {
   PercentBadgeIcon,
   CheckIcon,
   ChartBarIcon,
-  ClockIcon
+  ClockIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostPromoCodes = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
+
   const [newPromo, setNewPromo] = useState({
     code: '',
     type: 'percentage',
@@ -25,8 +63,7 @@ const HostPromoCodes = () => {
     usageLimit: '',
     minBookingAmount: ''
   });
-
-  const promoCodes = [
+  const promoCodes = isVerified ? [
     {
       id: 1,
       code: 'SUMMER2024',
@@ -83,7 +120,7 @@ const HostPromoCodes = () => {
       status: 'expired',
       totalSavings: '₱32,100'
     }
-  ];
+  ] : []; // Empty array for unverified hosts
 
   // Calculate stats
   const totalCodes = promoCodes.length;
@@ -129,13 +166,25 @@ const HostPromoCodes = () => {
             <h1 className="text-3xl font-bold text-gray-900">Promo Codes</h1>
             <p className="text-gray-500 mt-1">Create and manage discount codes for your properties</p>
           </div>
-          <button 
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium"
-          >
-            <PlusIcon className="w-4 h-4" />
-            <span>Create Promo Codes</span>
-          </button>
+          {/* Create Promo Codes Button */}
+          {isVerified ? (
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium"
+            >
+              <PlusIcon className="w-4 h-4" />
+              <span>Create Promo Codes</span>
+            </button>
+          ) : (
+            <a
+              href="/host/verification"
+              className="bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed flex items-center space-x-2 font-medium"
+              title="Complete verification to create promo codes"
+            >
+              <PlusIcon className="w-4 h-4" />
+              <span>Create Promo Codes</span>
+            </a>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -144,7 +193,7 @@ const HostPromoCodes = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Total Codes</p>
-                <p className="text-3xl font-bold text-gray-900">{totalCodes}</p>
+                <p className="text-3xl font-bold text-gray-900">{isVerified ? totalCodes : 0}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <TagIcon className="w-6 h-6 text-blue-600" />
@@ -156,7 +205,7 @@ const HostPromoCodes = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Active Codes</p>
-                <p className="text-3xl font-bold text-gray-900">{activeCodes}</p>
+                <p className="text-3xl font-bold text-gray-900">{isVerified ? activeCodes : 0}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <CheckIcon className="w-6 h-6 text-green-600" />
@@ -168,7 +217,7 @@ const HostPromoCodes = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Total Usage</p>
-                <p className="text-3xl font-bold text-gray-900">{totalUsage}</p>
+                <p className="text-3xl font-bold text-gray-900">{isVerified ? totalUsage : 0}</p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                 <ChartBarIcon className="w-6 h-6 text-yellow-600" />
@@ -179,8 +228,8 @@ const HostPromoCodes = () => {
           <div className="bg-white p-6 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Usage</p>
-                <p className="text-3xl font-bold text-gray-900">{totalUsage}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Savings</p>
+                <p className="text-3xl font-bold text-gray-900">₱{isVerified ? totalSavings.toLocaleString() : '0'}</p>
               </div>
               <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                 <ClockIcon className="w-6 h-6 text-red-600" />
@@ -204,7 +253,23 @@ const HostPromoCodes = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {promoCodes.length === 0 ? (
+                {!isVerified ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center">
+                        <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Promo codes locked</h3>
+                        <p className="text-gray-600 mb-6">Complete verification to create and manage promo codes.</p>
+                        <a
+                          href="/host/verification"
+                          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                        >
+                          <span>Complete Verification</span>
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ) : promoCodes.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center">

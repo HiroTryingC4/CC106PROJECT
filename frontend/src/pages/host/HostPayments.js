@@ -1,23 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   CurrencyDollarIcon,
   CheckCircleIcon,
   ClockIcon,
   ChartBarIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostPayments = () => {
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
+
   const paymentSummary = {
-    totalRevenue: '$6,470',
-    revenueGrowth: '+18% vs last month',
-    completedTransactions: 6,
-    pendingTransactions: 2,
-    avgTransaction: '$1,078'
+    totalRevenue: isVerified ? '$6,470' : '$0',
+    revenueGrowth: isVerified ? '+18% vs last month' : '',
+    completedTransactions: isVerified ? 6 : 0,
+    pendingTransactions: isVerified ? 2 : 0,
+    avgTransaction: isVerified ? '$1,078' : '$0'
   };
 
-  const pendingDeposits = [
+  const pendingDeposits = isVerified ? [
     {
       id: 1,
       name: 'Lisa Anderson',
@@ -30,9 +68,9 @@ const HostPayments = () => {
       property: 'Beach House',
       amount: '$300'
     }
-  ];
+  ] : [];
 
-  const transactions = [
+  const transactions = isVerified ? [
     {
       id: 'PAY-001',
       bookingId: 'BK-2024-001',
@@ -113,7 +151,7 @@ const HostPayments = () => {
       date: 'Feb 12, 2026',
       status: 'Completed'
     }
-  ];
+  ] : []; // Empty array for unverified hosts
 
   const handleApproveDeposit = (depositId) => {
     console.log(`Approving deposit ${depositId}`);
@@ -212,37 +250,53 @@ const HostPayments = () => {
         </div>
 
         {/* Pending Deposits Section */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <ClockIcon className="w-5 h-5 text-yellow-600" />
-            <h3 className="text-lg font-semibold text-yellow-800">Pending Deposits ({pendingDeposits.length})</h3>
-          </div>
-          
-          <div className="space-y-4">
-            {pendingDeposits.map((deposit) => (
-              <div key={deposit.id} className="flex items-center justify-between bg-white p-4 rounded-lg border border-yellow-200">
-                <div>
-                  <h4 className="font-medium text-gray-900">{deposit.name}</h4>
-                  <p className="text-sm text-gray-600">{deposit.property} • {deposit.amount}</p>
+        {isVerified && pendingDeposits.length > 0 ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <ClockIcon className="w-5 h-5 text-yellow-600" />
+              <h3 className="text-lg font-semibold text-yellow-800">Pending Deposits ({pendingDeposits.length})</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {pendingDeposits.map((deposit) => (
+                <div key={deposit.id} className="flex items-center justify-between bg-white p-4 rounded-lg border border-yellow-200">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{deposit.name}</h4>
+                    <p className="text-sm text-gray-600">{deposit.property} • {deposit.amount}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleDeclineDeposit(deposit.id)}
+                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() => handleApproveDeposit(deposit.id)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
+                    >
+                      Approve
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleDeclineDeposit(deposit.id)}
-                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium"
-                  >
-                    Decline
-                  </button>
-                  <button
-                    onClick={() => handleApproveDeposit(deposit.id)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
-                  >
-                    Approve
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        ) : !isVerified ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <div className="text-center py-8">
+              <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Payment features locked</h3>
+              <p className="text-gray-600 mb-6">Complete verification to access payment management and transaction history.</p>
+              <a
+                href="/host/verification"
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+              >
+                <span>Complete Verification</span>
+              </a>
+            </div>
+          </div>
+        ) : null}
 
         {/* All Transactions Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -250,56 +304,64 @@ const HostPayments = () => {
             <h3 className="text-lg font-semibold text-gray-900">All Transactions</h3>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {transaction.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.bookingId}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.guest}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.unit}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(transaction.type)}`}>
-                        {transaction.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {transaction.amount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(transaction.status)}`}>
-                        {transaction.status}
-                      </span>
-                    </td>
+          {isVerified && transactions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {transaction.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.bookingId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.guest}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.unit}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(transaction.type)}`}>
+                          {transaction.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {transaction.amount}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.date}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(transaction.status)}`}>
+                          {transaction.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions available</h3>
+              <p className="text-gray-600">Complete verification to view your transaction history.</p>
+            </div>
+          )}
         </div>
 
         {/* Fixed Chat Button */}

@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   ArrowLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
+import { Star, MapPin, Bed, Bath, Users } from 'lucide-react';
 
 const BookingForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { token, user } = useAuth();
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -21,47 +25,96 @@ const BookingForm = () => {
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [bookingType, setBookingType] = useState('fixed');
   const [guests, setGuests] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [property, setProperty] = useState(null);
+  const [loadingProperty, setLoadingProperty] = useState(true);
   
   // Guest information
   const [guestInfo, setGuestInfo] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
     phone: '',
     photo: null,
     specialRequests: '',
     hasMinors: false
   });
 
-  // Sample unit data
-  const unit = {
-    id: id,
-    title: 'Luxury Beachfront Condo',
-    location: '123 Ocean Drive, Miami Beach, FL',
-    price: 500
+  // Fetch property details
+  useEffect(() => {
+    const fetchProperty = async () => {
+      try {
+        setLoadingProperty(true);
+        const response = await axios.get(`http://localhost:5000/api/properties/${id}`);
+        setProperty(response.data);
+      } catch (err) {
+        console.error('Error fetching property:', err);
+      } finally {
+        setLoadingProperty(false);
+      }
+    };
+
+    if (id) {
+      fetchProperty();
+    }
+  }, [id]);
+
+  // Convert time string (HH:MM) to 12-hour format
+  const formatTime = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':');
+    const date = new Date(`2000-01-01T${timeStr}`);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  // Generate available time slots based on property's time availability
+  const getPropertyTimeSlots = () => {
+    if (!property?.timeAvailability) {
+      // Fallback to default times if not available
+      return [
+        { time: '03:00 PM', timeValue: '15:00', price: 0, available: true, isStandard: true },
+        { time: '04:00 PM', timeValue: '16:00', price: 0, available: true },
+        { time: '05:00 PM', timeValue: '17:00', price: 0, available: true }
+      ];
+    }
+
+    const checkInTime = formatTime(property.timeAvailability.checkInTime);
+    return [
+      { 
+        time: checkInTime, 
+        timeValue: property.timeAvailability.checkInTime,
+        price: 0, 
+        available: true, 
+        isStandard: true 
+      }
+    ];
+  };
+
+  // Generate checkout time slots based on property's time availability
+  const getPropertyCheckoutSlots = () => {
+    if (!property?.timeAvailability) {
+      // Fallback to default times if not available
+      return [
+        { time: '11:00 AM', timeValue: '11:00', price: 0, available: true, isStandard: true }
+      ];
+    }
+
+    const checkOutTime = formatTime(property.timeAvailability.checkOutTime);
+    return [
+      { 
+        time: checkOutTime, 
+        timeValue: property.timeAvailability.checkOutTime,
+        price: 0, 
+        available: true, 
+        isStandard: true 
+      }
+    ];
   };
 
   // Available time slots
-  const timeSlots = [
-    { time: '12:00 PM', price: 500, available: false },
-    { time: '03:00 PM', price: 0, available: true, isStandard: true },
-    { time: '04:00 PM', price: 0, available: true },
-    { time: '05:00 PM', price: 0, available: true },
-    { time: '06:00 PM', price: 0, available: true },
-    { time: '07:00 PM', price: 0, available: true },
-    { time: '08:00 PM', price: 0, available: true }
-  ];
+  const timeSlots = getPropertyTimeSlots();
 
   // Available checkout time slots
-  const checkoutTimeSlots = [
-    { time: '12:00 PM', price: 500, available: false },
-    { time: '03:00 PM', price: 0, available: true, isStandard: true },
-    { time: '04:00 PM', price: 0, available: true },
-    { time: '05:00 PM', price: 0, available: true },
-    { time: '06:00 PM', price: 0, available: true },
-    { time: '07:00 PM', price: 0, available: true },
-    { time: '08:00 PM', price: 0, available: true }
-  ];
+  const checkoutTimeSlots = getPropertyCheckoutSlots();
 
   // Duration options
   const durationOptions = [
@@ -176,7 +229,7 @@ const BookingForm = () => {
     }
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     // Validation
     if (!selectedCheckIn || !selectedCheckOut) {
       alert('Please select check-in and check-out dates');
@@ -203,24 +256,67 @@ const BookingForm = () => {
       return;
     }
 
-    // Navigate to payment with booking data
-    const bookingData = {
-      unitId: id,
-      unitTitle: unit.title,
-      checkInDate: selectedCheckIn?.toISOString().split('T')[0],
-      checkOutDate: selectedCheckOut?.toISOString().split('T')[0],
-      selectedTime: selectedTime,
-      selectedCheckOutTime: selectedCheckOutTime,
-      selectedDuration: selectedDuration,
-      bookingType: bookingType,
-      guests: guests,
-      guestInfo: guestInfo,
-      totalAmount: selectedDuration?.price || unit.price
-    };
+    try {
+      setSubmitting(true);
 
-    navigate(`/guest/units/${id}/payment`, { 
-      state: { bookingData } 
-    });
+      // Calculate total amount
+      const totalAmount = selectedDuration?.price || (property?.pricePerNight || 0);
+
+      // Create booking data
+      const bookingPayload = {
+        propertyId: parseInt(id),
+        guestId: user?.id || 5, // Default to guest ID 5 if not authenticated
+        hostId: property?.hostId || 3, // From property details
+        checkIn: selectedCheckIn.toISOString(),
+        checkOut: selectedCheckOut.toISOString(),
+        guests: guests,
+        totalAmount: totalAmount,
+        status: 'pending',
+        paymentStatus: 'pending',
+        specialRequests: guestInfo.specialRequests,
+        userInfo: {
+          firstName: guestInfo.firstName,
+          lastName: guestInfo.lastName,
+          email: guestInfo.email,
+          phone: guestInfo.phone,
+          minors: guestInfo.hasMinors
+        }
+      };
+
+      // Submit booking
+      const response = await axios.post('http://localhost:5000/api/bookings', bookingPayload, {
+        headers: {
+          Authorization: `Bearer ${token || 'guest_5'}`
+        }
+      });
+
+      if (response.data.data) {
+        // Navigate to payment with booking data
+        const bookingData = {
+          bookingId: response.data.data.id,
+          propertyId: id,
+          propertyTitle: property?.title,
+          checkInDate: selectedCheckIn?.toISOString().split('T')[0],
+          checkOutDate: selectedCheckOut?.toISOString().split('T')[0],
+          selectedTime: selectedTime,
+          selectedCheckOutTime: selectedCheckOutTime,
+          selectedDuration: selectedDuration,
+          bookingType: bookingType,
+          guests: guests,
+          guestInfo: guestInfo,
+          totalAmount: totalAmount
+        };
+
+        navigate(`/guest/units/${id}/payment`, { 
+          state: { bookingData } 
+        });
+      }
+    } catch (err) {
+      console.error('Error creating booking:', err);
+      alert('Failed to create booking. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const monthNames = [
@@ -701,17 +797,114 @@ const BookingForm = () => {
               </div>
             </div>
 
-          {/* Right Column - Booking Summary */}
+          {/* Right Column - Property Details & Booking Summary */}
           <div className="space-y-6">
+            {/* Property Details Card */}
+            {loadingProperty ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-6">
+                <div className="animate-pulse">
+                  <div className="h-48 bg-gray-300 rounded-lg mb-4"></div>
+                  <div className="h-6 bg-gray-300 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                </div>
+              </div>
+            ) : property ? (
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden sticky top-6">
+                {/* Property Image */}
+                <img
+                  src={property.images?.[0] || 'https://via.placeholder.com/400x300'}
+                  alt={property.title}
+                  className="w-full h-48 object-cover"
+                />
+                
+                {/* Property Info */}
+                <div className="p-6">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{property.title}</h3>
+                  
+                  {/* Location */}
+                  <div className="flex items-center text-gray-600 mb-3">
+                    <MapPin className="w-4 h-4 mr-2" />
+                    <span className="text-sm">
+                      {property.address.city}, {property.address.state}
+                    </span>
+                  </div>
+
+                  {/* Rating */}
+                  <div className="flex items-center mb-4">
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-4 h-4 ${
+                            i < Math.floor(property.rating)
+                              ? 'text-yellow-400 fill-yellow-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="ml-2 text-sm text-gray-600">
+                      {property.rating} ({property.reviewCount} reviews)
+                    </span>
+                  </div>
+
+                  {/* Specs */}
+                  <div className="grid grid-cols-3 gap-4 mb-4 pb-4 border-b border-gray-200">
+                    <div className="text-center">
+                      <Bed className="w-5 h-5 mx-auto mb-1 text-gray-600" />
+                      <span className="text-sm text-gray-600">{property.bedrooms} Beds</span>
+                    </div>
+                    <div className="text-center">
+                      <Bath className="w-5 h-5 mx-auto mb-1 text-gray-600" />
+                      <span className="text-sm text-gray-600">{property.bathrooms} Baths</span>
+                    </div>
+                    <div className="text-center">
+                      <Users className="w-5 h-5 mx-auto mb-1 text-gray-600" />
+                      <span className="text-sm text-gray-600">{property.maxGuests} Guests</span>
+                    </div>
+                  </div>
+
+                  {/* Amenities */}
+                  <div className="mb-4">
+                    <h4 className="font-semibold text-gray-900 mb-2 text-sm">Amenities</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {property.amenities?.slice(0, 5).map((amenity, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-block bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs"
+                        >
+                          {amenity}
+                        </span>
+                      ))}
+                      {property.amenities?.length > 5 && (
+                        <span className="inline-block text-gray-500 text-xs px-3 py-1">
+                          +{property.amenities.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Price */}
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-900">
+                      ₱{property.pricePerNight.toLocaleString()}
+                      <span className="text-sm font-normal text-gray-600"> /night</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Booking Summary Card */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Booking Summary</h3>
               
               <div className="space-y-4 mb-6">
                 <div>
-                  <h4 className="font-semibold text-lg text-gray-900">{unit.title}</h4>
+                  <h4 className="font-semibold text-lg text-gray-900">{property?.title || 'Property'}</h4>
                   <p className="text-sm text-gray-600 flex items-center">
                     <span className="mr-1">📍</span>
-                    {unit.location}
+                    {property ? `${property.address.city}, ${property.address.state}` : 'Loading...'}
                   </p>
                 </div>
 
@@ -765,10 +958,11 @@ const BookingForm = () => {
 
               <button
                 onClick={handleConfirmBooking}
-                disabled={!selectedCheckIn || !selectedCheckOut || !selectedTime || !selectedCheckOutTime || !selectedDuration || !guestInfo.firstName || !guestInfo.lastName || !guestInfo.email || !guestInfo.phone}
-                className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!selectedCheckIn || !selectedCheckOut || !selectedTime || !selectedCheckOutTime || !selectedDuration || !guestInfo.firstName || !guestInfo.lastName || !guestInfo.email || !guestInfo.phone || submitting || loadingProperty}
+                className="w-full text-white py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{backgroundColor: '#4E7B22'}}
               >
-                Confirm Booking
+                {submitting ? 'Processing Booking...' : 'Confirm Booking'}
               </button>
 
               <p className="text-xs text-gray-500 text-center mt-3">

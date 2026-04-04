@@ -114,6 +114,16 @@ const Home = () => {
           }}
         ></div>
 
+        {/* Top-right Become a Host button */}
+        <div className="absolute top-6 right-6 z-20">
+          <Link 
+            to="/register?type=host" 
+            className="bg-gray-900/80 backdrop-blur-sm text-white px-6 py-3 rounded-full hover:bg-gray-800/90 transition-all flex items-center justify-center text-sm font-medium border border-gray-700/50"
+          >
+            Become a Host
+          </Link>
+        </div>
+
         <div className="relative z-10 flex items-center justify-center min-h-screen py-20">
           <div className="text-center text-white px-4 max-w-6xl mx-auto">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
@@ -407,6 +417,141 @@ const Home = () => {
                 <p className="text-gray-600 text-xs sm:text-sm">Track earnings and manage finances</p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Properties Section */}
+      <section className="py-12 sm:py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="flex items-center space-x-3 mb-8">
+            <div className="w-8 h-8 rounded flex items-center justify-center" style={{backgroundColor: '#4E7B22'}}>
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900">Featured Properties</h2>
+          </div>
+
+          {/* Featured Properties Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                id: 1,
+                title: 'Luxury Beachfront Condo',
+                type: 'CONDO',
+                description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
+                price: '₱5000',
+                period: '/night',
+                details: '2 bed • 2 bath • 4 guests',
+                rating: 4.9,
+                reviews: 98,
+                image: '/images/beachfront-condo.jpg',
+                imageGradient: 'from-orange-400 to-orange-600',
+                typeColor: 'text-green-700',
+                typeBg: 'bg-green-100'
+              },
+              {
+                id: 2,
+                title: 'Modern Downtown Studio',
+                type: 'STUDIO',
+                description: 'Cozy studio apartment in the heart of downtown, perfect for business travelers.',
+                price: '₱1500',
+                period: '/night',
+                details: '1 bed • 1 bath • 2 guests',
+                rating: 4.5,
+                reviews: 28,
+                image: '/images/downtown-studio.jpg',
+                imageGradient: 'from-gray-400 to-gray-600',
+                typeColor: 'text-green-700',
+                typeBg: 'bg-green-100'
+              },
+              {
+                id: 3,
+                title: 'Family-Friendly Villa',
+                type: 'VILLA',
+                description: 'Spacious 3-bedroom villa with private pool, perfect for families.',
+                price: '₱3000',
+                period: '/night',
+                details: '3 bed • 3 bath • 6 guests',
+                rating: 4.8,
+                reviews: 156,
+                image: '/images/family-villa.jpg',
+                imageGradient: 'from-green-400 to-green-600',
+                typeColor: 'text-green-700',
+                typeBg: 'bg-green-100'
+              }
+            ].map((property) => (
+              <div 
+                key={property.id} 
+                className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
+                onClick={() => navigate(`/guest/units/${property.id}`)}
+              >
+                {/* Property Image */}
+                <div className="h-64 relative rounded-t-lg overflow-hidden">
+                  <img 
+                    src={property.image} 
+                    alt={property.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextElementSibling.style.display = 'block';
+                    }}
+                  />
+                  <div className={`absolute inset-0 bg-gradient-to-br ${property.imageGradient} bg-black bg-opacity-20 rounded-t-lg hidden`} style={{zIndex: 1}}></div>
+                </div>
+                
+                <div className="p-6">
+                  {/* Property Type Badge and Rating */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${property.typeBg} ${property.typeColor} flex items-center space-x-2`}>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                      </svg>
+                      <span>{property.type}</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-1">
+                      <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                      <span className="text-lg font-bold text-gray-900">{property.rating}</span>
+                      <span className="text-gray-600">({property.reviews})</span>
+                    </div>
+                  </div>
+
+                  {/* Property Title with underline */}
+                  <div className="mb-4">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{property.title}</h3>
+                    <div className="w-16 h-1 bg-green-500 rounded"></div>
+                  </div>
+                  
+                  {/* Description */}
+                  <p className="text-gray-600 text-base mb-6 leading-relaxed">{property.description}</p>
+                  
+                  {/* Price and Details */}
+                  <div className="space-y-2">
+                    <div className="flex items-baseline space-x-1">
+                      <span className="text-2xl font-bold text-green-600">{property.price}</span>
+                      <span className="text-gray-600">{property.period}</span>
+                    </div>
+                    <div className="text-gray-600">{property.details}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* View More Button */}
+          <div className="text-center mt-8">
+            <Link 
+              to="/guest/units" 
+              className="inline-block text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-all"
+              style={{backgroundColor: '#4E7B22'}}
+            >
+              View All Properties
+            </Link>
           </div>
         </div>
       </section>

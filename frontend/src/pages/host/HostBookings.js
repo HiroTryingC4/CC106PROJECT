@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   CalendarDaysIcon,
@@ -6,7 +6,8 @@ import {
   Bars3Icon,
   CalendarIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostBookings = () => {
@@ -16,9 +17,45 @@ const HostBookings = () => {
   const [currentDate, setCurrentDate] = useState(new Date(2026, 1)); // February 2026
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Extended bookings data with comprehensive guest information
-  const bookings = [
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
+
+  // Extended bookings data with comprehensive guest information - only show for verified hosts
+  const bookings = isVerified ? [
     {
       id: '17',
       unit: 'Trial#1',
@@ -248,7 +285,7 @@ const HostBookings = () => {
       status: 'cancelled',
       statusLabel: 'Cancelled by Guest'
     }
-  ];
+  ] : []; // Empty array for unverified hosts
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = booking.unit.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -593,11 +630,29 @@ const HostBookings = () => {
         {/* Empty State */}
         {filteredBookings.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <CalendarDaysIcon className="w-16 h-16 mx-auto" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
-            <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+            {!isVerified ? (
+              <>
+                <div className="text-gray-400 mb-4">
+                  <ExclamationTriangleIcon className="w-16 h-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings available</h3>
+                <p className="text-gray-600 mb-6">Complete verification to start receiving bookings.</p>
+                <a
+                  href="/host/verification"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                >
+                  <span>Complete Verification</span>
+                </a>
+              </>
+            ) : (
+              <>
+                <div className="text-gray-400 mb-4">
+                  <CalendarDaysIcon className="w-16 h-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+                <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+              </>
+            )}
           </div>
         )}
 

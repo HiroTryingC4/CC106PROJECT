@@ -1,13 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 
 const GuestProfile = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  });
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Load profile data from logged-in user
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      });
+    }
+  }, [user]);
+
+  const handleSaveChanges = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('No authentication token found');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        setSuccessMessage('Profile saved successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        alert('Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Error saving profile');
+    }
+  };
 
   return (
     <GuestLayout>
@@ -33,17 +81,39 @@ const GuestProfile = () => {
             <div className="bg-white rounded-lg shadow-sm p-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Personal Information</h2>
               
+              {successMessage && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2 text-green-800">
+                  <CheckIcon className="w-5 h-5" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+              
               <div className="space-y-6">
-                {/* Full Name */}
+                {/* First Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name <span className="text-red-500">*</span>
+                    First Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    defaultValue={user?.name || 'Jess Trial'}
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({...formData, firstName: e.target.value})}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
-                    placeholder="Enter your full name"
+                    placeholder="Enter your first name"
+                  />
+                </div>
+
+                {/* Last Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    placeholder="Enter your last name"
                   />
                 </div>
 
@@ -54,10 +124,12 @@ const GuestProfile = () => {
                   </label>
                   <input
                     type="email"
-                    defaultValue={user?.email || 'guest.trial@smartstay.com'}
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                     placeholder="Enter your email address"
                   />
+                  <p className="text-xs text-gray-500 mt-1">This is your login email</p>
                 </div>
 
                 {/* Phone Number */}
@@ -67,6 +139,8 @@ const GuestProfile = () => {
                   </label>
                   <input
                     type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                     placeholder="Enter your phone number"
                   />
@@ -91,6 +165,7 @@ const GuestProfile = () => {
                 {/* Save Changes Button */}
                 <div className="pt-6">
                   <button
+                    onClick={handleSaveChanges}
                     className="px-8 py-3 text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
                     style={{backgroundColor: '#4E7B22'}}
                   >
@@ -103,6 +178,21 @@ const GuestProfile = () => {
 
           {/* Right Column - Account Information */}
           <div className="lg:col-span-1">
+            {/* Profile Avatar */}
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+              <div className="text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white text-3xl font-bold">
+                    {formData.firstName?.charAt(0)}{formData.lastName?.charAt(0)}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {formData.firstName} {formData.lastName}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">{formData.email}</p>
+              </div>
+            </div>
+
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-6">Account Information</h3>
               

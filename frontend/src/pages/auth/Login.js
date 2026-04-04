@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,38 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  // Auto-login on component mount
+  useEffect(() => {
+    const checkExistingSession = () => {
+      const user = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+
+      // If user already has a session, redirect to their dashboard
+      if (user && token) {
+        try {
+          const userData = JSON.parse(user);
+          const role = userData.role;
+
+          if (role === 'admin') {
+            navigate('/admin/dashboard');
+          } else if (role === 'communication_admin') {
+            navigate('/comm-admin/dashboard');
+          } else if (role === 'host') {
+            navigate('/host/dashboard');
+          } else if (role === 'guest') {
+            navigate('/guest/dashboard');
+          }
+        } catch (err) {
+          console.error('Error parsing user data:', err);
+        }
+      }
+      // Clear logout flag if present
+      localStorage.removeItem('justLoggedOut');
+    };
+
+    checkExistingSession();
+  }, [navigate, login]);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -27,15 +59,15 @@ const Login = () => {
     
     // Create a trial guest user
     const trialGuestUser = {
-      id: 'trial-guest-001',
-      firstName: 'Jess',
-      lastName: 'Trial',
-      email: 'guest.trial@smartstay.com',
+      id: 5, // Match backend guest ID
+      firstName: 'Jane',
+      lastName: 'Guest',
+      email: 'guest@smartstay.com',
       role: 'guest',
       isTrial: true
     };
     
-    const trialToken = 'trial-token-' + Date.now();
+    const trialToken = 'token_5_' + Date.now();
     
     // Use the login function from AuthContext
     login(trialGuestUser, trialToken);
@@ -51,15 +83,15 @@ const Login = () => {
     
     // Create host user
     const hostUser = {
-      id: 'host-001',
-      firstName: 'Host',
-      lastName: 'User',
+      id: 3, // Changed to match backend data
+      firstName: 'John',
+      lastName: 'Host',
       email: 'host@smartstay.com',
       role: 'host',
       isHost: true
     };
     
-    const hostToken = 'host-token-' + Date.now();
+    const hostToken = 'token_3_' + Date.now(); // Changed to match backend token format
     
     // Use the login function from AuthContext
     login(hostUser, hostToken);
@@ -75,7 +107,7 @@ const Login = () => {
     
     // Create admin user
     const adminUser = {
-      id: 'admin-001',
+      id: 1, // Match backend admin ID
       firstName: 'Admin',
       lastName: 'User',
       email: 'admin@smartstay.com',
@@ -83,7 +115,7 @@ const Login = () => {
       isAdmin: true
     };
     
-    const adminToken = 'admin-token-' + Date.now();
+    const adminToken = 'token_1_' + Date.now();
     
     // Use the login function from AuthContext
     login(adminUser, adminToken);
@@ -99,15 +131,15 @@ const Login = () => {
     
     // Create communication admin user
     const commAdminUser = {
-      id: 'comm-admin-001',
+      id: 2, // Match backend comm admin ID
       firstName: 'Communication',
       lastName: 'Admin',
-      email: 'comm-admin@smartstay.com',
-      role: 'comm-admin',
+      email: 'comadmin@smartstay.com',
+      role: 'communication_admin',
       isCommAdmin: true
     };
     
-    const commAdminToken = 'comm-admin-token-' + Date.now();
+    const commAdminToken = 'token_2_' + Date.now();
     
     // Use the login function from AuthContext
     login(commAdminUser, commAdminToken);
@@ -126,15 +158,15 @@ const Login = () => {
     // Host backdoor credentials
     if (formData.email === 'host@smartstay.com' && formData.password === 'host123') {
       const hostUser = {
-        id: 'host-001',
-        firstName: 'Host',
-        lastName: 'User',
+        id: 3, // Changed to match backend data
+        firstName: 'John',
+        lastName: 'Host',
         email: 'host@smartstay.com',
         role: 'host',
         isHost: true
       };
       
-      const hostToken = 'host-token-' + Date.now();
+      const hostToken = 'token_3_' + Date.now(); // Changed to match backend token format
       login(hostUser, hostToken);
       
       setTimeout(() => {
@@ -145,39 +177,18 @@ const Login = () => {
     }
 
     // Communication Admin backdoor credentials
-    if (formData.email === 'comm-admin@smartstay.com' && formData.password === 'comm123') {
+    if (formData.email === 'comadmin@smartstay.com' && formData.password === 'comadmin123') {
       const commAdminUser = {
-        id: 'comm-admin-001',
+        id: 2,
         firstName: 'Communication',
         lastName: 'Admin',
-        email: 'comm-admin@smartstay.com',
-        role: 'comm-admin',
+        email: 'comadmin@smartstay.com',
+        role: 'communication_admin',
         isCommAdmin: true
       };
       
-      const commAdminToken = 'comm-admin-token-' + Date.now();
+      const commAdminToken = 'token_2_' + Date.now();
       login(commAdminUser, commAdminToken);
-      
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/comm-admin/dashboard');
-      }, 1000);
-      return;
-    }
-
-    // Communication Admin 2 backdoor credentials
-    if (formData.email === 'comm-admin2@smartstay.com' && formData.password === 'comm123') {
-      const commAdmin2User = {
-        id: 'comm-admin-002',
-        firstName: 'Communication',
-        lastName: 'Admin 2',
-        email: 'comm-admin2@smartstay.com',
-        role: 'comm-admin',
-        isCommAdmin: true
-      };
-      
-      const commAdmin2Token = 'comm-admin2-token-' + Date.now();
-      login(commAdmin2User, commAdmin2Token);
       
       setTimeout(() => {
         setLoading(false);
@@ -189,7 +200,7 @@ const Login = () => {
     // Admin backdoor credentials
     if (formData.email === 'admin@smartstay.com' && formData.password === 'admin123') {
       const adminUser = {
-        id: 'admin-001',
+        id: 1,
         firstName: 'Admin',
         lastName: 'User',
         email: 'admin@smartstay.com',
@@ -197,7 +208,7 @@ const Login = () => {
         isAdmin: true
       };
       
-      const adminToken = 'admin-token-' + Date.now();
+      const adminToken = 'token_1_' + Date.now();
       login(adminUser, adminToken);
       
       setTimeout(() => {
@@ -207,23 +218,22 @@ const Login = () => {
       return;
     }
 
-    // Host backdoor credentials
-    if (formData.email === 'host@smartstay.com' && formData.password === 'host123') {
-      const hostUser = {
-        id: 'host-001',
-        firstName: 'Host',
-        lastName: 'User',
-        email: 'host@smartstay.com',
-        role: 'host',
-        isHost: true
+    // Guest credentials
+    if (formData.email === 'guest@smartstay.com' && formData.password === 'guest123') {
+      const guestUser = {
+        id: 5,
+        firstName: 'Jane',
+        lastName: 'Guest',
+        email: 'guest@smartstay.com',
+        role: 'guest'
       };
       
-      const hostToken = 'host-token-' + Date.now();
-      login(hostUser, hostToken);
+      const guestToken = 'token_5_' + Date.now();
+      login(guestUser, guestToken);
       
       setTimeout(() => {
         setLoading(false);
-        navigate('/host/dashboard');
+        navigate('/guest/dashboard');
       }, 1000);
       return;
     }
@@ -246,7 +256,7 @@ const Login = () => {
         // Redirect based on user role
         if (data.user.role === 'admin') {
           navigate('/admin/dashboard');
-        } else if (data.user.role === 'comm-admin') {
+        } else if (data.user.role === 'communication_admin') {
           navigate('/comm-admin/dashboard');
         } else if (data.user.role === 'host') {
           navigate('/host/dashboard');
@@ -296,6 +306,10 @@ const Login = () => {
               <label htmlFor="email" className="block text-sm font-medium text-white/90 mb-2">
                 Email address
               </label>
+              <p className="text-xs text-yellow-300 mb-3 flex items-center space-x-1">
+                <span>⚠️</span>
+                <span>Your email is your username - please don't forget it!</span>
+              </p>
               <input
                 id="email"
                 name="email"
@@ -437,10 +451,9 @@ const Login = () => {
               <h3 className="text-white font-semibold text-sm mb-2">🎯 Demo Credentials:</h3>
               <div className="space-y-1 text-xs text-white/80">
                 <p><strong>Admin:</strong> admin@smartstay.com / admin123</p>
-                <p><strong>Comm Admin 1:</strong> comm-admin@smartstay.com / comm123</p>
-                <p><strong>Comm Admin 2:</strong> comm-admin2@smartstay.com / comm123</p>
+                <p><strong>Comm Admin:</strong> comadmin@smartstay.com / comadmin123</p>
                 <p><strong>Host:</strong> host@smartstay.com / host123</p>
-                <p><strong>Guest:</strong> Use "Try as Guest" button above</p>
+                <p><strong>Guest:</strong> guest@smartstay.com / guest123</p>
               </div>
             </div>
           </form>

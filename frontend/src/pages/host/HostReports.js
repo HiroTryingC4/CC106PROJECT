@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   CurrencyDollarIcon,
@@ -7,38 +7,75 @@ import {
   UsersIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostReports = () => {
   const [activeTab, setActiveTab] = useState('revenue');
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
 
   // Analytics data
   const analyticsData = {
     totalRevenue: {
-      value: '$161,130',
-      change: '+15.3% YoY',
+      value: isVerified ? '$161,130' : '$0',
+      change: isVerified ? '+15.3% YoY' : '',
       trend: 'up'
     },
     totalBookings: {
-      value: '216',
-      change: '+8.2% vs last period',
+      value: isVerified ? '216' : '0',
+      change: isVerified ? '+8.2% vs last period' : '',
       trend: 'up'
     },
     avgOccupancy: {
-      value: '68%',
-      change: '+5% vs last month',
+      value: isVerified ? '68%' : '0%',
+      change: isVerified ? '+5% vs last month' : '',
       trend: 'up'
     },
     totalGuests: {
-      value: '847',
-      change: '+12% vs last period',
+      value: isVerified ? '847' : '0',
+      change: isVerified ? '+12% vs last period' : '',
       trend: 'up'
     }
   };
 
   // Revenue chart data (last 7 months)
-  const revenueData = [
+  const revenueData = isVerified ? [
     { month: 'Aug', value: 18000 },
     { month: 'Sep', value: 23000 },
     { month: 'Oct', value: 20000 },
@@ -46,10 +83,10 @@ const HostReports = () => {
     { month: 'Dec', value: 29500 },
     { month: 'Jan', value: 22000 },
     { month: 'Feb', value: 24500 }
-  ];
+  ] : [];
 
   // Bookings chart data (last 7 months)
-  const bookingsData = [
+  const bookingsData = isVerified ? [
     { month: 'Aug', value: 25 },
     { month: 'Sep', value: 31 },
     { month: 'Oct', value: 28 },
@@ -57,17 +94,17 @@ const HostReports = () => {
     { month: 'Dec', value: 41 },
     { month: 'Jan', value: 29 },
     { month: 'Feb', value: 27 }
-  ];
+  ] : [];
 
   // Unit performance data
-  const unitPerformance = [
+  const unitPerformance = isVerified ? [
     { name: 'Beach House', performance: 0.48 },
     { name: 'Ocean View', performance: 0.45 },
     { name: 'Desert Oasis', performance: 0.4 },
     { name: 'City Loft', performance: 0.35 },
     { name: 'Mountain Cabin', performance: 0.33 },
     { name: 'Sunset Villa', performance: 0.3 }
-  ];
+  ] : [];
 
   const maxRevenue = Math.max(...revenueData.map(d => d.value));
   const maxBookings = Math.max(...bookingsData.map(d => d.value));
@@ -93,8 +130,12 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.totalRevenue.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-              {analyticsData.totalRevenue.change}
+              {analyticsData.totalRevenue.change && (
+                <>
+                  <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
+                  {analyticsData.totalRevenue.change}
+                </>
+              )}
             </p>
           </div>
 
@@ -108,8 +149,12 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.totalBookings.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-              {analyticsData.totalBookings.change}
+              {analyticsData.totalBookings.change && (
+                <>
+                  <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
+                  {analyticsData.totalBookings.change}
+                </>
+              )}
             </p>
           </div>
 
@@ -123,8 +168,12 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.avgOccupancy.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-              {analyticsData.avgOccupancy.change}
+              {analyticsData.avgOccupancy.change && (
+                <>
+                  <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
+                  {analyticsData.avgOccupancy.change}
+                </>
+              )}
             </p>
           </div>
 
@@ -138,8 +187,12 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.totalGuests.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-              {analyticsData.totalGuests.change}
+              {analyticsData.totalGuests.change && (
+                <>
+                  <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
+                  {analyticsData.totalGuests.change}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -185,87 +238,101 @@ const HostReports = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Revenue Trends (Last 7 Months)</h3>
             
-            {/* Area Chart */}
-            <div className="relative h-80">
-              <svg className="w-full h-full" viewBox="0 0 800 300">
-                {/* Grid lines */}
-                <defs>
-                  <pattern id="grid" width="100" height="50" patternUnits="userSpaceOnUse">
-                    <path d="M 100 0 L 0 0 0 50" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
-                  </pattern>
-                </defs>
-                <rect width="800" height="300" fill="url(#grid)" />
-                
-                {/* Area fill */}
-                <defs>
-                  <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
-                    <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
-                  </linearGradient>
-                </defs>
-                
-                {/* Create path for area */}
-                <path
-                  d={`M 50 ${300 - (revenueData[0].value / maxRevenue) * 250} 
-                      L 150 ${300 - (revenueData[1].value / maxRevenue) * 250}
-                      L 250 ${300 - (revenueData[2].value / maxRevenue) * 250}
-                      L 350 ${300 - (revenueData[3].value / maxRevenue) * 250}
-                      L 450 ${300 - (revenueData[4].value / maxRevenue) * 250}
-                      L 550 ${300 - (revenueData[5].value / maxRevenue) * 250}
-                      L 650 ${300 - (revenueData[6].value / maxRevenue) * 250}
-                      L 650 300 L 50 300 Z`}
-                  fill="url(#areaGradient)"
-                />
-                
-                {/* Line */}
-                <path
-                  d={`M 50 ${300 - (revenueData[0].value / maxRevenue) * 250} 
-                      L 150 ${300 - (revenueData[1].value / maxRevenue) * 250}
-                      L 250 ${300 - (revenueData[2].value / maxRevenue) * 250}
-                      L 350 ${300 - (revenueData[3].value / maxRevenue) * 250}
-                      L 450 ${300 - (revenueData[4].value / maxRevenue) * 250}
-                      L 550 ${300 - (revenueData[5].value / maxRevenue) * 250}
-                      L 650 ${300 - (revenueData[6].value / maxRevenue) * 250}`}
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="3"
-                />
-                
-                {/* Data points */}
-                {revenueData.map((data, index) => (
-                  <circle
-                    key={index}
-                    cx={50 + index * 100}
-                    cy={300 - (data.value / maxRevenue) * 250}
-                    r="4"
-                    fill="#10b981"
-                    stroke="white"
-                    strokeWidth="2"
+            {isVerified && revenueData.length > 0 ? (
+              /* Area Chart */
+              <div className="relative h-80">
+                <svg className="w-full h-full" viewBox="0 0 800 300">
+                  {/* Grid lines */}
+                  <defs>
+                    <pattern id="grid" width="100" height="50" patternUnits="userSpaceOnUse">
+                      <path d="M 100 0 L 0 0 0 50" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
+                    </pattern>
+                  </defs>
+                  <rect width="800" height="300" fill="url(#grid)" />
+                  
+                  {/* Area fill */}
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Create path for area */}
+                  <path
+                    d={`M 50 ${300 - (revenueData[0].value / maxRevenue) * 250} 
+                        L 150 ${300 - (revenueData[1].value / maxRevenue) * 250}
+                        L 250 ${300 - (revenueData[2].value / maxRevenue) * 250}
+                        L 350 ${300 - (revenueData[3].value / maxRevenue) * 250}
+                        L 450 ${300 - (revenueData[4].value / maxRevenue) * 250}
+                        L 550 ${300 - (revenueData[5].value / maxRevenue) * 250}
+                        L 650 ${300 - (revenueData[6].value / maxRevenue) * 250}
+                        L 650 300 L 50 300 Z`}
+                    fill="url(#areaGradient)"
                   />
-                ))}
-                
-                {/* X-axis labels */}
-                {revenueData.map((data, index) => (
-                  <text
-                    key={index}
-                    x={50 + index * 100}
-                    y={320}
-                    textAnchor="middle"
-                    className="text-sm fill-gray-500"
-                  >
-                    {data.month}
-                  </text>
-                ))}
-                
-                {/* Y-axis labels */}
-                <text x="20" y="60" className="text-sm fill-gray-500">30000</text>
-                <text x="20" y="110" className="text-sm fill-gray-500">25000</text>
-                <text x="20" y="160" className="text-sm fill-gray-500">20000</text>
-                <text x="20" y="210" className="text-sm fill-gray-500">15000</text>
-                <text x="20" y="260" className="text-sm fill-gray-500">10000</text>
-                <text x="20" y="310" className="text-sm fill-gray-500">0</text>
-              </svg>
-            </div>
+                  
+                  {/* Line */}
+                  <path
+                    d={`M 50 ${300 - (revenueData[0].value / maxRevenue) * 250} 
+                        L 150 ${300 - (revenueData[1].value / maxRevenue) * 250}
+                        L 250 ${300 - (revenueData[2].value / maxRevenue) * 250}
+                        L 350 ${300 - (revenueData[3].value / maxRevenue) * 250}
+                        L 450 ${300 - (revenueData[4].value / maxRevenue) * 250}
+                        L 550 ${300 - (revenueData[5].value / maxRevenue) * 250}
+                        L 650 ${300 - (revenueData[6].value / maxRevenue) * 250}`}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="3"
+                  />
+                  
+                  {/* Data points */}
+                  {revenueData.map((data, index) => (
+                    <circle
+                      key={index}
+                      cx={50 + index * 100}
+                      cy={300 - (data.value / maxRevenue) * 250}
+                      r="4"
+                      fill="#10b981"
+                      stroke="white"
+                      strokeWidth="2"
+                    />
+                  ))}
+                  
+                  {/* X-axis labels */}
+                  {revenueData.map((data, index) => (
+                    <text
+                      key={index}
+                      x={50 + index * 100}
+                      y={320}
+                      textAnchor="middle"
+                      className="text-sm fill-gray-500"
+                    >
+                      {data.month}
+                    </text>
+                  ))}
+                  
+                  {/* Y-axis labels */}
+                  <text x="20" y="60" className="text-sm fill-gray-500">30000</text>
+                  <text x="20" y="110" className="text-sm fill-gray-500">25000</text>
+                  <text x="20" y="160" className="text-sm fill-gray-500">20000</text>
+                  <text x="20" y="210" className="text-sm fill-gray-500">15000</text>
+                  <text x="20" y="260" className="text-sm fill-gray-500">10000</text>
+                  <text x="20" y="310" className="text-sm fill-gray-500">0</text>
+                </svg>
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No revenue data available</h3>
+                <p className="text-gray-600 mb-6">Complete verification to view your revenue analytics and trends.</p>
+                <a
+                  href="/host/verification"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                >
+                  <span>Complete Verification</span>
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -274,52 +341,66 @@ const HostReports = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Booking (Last 7 Months)</h3>
             
-            {/* Bar Chart */}
-            <div className="relative h-80">
-              <svg className="w-full h-full" viewBox="0 0 800 300">
-                {/* Grid lines */}
-                <defs>
-                  <pattern id="bookingGrid" width="100" height="50" patternUnits="userSpaceOnUse">
-                    <path d="M 100 0 L 0 0 0 50" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
-                  </pattern>
-                </defs>
-                <rect width="800" height="300" fill="url(#bookingGrid)" />
-                
-                {/* Bars */}
-                {bookingsData.map((data, index) => (
-                  <rect
-                    key={index}
-                    x={50 + index * 100 - 25}
-                    y={300 - (data.value / maxBookings) * 250}
-                    width="50"
-                    height={(data.value / maxBookings) * 250}
-                    fill="#4E7B22"
-                    rx="4"
-                  />
-                ))}
-                
-                {/* X-axis labels */}
-                {bookingsData.map((data, index) => (
-                  <text
-                    key={index}
-                    x={50 + index * 100}
-                    y={320}
-                    textAnchor="middle"
-                    className="text-sm fill-gray-500"
-                  >
-                    {data.month}
-                  </text>
-                ))}
-                
-                {/* Y-axis labels */}
-                <text x="20" y="60" className="text-sm fill-gray-500">60</text>
-                <text x="20" y="110" className="text-sm fill-gray-500">50</text>
-                <text x="20" y="160" className="text-sm fill-gray-500">40</text>
-                <text x="20" y="210" className="text-sm fill-gray-500">30</text>
-                <text x="20" y="260" className="text-sm fill-gray-500">20</text>
-                <text x="20" y="310" className="text-sm fill-gray-500">0</text>
-              </svg>
-            </div>
+            {isVerified && bookingsData.length > 0 ? (
+              /* Bar Chart */
+              <div className="relative h-80">
+                <svg className="w-full h-full" viewBox="0 0 800 300">
+                  {/* Grid lines */}
+                  <defs>
+                    <pattern id="bookingGrid" width="100" height="50" patternUnits="userSpaceOnUse">
+                      <path d="M 100 0 L 0 0 0 50" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
+                    </pattern>
+                  </defs>
+                  <rect width="800" height="300" fill="url(#bookingGrid)" />
+                  
+                  {/* Bars */}
+                  {bookingsData.map((data, index) => (
+                    <rect
+                      key={index}
+                      x={50 + index * 100 - 25}
+                      y={300 - (data.value / maxBookings) * 250}
+                      width="50"
+                      height={(data.value / maxBookings) * 250}
+                      fill="#4E7B22"
+                      rx="4"
+                    />
+                  ))}
+                  
+                  {/* X-axis labels */}
+                  {bookingsData.map((data, index) => (
+                    <text
+                      key={index}
+                      x={50 + index * 100}
+                      y={320}
+                      textAnchor="middle"
+                      className="text-sm fill-gray-500"
+                    >
+                      {data.month}
+                    </text>
+                  ))}
+                  
+                  {/* Y-axis labels */}
+                  <text x="20" y="60" className="text-sm fill-gray-500">60</text>
+                  <text x="20" y="110" className="text-sm fill-gray-500">50</text>
+                  <text x="20" y="160" className="text-sm fill-gray-500">40</text>
+                  <text x="20" y="210" className="text-sm fill-gray-500">30</text>
+                  <text x="20" y="260" className="text-sm fill-gray-500">20</text>
+                  <text x="20" y="310" className="text-sm fill-gray-500">0</text>
+                </svg>
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No booking data available</h3>
+                <p className="text-gray-600 mb-6">Complete verification to view your booking analytics and trends.</p>
+                <a
+                  href="/host/verification"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                >
+                  <span>Complete Verification</span>
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -328,33 +409,49 @@ const HostReports = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Revenue Trends (Last 7 Months)</h3>
             
-            {/* Horizontal Bar Chart */}
-            <div className="space-y-4">
-              {unitPerformance.map((unit, index) => (
-                <div key={index} className="flex items-center space-x-4">
-                  <div className="w-24 text-sm text-gray-700 text-right">{unit.name}</div>
-                  <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
-                    <div
-                      className="bg-[#4E7B22] h-6 rounded-full transition-all duration-500"
-                      style={{ width: `${unit.performance * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="w-12 text-sm text-gray-500 text-right">
-                    {unit.performance.toFixed(2)}
-                  </div>
+            {isVerified && unitPerformance.length > 0 ? (
+              <>
+                {/* Horizontal Bar Chart */}
+                <div className="space-y-4">
+                  {unitPerformance.map((unit, index) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <div className="w-24 text-sm text-gray-700 text-right">{unit.name}</div>
+                      <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
+                        <div
+                          className="bg-[#4E7B22] h-6 rounded-full transition-all duration-500"
+                          style={{ width: `${unit.performance * 100}%` }}
+                        ></div>
+                      </div>
+                      <div className="w-12 text-sm text-gray-500 text-right">
+                        {unit.performance.toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            
-            {/* Scale indicators */}
-            <div className="flex justify-between mt-4 text-xs text-gray-400">
-              <span>0</span>
-              <span>0.2</span>
-              <span>0.4</span>
-              <span>0.6</span>
-              <span>0.8</span>
-              <span>1</span>
-            </div>
+                
+                {/* Scale indicators */}
+                <div className="flex justify-between mt-4 text-xs text-gray-400">
+                  <span>0</span>
+                  <span>0.2</span>
+                  <span>0.4</span>
+                  <span>0.6</span>
+                  <span>0.8</span>
+                  <span>1</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-16">
+                <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No performance data available</h3>
+                <p className="text-gray-600 mb-6">Complete verification to view your unit performance analytics.</p>
+                <a
+                  href="/host/verification"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                >
+                  <span>Complete Verification</span>
+                </a>
+              </div>
+            )}
           </div>
         )}
 

@@ -1,18 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   ChatBubbleLeftRightIcon,
   UserIcon,
   PaperAirplaneIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostMessages = () => {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const conversations = [
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
+
+  const conversations = isVerified ? [
     {
       id: 1,
       guest: {
@@ -39,7 +76,7 @@ const HostMessages = () => {
       unread: 2,
       status: 'pending'
     }
-  ];
+  ] : []; // Empty array for unverified hosts
 
   const messages = selectedConversation ? [
     {
@@ -82,34 +119,58 @@ const HostMessages = () => {
           </div>
           
           <div className="flex-1 overflow-y-auto">
-            {conversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                onClick={() => setSelectedConversation(conversation)}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                  selectedConversation?.id === conversation.id ? 'bg-green-50 border-green-200' : ''
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold text-sm">{conversation.guest.avatar}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-medium text-gray-900 truncate">{conversation.guest.name}</h3>
-                      {conversation.unread > 0 && (
-                        <span className="bg-green-600 text-white text-xs rounded-full px-2 py-1 ml-2">
-                          {conversation.unread}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 truncate">{conversation.property}</p>
-                    <p className="text-sm text-gray-600 truncate mt-1">{conversation.lastMessage}</p>
-                    <p className="text-xs text-gray-400 mt-1">{conversation.timestamp}</p>
-                  </div>
+            {conversations.length === 0 && !isVerified ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center p-8">
+                  <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No messages available</h3>
+                  <p className="text-gray-600 mb-6">Complete verification to start communicating with guests.</p>
+                  <a
+                    href="/host/verification"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                  >
+                    <span>Complete Verification</span>
+                  </a>
                 </div>
               </div>
-            ))}
+            ) : conversations.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center p-8">
+                  <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
+                  <p className="text-gray-600">Messages from your guests will appear here.</p>
+                </div>
+              </div>
+            ) : (
+              conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  onClick={() => setSelectedConversation(conversation)}
+                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                    selectedConversation?.id === conversation.id ? 'bg-green-50 border-green-200' : ''
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-semibold text-sm">{conversation.guest.avatar}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-medium text-gray-900 truncate">{conversation.guest.name}</h3>
+                        {conversation.unread > 0 && (
+                          <span className="bg-green-600 text-white text-xs rounded-full px-2 py-1 ml-2">
+                            {conversation.unread}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 truncate">{conversation.property}</p>
+                      <p className="text-sm text-gray-600 truncate mt-1">{conversation.lastMessage}</p>
+                      <p className="text-xs text-gray-400 mt-1">{conversation.timestamp}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

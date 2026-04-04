@@ -241,7 +241,7 @@ const Financial = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{transaction.user}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`text-sm font-medium ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {transaction.amount > 0 ? '+' : ''}{transaction.currency}{Math.abs(transaction.amount).toLocaleString()}
+                              {transaction.amount > 0 ? '+' : ''}₱{Math.abs(transaction.amount).toLocaleString()}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

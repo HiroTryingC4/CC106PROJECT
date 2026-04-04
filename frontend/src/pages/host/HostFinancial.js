@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { 
   ChartBarIcon,
@@ -13,13 +13,51 @@ import {
   TagIcon,
   HomeIcon,
   DocumentTextIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostFinancial = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
-  const [expenses, setExpenses] = useState([
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
+
+  const [expenses, setExpenses] = useState(isVerified ? [
     {
       id: 1,
       date: '2/24/2026',
@@ -29,7 +67,7 @@ const HostFinancial = () => {
       amount: 2000,
       category: 'Marketing Expenses'
     }
-  ]);
+  ] : []); // Empty array for unverified hosts
 
   // Calculate totals automatically
   const calculateTotals = () => {
@@ -76,7 +114,7 @@ const HostFinancial = () => {
 
   const expenseCategories = calculateExpensesByCategory();
 
-  const securityDeposits = [
+  const securityDeposits = isVerified ? [
     {
       bookingId: '#17',
       unit: 'Trial#1',
@@ -101,9 +139,9 @@ const HostFinancial = () => {
       status: 'Held',
       checkOut: '2/24/2026'
     }
-  ];
+  ] : []; // Empty array for unverified hosts
 
-  const expenseHistory = [
+  const expenseHistory = isVerified ? [
     {
       date: '2/24/2026',
       type: 'Marketing expense',
@@ -111,7 +149,7 @@ const HostFinancial = () => {
       property: 'Trial#1',
       amount: '2,000'
     }
-  ];
+  ] : []; // Empty array for unverified hosts
 
   // Add Expense Form State
   const [expenseForm, setExpenseForm] = useState({
@@ -239,125 +277,165 @@ const HostFinancial = () => {
         {/* Financial Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Financial Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl shadow-sm border border-green-100 hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-green-700">Revenue</h3>
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <ArrowTrendingUpIcon className="w-5 h-5 text-green-600" />
+            {!isVerified ? (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-semibold text-yellow-900">Verification Required</h3>
+                    <p className="mt-2 text-sm text-yellow-800">
+                      Your account is not yet verified. Complete and submit your verification documents to access financial data and start earning.
+                    </p>
+                    <button 
+                      onClick={() => window.location.href = '/host/verification'}
+                      className="mt-4 inline-flex items-center px-4 py-2 bg-yellow-600 text-white text-sm font-semibold rounded-lg hover:bg-yellow-700 transition-colors"
+                    >
+                      Complete Verification
+                    </button>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-green-700 mb-1">{financialData.revenue}</p>
-                <p className="text-sm text-green-600">Total earnings</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-2xl shadow-sm border border-red-100 hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-red-700">Expenses</h3>
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
+            ) : (
+              <>
+                {/* Financial Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl shadow-sm border border-green-100 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-green-700">Revenue</h3>
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <ArrowTrendingUpIcon className="w-5 h-5 text-green-600" />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-green-700 mb-1">{financialData.revenue}</p>
+                    <p className="text-sm text-green-600">Total earnings</p>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-2xl shadow-sm border border-red-100 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-red-700">Expenses</h3>
+                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-red-700 mb-1">{financialData.expenses}</p>
+                    <p className="text-sm text-red-600">Actual costs</p>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-sm border border-blue-100 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-blue-700">Net Profit</h3>
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <ArrowTrendingUpIcon className="w-5 h-5 text-blue-600" />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-700 mb-1">{financialData.netProfit}</p>
+                    <p className="text-sm text-blue-600">{financialData.profitMargin} Margin</p>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-red-700 mb-1">{financialData.expenses}</p>
-                <p className="text-sm text-red-600">Actual costs</p>
-              </div>
-              
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-sm border border-blue-100 hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-blue-700">Net Profit</h3>
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <ArrowTrendingUpIcon className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-                <p className="text-3xl font-bold text-blue-700 mb-1">{financialData.netProfit}</p>
-                <p className="text-sm text-blue-600">{financialData.profitMargin} Margin</p>
-              </div>
-            </div>
 
-            {/* Revenue vs Expenses Chart */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue vs. Expenses (Monthly)</h3>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-green-600 font-medium">Revenue {financialData.revenue}</span>
+                {/* Revenue vs Expenses Chart */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue vs. Expenses (Monthly)</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-green-600 font-medium">Revenue {financialData.revenue}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-red-600 font-medium">Expenses {financialData.expenses}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-red-600 font-medium">Expenses {financialData.expenses}</span>
+                  
+                  {/* Visual Bar Chart */}
+                  <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="absolute left-0 top-0 h-full bg-green-500 rounded-full" 
+                      style={{ width: `${(21321 / (21321 + financialData.totalExpenses)) * 100}%` }}
+                    ></div>
+                    <div 
+                      className="absolute top-0 h-full bg-red-500" 
+                      style={{ 
+                        left: `${(21321 / (21321 + financialData.totalExpenses)) * 100}%`,
+                        width: `${(financialData.totalExpenses / (21321 + financialData.totalExpenses)) * 100}%` 
+                      }}
+                    ></div>
                   </div>
                 </div>
-              </div>
-              
-              {/* Visual Bar Chart */}
-              <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="absolute left-0 top-0 h-full bg-green-500 rounded-full" 
-                  style={{ width: `${(21321 / (21321 + financialData.totalExpenses)) * 100}%` }}
-                ></div>
-                <div 
-                  className="absolute top-0 h-full bg-red-500" 
-                  style={{ 
-                    left: `${(21321 / (21321 + financialData.totalExpenses)) * 100}%`,
-                    width: `${(financialData.totalExpenses / (21321 + financialData.totalExpenses)) * 100}%` 
-                  }}
-                ></div>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Security Deposits */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-gray-900">Security Deposits</h3>
-                  <div className="flex items-center space-x-4 text-sm">
-                    <span className="text-gray-500">Total: ₱6,000</span>
-                    <span className="text-green-600">Returned: ₱0</span>
-                    <span className="text-yellow-600">Held: ₱6,000</span>
-                  </div>
+                  {isVerified ? (
+                    <div className="flex items-center space-x-4 text-sm">
+                      <span className="text-gray-500">Total: ₱6,000</span>
+                      <span className="text-green-600">Returned: ₱0</span>
+                      <span className="text-yellow-600">Held: ₱6,000</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-out</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {securityDeposits.map((deposit) => (
-                      <tr key={deposit.bookingId} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {deposit.bookingId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {deposit.unit}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {deposit.guests}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {deposit.amount}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                            {deposit.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {deposit.checkOut}
-                        </td>
+              {isVerified && securityDeposits.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-out</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {securityDeposits.map((deposit) => (
+                        <tr key={deposit.bookingId} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {deposit.bookingId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {deposit.unit}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {deposit.guests}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {deposit.amount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                              {deposit.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {deposit.checkOut}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No security deposits available</h3>
+                  <p className="text-gray-600 mb-6">Complete verification to view and manage security deposits.</p>
+                  <a
+                    href="/host/verification"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                  >
+                    <span>Complete Verification</span>
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -365,8 +443,30 @@ const HostFinancial = () => {
         {/* Expense Tracking Tab */}
         {activeTab === 'expenses' && (
           <div className="space-y-6">
-            {/* Expense Categories Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {!isVerified ? (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-semibold text-yellow-900">Verification Required</h3>
+                    <p className="mt-2 text-sm text-yellow-800">
+                      Your account is not yet verified. Complete and submit your verification documents to track and manage expenses.
+                    </p>
+                    <button 
+                      onClick={() => window.location.href = '/host/verification'}
+                      className="mt-4 inline-flex items-center px-4 py-2 bg-yellow-600 text-white text-sm font-semibold rounded-lg hover:bg-yellow-700 transition-colors"
+                    >
+                      Complete Verification
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Expense Categories Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {expenseCategories.map((category, index) => {
                 const icons = ['🔧', '⚡', '🧹', '📦', '🏗️', '🛡️', '📢', '⚙️'];
                 const colors = [
@@ -415,60 +515,77 @@ const HostFinancial = () => {
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-gray-900">Expense History</h3>
-                  <div className="flex items-center space-x-4 text-sm">
-                    <span className="text-gray-500">Total: ₱6,000</span>
-                    <span className="text-green-600">Returned: ₱0</span>
-                    <span className="text-yellow-600">Held: ₱6,000</span>
-                  </div>
+                  {isVerified && expenses.length > 0 ? (
+                    <div className="flex items-center space-x-4 text-sm">
+                      <span className="text-gray-500">Total: ₱{financialData.totalExpenses.toLocaleString()}</span>
+                      <span className="text-blue-600">Entries: {expenses.length}</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {expenses.map((expense) => (
-                      <tr key={expense.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {expense.date}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                            {expense.type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {expense.description}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {expense.property}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ₱{expense.amount.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                          <button
-                            onClick={() => handleEditExpense(expense.id)}
-                            className="hover:text-blue-800"
-                          >
-                            Edit
-                          </button>
-                        </td>
+              {isVerified && expenses.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {expenses.map((expense) => (
+                        <tr key={expense.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expense.date}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                              {expense.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expense.description}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expense.property}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ₱{expense.amount.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                            <button
+                              onClick={() => handleEditExpense(expense.id)}
+                              className="hover:text-blue-800"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No expense history available</h3>
+                  <p className="text-gray-600 mb-6">Complete verification to start tracking your expenses.</p>
+                  <a
+                    href="/host/verification"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                  >
+                    <span>Complete Verification</span>
+                  </a>
+                </div>
+              )}
             </div>
+              </>
+            )}
           </div>
         )}
 

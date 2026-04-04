@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import axios from 'axios';
 
 const GuestUnits = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [units, setUnits] = useState([]);
+  const [filteredUnits, setFilteredUnits] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   const [filters, setFilters] = useState({
     type: 'All types',
     guests: 'Any Guests',
@@ -16,50 +22,162 @@ const GuestUnits = () => {
     sortBy: 'Default'
   });
 
-  const units = [
-    {
-      id: 1,
-      title: 'Luxury Beachfront Condo',
-      type: 'CONDO',
-      description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
-      price: '₱5000',
-      period: '/night',
-      details: '2 bed • 2 bath • 4 guests',
-      rating: 4.5,
-      reviews: 45,
-      image: '/images/beachfront-condo.jpg',
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100'
-    },
-    {
-      id: 2,
-      title: 'Modern Downtown Studio',
-      type: 'STUDIO',
-      description: 'Cozy studio apartment in the heart of downtown, perfect for business travelers.',
-      price: '₱1500',
-      period: '/night',
-      details: '1 bed • 1 bath • 2 guests',
-      rating: 4.5,
-      reviews: 28,
-      image: '/images/downtown-studio.jpg',
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100'
-    },
-    {
-      id: 3,
-      title: 'Family-Friendly Villa',
-      type: 'VILLA',
-      description: 'Spacious 3-bedroom villa with private pool, perfect for families.',
-      price: '₱3000',
-      period: '/night',
-      details: '3 bed • 3 bath • 6 guests',
-      rating: 4.5,
-      reviews: 65,
-      image: '/images/family-villa.jpg',
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100'
+  // Fetch properties from API
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('http://localhost:5000/api/properties');
+        
+        if (response.data.data) {
+          const formattedUnits = response.data.data.map(property => ({
+            id: property.id,
+            title: property.title,
+            type: property.type.toUpperCase(),
+            description: property.description,
+            price: `₱${property.pricePerNight}`,
+            period: '/night',
+            details: `${property.bedrooms} bed • ${property.bathrooms} bath • ${property.maxGuests} guests`,
+            rating: property.rating,
+            reviews: property.reviewCount,
+            image: property.images?.[0] || '/images/property-placeholder.jpg',
+            typeColor: 'text-green-700',
+            typeBg: 'bg-green-100'
+          }));
+          setUnits(formattedUnits);
+          setFilteredUnits(formattedUnits);
+        }
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching properties:', err);
+        setError('Failed to load properties');
+        setSampleUnits();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProperties();
+  }, []);
+
+  // Apply filters when filters or search changes
+  useEffect(() => {
+    let filtered = [...units];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(unit =>
+        unit.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  ];
+
+    // Type filter
+    if (filters.type !== 'All types') {
+      filtered = filtered.filter(unit => unit.type === filters.type.toUpperCase());
+    }
+
+    // Guests filter
+    if (filters.guests !== 'Any Guests') {
+      const guestCount = parseInt(filters.guests);
+      filtered = filtered.filter(unit => {
+        const maxGuests = parseInt(unit.details.split(' guests')[0].split('•').pop() || 0);
+        return maxGuests >= guestCount;
+      });
+    }
+
+    // Bedrooms filter
+    if (filters.bedrooms !== 'Any Bedrooms') {
+      filtered = filtered.filter(unit => {
+        const bedrooms = parseInt(unit.details.split(' bed')[0]);
+        if (filters.bedrooms === 'Studio') return bedrooms === 0;
+        const filterBeds = parseInt(filters.bedrooms);
+        return bedrooms === filterBeds;
+      });
+    }
+
+    // Price filter
+    if (filters.minPrice) {
+      filtered = filtered.filter(unit => {
+        const price = parseInt(unit.price.replace(/[^0-9]/g, ''));
+        return price >= parseInt(filters.minPrice);
+      });
+    }
+
+    if (filters.maxPrice) {
+      filtered = filtered.filter(unit => {
+        const price = parseInt(unit.price.replace(/[^0-9]/g, ''));
+        return price <= parseInt(filters.maxPrice);
+      });
+    }
+
+    // Sort
+    if (filters.sortBy === 'Price: Low to High') {
+      filtered.sort((a, b) => {
+        const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
+        const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
+        return priceA - priceB;
+      });
+    } else if (filters.sortBy === 'Price: High to Low') {
+      filtered.sort((a, b) => {
+        const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
+        const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
+        return priceB - priceA;
+      });
+    } else if (filters.sortBy === 'Rating: High to Low') {
+      filtered.sort((a, b) => b.rating - a.rating);
+    }
+
+    setFilteredUnits(filtered);
+  }, [filters, searchTerm, units]);
+
+  const setSampleUnits = () => {
+    const sampleUnits = [
+      {
+        id: 1,
+        title: 'Luxury Beachfront Condo',
+        type: 'CONDO',
+        description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
+        price: '₱5000',
+        period: '/night',
+        details: '2 bed • 2 bath • 4 guests',
+        rating: 4.5,
+        reviews: 45,
+        image: '/images/beachfront-condo.jpg',
+        typeColor: 'text-green-700',
+        typeBg: 'bg-green-100'
+      },
+      {
+        id: 2,
+        title: 'Modern Downtown Studio',
+        type: 'STUDIO',
+        description: 'Cozy studio apartment in the heart of downtown, perfect for business travelers.',
+        price: '₱1500',
+        period: '/night',
+        details: '1 bed • 1 bath • 2 guests',
+        rating: 4.5,
+        reviews: 28,
+        image: '/images/downtown-studio.jpg',
+        typeColor: 'text-green-700',
+        typeBg: 'bg-green-100'
+      },
+      {
+        id: 3,
+        title: 'Family-Friendly Villa',
+        type: 'VILLA',
+        description: 'Spacious 3-bedroom villa with private pool, perfect for families.',
+        price: '₱3000',
+        period: '/night',
+        details: '3 bed • 3 bath • 6 guests',
+        rating: 4.5,
+        reviews: 65,
+        image: '/images/family-villa.jpg',
+        typeColor: 'text-green-700',
+        typeBg: 'bg-green-100'
+      }
+    ];
+    setUnits(sampleUnits);
+    setFilteredUnits(sampleUnits);
+  };
 
   const clearFilters = () => {
     setFilters({
@@ -216,17 +334,47 @@ const GuestUnits = () => {
         </div>
 
         {/* Units Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {units.map((unit) => (
+        {loading && (
+          <div className="flex justify-center items-center py-24">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+              <p className="mt-3 text-gray-500">Loading properties...</p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-6 rounded-lg text-red-700">
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!loading && filteredUnits.length === 0 && !error && (
+          <div className="text-center py-24 text-gray-500">
+            <p className="text-lg">No properties found matching your filters.</p>
+          </div>
+        )}
+
+        {!loading && filteredUnits.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredUnits.map((unit) => (
             <div 
               key={unit.id} 
               className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => navigate(`/guest/units/${unit.id}`)}
             >
               {/* Property Image */}
-              <div className="h-64 bg-gradient-to-br from-orange-400 to-orange-600 relative rounded-t-lg">
-                {/* This would be replaced with actual images */}
-                <div className="absolute inset-0 bg-black bg-opacity-20 rounded-t-lg"></div>
+              <div className="h-64 relative rounded-t-lg overflow-hidden">
+                <img 
+                  src={unit.image} 
+                  alt={unit.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'block';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 bg-black bg-opacity-20 rounded-t-lg hidden" style={{zIndex: 1}}></div>
               </div>
               
               <div className="p-6">
@@ -267,8 +415,9 @@ const GuestUnits = () => {
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+            ))}
+            </div>
+        )}
       </div>
     </GuestLayout>
   );

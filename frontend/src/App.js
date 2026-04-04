@@ -50,6 +50,7 @@ import HostSettings from './pages/host/HostSettings';
 import HostNotifications from './pages/host/HostNotifications';
 import PropertyManagement from './pages/host/PropertyManagement';
 import HostAnalytics from './pages/host/HostAnalytics';
+import HostVerificationForm from './pages/host/HostVerificationForm';
 
 // Admin components
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -103,6 +104,7 @@ function App() {
               <Route path="/guest/units/:unitId/payment" element={<PaymentPage />} />
               <Route path="/guest/host/:hostId" element={<HostProfile />} />
               <Route path="/guest/recommendations" element={<GuestRecommendations />} />
+              <Route path="/guest/property-search" element={<PropertySearch />} />
               <Route path="/guest/search" element={<PropertySearch />} />
               <Route path="/guest/bookings" element={<BookingHistory />} />
               <Route path="/guest/bookings/:bookingId" element={<BookingDetails />} />
@@ -113,6 +115,7 @@ function App() {
               <Route path="/guest/notifications" element={<GuestNotifications />} />
               
               {/* Host routes */}
+              <Route path="/host/verification" element={<HostVerificationForm />} />
               <Route path="/host/dashboard" element={<HostDashboard />} />
               <Route path="/host/units" element={<HostUnits />} />
               <Route path="/host/units/add" element={<AddUnit />} />

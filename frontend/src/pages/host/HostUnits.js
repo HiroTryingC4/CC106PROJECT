@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
 import { 
@@ -11,12 +11,50 @@ import {
   StarIcon,
   CalendarDaysIcon,
   CurrencyDollarIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostUnits = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch verification status when component mounts
+    const fetchVerificationStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVerificationStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching verification status:', error);
+        // Set default status if API fails
+        setVerificationStatus({
+          status: 'not_submitted',
+          message: 'Complete your verification to unlock all host features.'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVerificationStatus();
+  }, []);
+
+  // Check if user is verified
+  const isVerified = verificationStatus?.status === 'verified';
 
   const handleDeleteProperty = (propertyId, propertyName) => {
     if (window.confirm(`Are you sure you want to delete "${propertyName}"? This action cannot be undone.`)) {
@@ -27,7 +65,8 @@ const HostUnits = () => {
     }
   };
 
-  const properties = [
+  // Show empty properties for unverified hosts
+  const properties = isVerified ? [
     {
       id: 1,
       name: 'Luxury Beachfront Condo',
@@ -100,7 +139,7 @@ const HostUnits = () => {
       image: '/images/property4.jpg',
       amenities: ['WiFi', 'Air Con', 'City View', 'Kitchen']
     }
-  ];
+  ] : [];
 
   const filteredProperties = properties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,32 +166,43 @@ const HostUnits = () => {
             <h1 className="text-3xl font-bold text-gray-900">My Properties</h1>
             <p className="text-gray-600 mt-2">Manage your property listings and performance</p>
           </div>
-          <Link 
-            to="/host/units/add"
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>Add New Property</span>
-          </Link>
+          {isVerified ? (
+            <Link 
+              to="/host/units/add"
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Add New Property</span>
+            </Link>
+          ) : (
+            <button 
+              disabled
+              className="bg-gray-400 text-white px-6 py-3 rounded-lg cursor-not-allowed flex items-center space-x-2 font-medium"
+              title="Complete verification to add properties"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Add New Property</span>
+            </button>
+          )}
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Total Properties</h3>
-            <p className="text-3xl font-bold text-blue-600">{properties.length}</p>
+            <p className="text-3xl font-bold text-blue-600">{isVerified ? properties.length : 0}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Active Listings</h3>
-            <p className="text-3xl font-bold text-green-600">{properties.filter(p => p.status === 'active').length}</p>
+            <p className="text-3xl font-bold text-green-600">{isVerified ? properties.filter(p => p.status === 'active').length : 0}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h3>
-            <p className="text-3xl font-bold text-purple-600">₱128,000</p>
+            <p className="text-3xl font-bold text-purple-600">{isVerified ? '₱128,000' : '₱0'}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Avg. Occupancy</h3>
-            <p className="text-3xl font-bold text-yellow-600">76%</p>
+            <p className="text-3xl font-bold text-yellow-600">{isVerified ? '76%' : '0%'}</p>
           </div>
         </div>
 
@@ -280,18 +330,36 @@ const HostUnits = () => {
         {/* Empty State */}
         {filteredProperties.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <PhotoIcon className="w-16 h-16 mx-auto" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
-            <p className="text-gray-600 mb-6">Try adjusting your search or filter criteria.</p>
-            <Link 
-              to="/host/units/add"
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium mx-auto"
-            >
-              <PlusIcon className="w-5 h-5" />
-              <span>Add Your First Property</span>
-            </Link>
+            {!isVerified ? (
+              <>
+                <div className="text-gray-400 mb-4">
+                  <ExclamationTriangleIcon className="w-16 h-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No properties available</h3>
+                <p className="text-gray-600 mb-6">Complete verification to start listing your properties.</p>
+                <Link 
+                  to="/host/verification"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                >
+                  <span>Complete Verification</span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <div className="text-gray-400 mb-4">
+                  <PhotoIcon className="w-16 h-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
+                <p className="text-gray-600 mb-6">Try adjusting your search or filter criteria.</p>
+                <Link 
+                  to="/host/units/add"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                >
+                  <PlusIcon className="w-5 h-5" />
+                  <span>Add Your First Property</span>
+                </Link>
+              </>
+            )}
           </div>
         )}
       </div>
