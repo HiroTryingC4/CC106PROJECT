@@ -1,64 +1,69 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
+import API_CONFIG from '../../config/api';
+
+const STATUS_COLORS = {
+  confirmed: 'bg-green-100 text-green-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+  completed: 'bg-blue-100 text-blue-800',
+  cancelled: 'bg-red-100 text-red-800'
+};
 
 const BookingHistory = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState('List'); // List or Calendar
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const apiBaseUrl = API_CONFIG.BASE_URL;
 
-  const bookings = [
-    {
-      id: 'Booking #17',
-      checkIn: '2/23/2026',
-      checkOut: '2/24/2026',
-      guests: 1,
-      totalPrice: '₱150',
-      status: 'pending',
-      statusColor: 'bg-yellow-100 text-yellow-800',
-      statusBadge: 'pending'
-    },
-    {
-      id: 'Booking #16',
-      checkIn: '2/25/2026',
-      checkOut: '2/26/2026',
-      guests: 1,
-      totalPrice: '₱150',
-      status: 'pending',
-      statusColor: 'bg-yellow-100 text-yellow-800',
-      statusBadge: 'pending'
-    },
-    {
-      id: 'Booking #13',
-      checkIn: '3/9/2026',
-      checkOut: '3/10/2026',
-      guests: 1,
-      totalPrice: '₱150',
-      status: 'confirmed',
-      statusColor: 'bg-green-100 text-green-800',
-      statusBadge: 'confirmed'
-    },
-    {
-      id: 'Booking #13',
-      checkIn: '3/12/2026',
-      checkOut: '3/13/2026',
-      guests: 1,
-      totalPrice: '₱150',
-      status: 'confirmed',
-      statusColor: 'bg-green-100 text-green-800',
-      statusBadge: 'confirmed'
-    },
-    {
-      id: 'Booking #3',
-      checkIn: '5/1/2024',
-      checkOut: '5/5/2024',
-      guests: 1,
-      totalPrice: '₱540',
-      status: 'completed',
-      statusColor: 'bg-blue-100 text-blue-800',
-      statusBadge: 'completed'
-    }
-  ];
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const response = await fetch(`${apiBaseUrl}/bookings`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load bookings');
+        }
+
+        const data = await response.json();
+        const mapped = (data.bookings || []).map((booking) => {
+          const checkInDate = new Date(booking.checkIn);
+          const checkOutDate = new Date(booking.checkOut);
+
+          return {
+            id: `Booking #${booking.id}`,
+            rawId: booking.id,
+            checkIn: checkInDate.toLocaleDateString('en-PH'),
+            checkOut: checkOutDate.toLocaleDateString('en-PH'),
+            guests: booking.guests,
+            totalPrice: `₱${Number(booking.totalAmount || 0).toLocaleString('en-PH')}`,
+            status: booking.status,
+            statusBadge: booking.status,
+            checkInDate,
+            checkOutDate
+          };
+        });
+
+        setBookings(mapped);
+        setError('');
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setError(err.message || 'Failed to load bookings');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, [apiBaseUrl]);
 
   const getFilteredBookings = () => {
     if (activeTab === 'All') return bookings;
@@ -137,7 +142,16 @@ const BookingHistory = () => {
         </div>
 
         {/* Content - List or Calendar View */}
-        {viewMode === 'List' ? (
+        {loading && (
+          <div className="bg-white rounded-lg shadow-sm p-6 text-gray-600">Loading bookings...</div>
+        )}
+
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-red-700">{error}</div>
+        )}
+
+        {!loading && !error && (
+        viewMode === 'List' ? (
           /* Bookings List */
           <div className="space-y-4">
             {getFilteredBookings().map((booking, index) => (
@@ -148,9 +162,7 @@ const BookingHistory = () => {
                     <div className="flex items-center space-x-3 mb-4">
                       <h3 className="text-xl font-bold text-gray-900">{booking.id}</h3>
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                        'bg-blue-100 text-blue-800'
+                        STATUS_COLORS[booking.status] || 'bg-gray-100 text-gray-800'
                       }`}>
                         {booking.statusBadge}
                       </span>
@@ -186,7 +198,7 @@ const BookingHistory = () => {
                   {/* Right Side - Action Button */}
                   <div>
                     <button 
-                      onClick={() => navigate(`/guest/bookings/${booking.id.replace('Booking #', '')}`)}
+                      onClick={() => navigate(`/guest/bookings/${booking.rawId || booking.id.replace('Booking #', '')}`)}
                       className="text-white px-6 py-2 rounded-lg font-medium hover:opacity-90" 
                       style={{backgroundColor: '#4E7B22'}}
                     >
@@ -200,10 +212,10 @@ const BookingHistory = () => {
         ) : (
           /* Calendar View */
           <CalendarView bookings={getFilteredBookings()} navigate={navigate} />
-        )}
+        ))}
 
         {/* Empty State */}
-        {getFilteredBookings().length === 0 && (
+        {!loading && !error && getFilteredBookings().length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,16 +226,6 @@ const BookingHistory = () => {
             <p className="text-gray-600">You don't have any bookings in this category yet.</p>
           </div>
         )}
-
-        {/* Floating Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="text-white p-4 rounded-full shadow-lg hover:opacity-90 flex items-center space-x-2" style={{backgroundColor: '#4E7B22'}}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="font-medium">Chat</span>
-          </button>
-        </div>
       </div>
     </GuestLayout>
   );
@@ -278,6 +280,7 @@ const CalendarView = ({ bookings, navigate }) => {
       if (booking.status === 'confirmed') return 'confirmed';
       if (booking.status === 'pending') return 'pending';
       if (booking.status === 'completed') return 'completed';
+      if (booking.status === 'cancelled') return 'cancelled';
     }
     return 'available';
   };
@@ -287,6 +290,7 @@ const CalendarView = ({ bookings, navigate }) => {
       case 'confirmed': return 'bg-green-300'; // Green for confirmed bookings
       case 'pending': return 'bg-yellow-200'; // Yellow for pending bookings
       case 'completed': return 'bg-blue-200'; // Blue for completed bookings
+      case 'cancelled': return 'bg-red-200'; // Red for cancelled bookings
       default: return 'bg-yellow-100'; // Light yellow for available days
     }
   };
@@ -322,14 +326,14 @@ const CalendarView = ({ bookings, navigate }) => {
           className={`h-16 border border-gray-200 ${dayColor} flex flex-col justify-center items-center cursor-pointer hover:opacity-80 transition-opacity`}
           onClick={() => {
             if (booking) {
-              navigate(`/guest/bookings/${booking.id.replace('Booking #', '')}`);
+              navigate(`/guest/bookings/${booking.rawId || booking.id.replace('Booking #', '')}`);
             }
           }}
         >
           <span className="text-sm font-medium text-gray-800">{day}</span>
           {booking && (
             <span className="text-xs text-gray-600 mt-1">
-              {booking.id.replace('Booking #', '')}
+              {booking.rawId || booking.id.replace('Booking #', '')}
             </span>
           )}
         </div>
@@ -393,6 +397,10 @@ const CalendarView = ({ bookings, navigate }) => {
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-blue-200 rounded"></div>
           <span className="text-sm text-gray-600">Completed</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-4 h-4 bg-red-200 rounded"></div>
+          <span className="text-sm text-gray-600">Cancelled</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-yellow-100 rounded"></div>

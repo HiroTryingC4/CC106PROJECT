@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
+import FeedbackModal from '../../components/common/FeedbackModal';
+import { useAuth } from '../../contexts/AuthContext';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import { handleImageFileSelect, uploadImageToCloudinary } from '../../utils/fileUpload';
+import API_CONFIG from '../../config/api';
 import { 
   PlusIcon,
   MapPinIcon,
   InformationCircleIcon,
-  PhotoIcon,
-  ChatBubbleLeftRightIcon
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 
 // Fix for default markers in react-leaflet
@@ -22,12 +25,16 @@ L.Icon.Default.mergeOptions({
 const EditUnit = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { token: authToken, user } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   
   const [formData, setFormData] = useState({
     unitName: '',
     propertyType: 'Apartment',
     location: '',
     pricePerNight: '',
+    bookingType: 'fixed',
+    hourlyRate: '',
     hoursIncluded: '22 hours',
     bedrooms: '1',
     bathrooms: '1',
@@ -57,113 +64,93 @@ const EditUnit = () => {
   const [mapPosition, setMapPosition] = useState([14.5995, 120.9842]); // Default to Manila, Philippines
   const [markerPosition, setMarkerPosition] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+    actionLabel: 'Close',
+    onAction: null
+  });
+  const fileInputRef = React.useRef(null);
 
-  // Mock data for existing properties (in real app, this would come from API)
-  const mockProperties = {
-    1: {
-      unitName: 'Luxury Beachfront Condo',
-      propertyType: 'Condo',
-      location: 'Boracay, Philippines',
-      pricePerNight: '2500',
-      hoursIncluded: '22 hours',
-      bedrooms: '2',
-      bathrooms: '2',
-      maxGuests: '4',
-      securityDeposit: '2000',
-      extraGuestFee: '500',
-      description: 'Beautiful beachfront condo with stunning ocean views and modern amenities.',
-      unitRules: 'No smoking, No pets, Check-in after 3 PM, Check-out before 11 AM',
-      amenities: ['Wifi', 'Pool', 'Beach Access', 'Kitchen'],
-      autoConfirmation: true,
-      coordinates: [11.9674, 121.9248], // Boracay coordinates
-      paymentMethods: {
-        cash: true,
-        bankTransfer: true,
-        gcash: true,
-        paymaya: false,
-        paypal: true
-      },
-      qrCodes: {
-        gcash: null, // In real app, this would be a saved image URL
-        paymaya: null,
-        paypal: null
-      }
-    },
-    2: {
-      unitName: 'Downtown Studio',
-      propertyType: 'Studio',
-      location: 'Makati, Manila',
-      pricePerNight: '1800',
-      hoursIncluded: '22 hours',
-      bedrooms: '1',
-      bathrooms: '1',
-      maxGuests: '2',
-      securityDeposit: '1500',
-      extraGuestFee: '300',
-      description: 'Modern studio apartment in the heart of Makati business district.',
-      unitRules: 'No smoking, Quiet hours after 10 PM',
-      amenities: ['Wifi', 'Gym', 'Parking', 'Kitchen'],
-      autoConfirmation: false,
-      coordinates: [14.5547, 121.0244], // Makati coordinates
-      paymentMethods: {
-        cash: true,
-        bankTransfer: false,
-        gcash: true,
-        paymaya: true,
-        paypal: false
-      },
-      qrCodes: {
-        gcash: null,
-        paymaya: null,
-        paypal: null
-      }
-    }
-  };
+  const formatPHP = (value) => new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(Number(value) || 0);
 
   // Load existing unit data
   useEffect(() => {
-    const loadUnitData = () => {
-      const unitData = mockProperties[id];
-      if (unitData) {
+    const loadUnitData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${apiBaseUrl}/properties/${id}`);
+
+        if (!response.ok) {
+          throw new Error('Property not found');
+        }
+
+        const unitData = await response.json();
+        const addressText = typeof unitData.address === 'string'
+          ? unitData.address
+          : unitData.address?.fullAddress || unitData.address?.city || '';
+
         setFormData({
-          unitName: unitData.unitName,
-          propertyType: unitData.propertyType,
-          location: unitData.location,
-          pricePerNight: unitData.pricePerNight,
-          hoursIncluded: unitData.hoursIncluded,
-          bedrooms: unitData.bedrooms,
-          bathrooms: unitData.bathrooms,
-          maxGuests: unitData.maxGuests,
-          securityDeposit: unitData.securityDeposit,
-          extraGuestFee: unitData.extraGuestFee,
-          description: unitData.description,
-          unitRules: unitData.unitRules,
-          amenities: unitData.amenities,
-          autoConfirmation: unitData.autoConfirmation,
-          paymentMethods: unitData.paymentMethods || {
+          unitName: unitData.title || '',
+          propertyType: unitData.type || 'Apartment',
+          location: addressText,
+          pricePerNight: unitData.pricePerNight?.toString() || '',
+          bookingType: unitData.bookingType || 'fixed',
+          hourlyRate: unitData.hourlyRate?.toString() || '',
+          hoursIncluded: '22 hours',
+          bedrooms: unitData.bedrooms?.toString() || '1',
+          bathrooms: unitData.bathrooms?.toString() || '1',
+          maxGuests: unitData.maxGuests?.toString() || '4',
+          securityDeposit: '0',
+          extraGuestFee: (unitData.extraGuestFee ?? unitData.timeAvailability?.extraGuestFee ?? 0).toString(),
+          description: unitData.description || '',
+          unitRules: unitData.houseRules || unitData.timeAvailability?.houseRules || '',
+          amenities: unitData.amenities || [],
+          autoConfirmation: true,
+          paymentMethods: {
             cash: true,
             bankTransfer: false,
             gcash: false,
             paymaya: false,
             paypal: false
           },
-          qrCodes: unitData.qrCodes || {
+          qrCodes: {
             gcash: null,
             paymaya: null,
             paypal: null
           }
         });
-        
-        if (unitData.coordinates) {
-          setMapPosition(unitData.coordinates);
-          setMarkerPosition(unitData.coordinates);
+
+        setUploadedImages(unitData.images || []);
+
+        if (Array.isArray(unitData.images) && unitData.images.length > 0) {
+          setMarkerPosition(null);
         }
+
+        if (addressText) {
+          setMapPosition([14.5995, 120.9842]);
+        }
+      } catch (error) {
+        console.error('Error loading property:', error);
+        alert('Unable to load this unit for editing.');
+        navigate('/host/units');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadUnitData();
-  }, [id]);
+  }, [id, apiBaseUrl, navigate]);
 
   // Component for handling map clicks
   const LocationMarker = () => {
@@ -287,12 +274,119 @@ const EditUnit = () => {
     setHourlyPricing([...hourlyPricing, { hours: '', price: '' }]);
   };
 
-  const handleSubmit = (e) => {
+  const handlePhotoUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageSelect = async (e) => {
+    try {
+      const didStart = handleImageFileSelect(e, async (fileData) => {
+        try {
+          const imageUrl = await uploadImageToCloudinary(fileData.file);
+          setUploadedImages(prev => [...prev, imageUrl]);
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          alert('Failed to upload image. Please try again.');
+        } finally {
+          setUploadingImage(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+      });
+
+      setUploadingImage(Boolean(didStart));
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    setUploadedImages(prev => prev.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, this would update the unit via API
-    console.log('Updated unit data:', formData);
-    alert('Unit updated successfully!');
-    navigate('/host/units');
+
+    try {
+      setSaving(true);
+
+      const token = authToken || localStorage.getItem('token') || sessionStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const payload = {
+        title: formData.unitName,
+        description: formData.description,
+        type: formData.propertyType,
+        bedrooms: parseInt(formData.bedrooms, 10) || 1,
+        bathrooms: parseInt(formData.bathrooms, 10) || 1,
+        maxGuests: parseInt(formData.maxGuests, 10) || 1,
+        pricePerNight: parseFloat((formData.pricePerNight || '').replace(/,/g, '')) || 0,
+        bookingType: formData.bookingType,
+        hourlyRate: (formData.bookingType === 'hourly' || formData.bookingType === 'both')
+          ? (parseFloat((formData.hourlyRate || '').replace(/,/g, '')) || null)
+          : null,
+        extraGuestFee: parseFloat((formData.extraGuestFee || '').replace(/,/g, '')) || 0,
+        houseRules: formData.unitRules,
+        address: {
+          fullAddress: formData.location,
+          city: formData.location,
+          state: 'N/A'
+        },
+        amenities: formData.amenities,
+        images: uploadedImages,
+        availability: true,
+        timeAvailability: {
+          checkInTime: '15:00',
+          checkOutTime: '11:00',
+          extraGuestFee: parseFloat((formData.extraGuestFee || '').replace(/,/g, '')) || 0,
+          houseRules: formData.unitRules
+        }
+      };
+
+      const response = await fetch(`${apiBaseUrl}/properties/${id}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const fallbackMessage = response.status === 404
+          ? 'Property not found or access denied. Please confirm you are logged in as the unit host.'
+          : 'Failed to update property';
+        throw new Error(errorData.message || fallbackMessage);
+      }
+
+      setFeedbackModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Unit Updated',
+        message: 'Your unit was updated successfully.',
+        actionLabel: 'Back to Units',
+        onAction: () => navigate('/host/units')
+      });
+    } catch (error) {
+      console.error('Update unit error:', error);
+      setFeedbackModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Unable to Update Unit',
+        message: error.message || 'Failed to update unit. Please try again.',
+        actionLabel: 'Close',
+        onAction: null
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -308,25 +402,17 @@ const EditUnit = () => {
     );
   }
 
-  if (!mockProperties[id]) {
-    return (
-      <HostLayout>
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Unit Not Found</h2>
-          <p className="text-gray-600 mb-6">The unit you're trying to edit doesn't exist.</p>
-          <button
-            onClick={() => navigate('/host/units')}
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
-          >
-            Back to Units
-          </button>
-        </div>
-      </HostLayout>
-    );
-  }
-
   return (
     <HostLayout>
+      <FeedbackModal
+        isOpen={feedbackModal.isOpen}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        actionLabel={feedbackModal.actionLabel}
+        onAction={feedbackModal.onAction}
+        onClose={() => setFeedbackModal(prev => ({ ...prev, isOpen: false }))}
+      />
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div>
@@ -374,7 +460,7 @@ const EditUnit = () => {
             </div>
 
             {/* Location and Pricing */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                 <div className="relative">
@@ -421,7 +507,37 @@ const EditUnit = () => {
                   <option value="24 hours">24 hours</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Booking Option</label>
+                <select
+                  name="bookingType"
+                  value={formData.bookingType}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="fixed">Fixed Time</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
             </div>
+
+            {(formData.bookingType === 'hourly' || formData.bookingType === 'both') && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (₱)</label>
+                  <input
+                    type="text"
+                    name="hourlyRate"
+                    value={formData.hourlyRate}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Map Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -855,6 +971,70 @@ const EditUnit = () => {
             </div>
 
             {/* Form Actions */}
+            {/* Property Images */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Property Images</h3>
+              <p className="text-sm text-gray-600 mb-4">Update the images shown for this unit</p>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                style={{ display: 'none' }}
+              />
+
+              {uploadedImages.length === 0 ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <PhotoIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <button
+                    type="button"
+                    onClick={handlePhotoUpload}
+                    disabled={uploadingImage}
+                    className="bg-green-600 text-white px-6 py-2 rounded-lg mb-2 flex items-center space-x-2 mx-auto hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    <span>{uploadingImage ? 'Uploading...' : 'Add Photos'}</span>
+                  </button>
+                  <p className="text-sm text-gray-500">No Photos Selected</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {uploadedImages.map((image, index) => (
+                      <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={image}
+                          alt={`Property ${index + 1}`}
+                          className="w-full h-40 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <span className="text-white text-sm font-medium">Remove</span>
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={handlePhotoUpload}
+                      disabled={uploadingImage}
+                      className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center hover:border-green-600 hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="text-center">
+                        <PlusIcon className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                        <span className="text-sm text-gray-600 font-medium">{uploadingImage ? 'Uploading...' : 'Add More'}</span>
+                      </div>
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500">{uploadedImages.length} photo(s) selected</p>
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-between items-center pt-8 border-t border-gray-200">
               <button
                 type="button"
@@ -865,20 +1045,13 @@ const EditUnit = () => {
               </button>
               <button
                 type="submit"
+                disabled={saving}
                 className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-medium"
               >
-                Update Unit
+                {saving ? 'Updating...' : 'Update Unit'}
               </button>
             </div>
           </form>
-        </div>
-
-        {/* Fixed Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="bg-[#4E7B22] text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
         </div>
       </div>
     </HostLayout>

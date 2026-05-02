@@ -1,174 +1,212 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import HostLayout from '../../components/common/HostLayout';
+import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 import { 
   CurrencyDollarIcon,
   CheckCircleIcon,
   ClockIcon,
   ChartBarIcon,
-  ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostPayments = () => {
+  const { token, user } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
+
   const [verificationStatus, setVerificationStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState([]);
+  const [loadingVerification, setLoadingVerification] = useState(true);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [fetchError, setFetchError] = useState('');
+  const [actionPaymentId, setActionPaymentId] = useState(null);
+
+  const normalizeVerificationStatus = (verificationData) => {
+    const rawStatus = verificationData?.status
+      || verificationData?.verificationStatus
+      || verificationData?.verification_status
+      || user?.verificationStatus
+      || user?.verification_status
+      || 'not_submitted';
+
+    const status = rawStatus === 'approved' ? 'verified' : rawStatus;
+    const verified = verificationData?.verified === true || status === 'verified';
+
+    return {
+      ...(verificationData || {}),
+      status,
+      verified
+    };
+  };
+
+  const isVerified = ['verified', 'approved'].includes(verificationStatus?.status) || verificationStatus?.verified === true;
+
+  const fetchPayments = async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      setLoadingPayments(true);
+      setFetchError('');
+
+      const response = await fetch(`${apiBaseUrl}/payments`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        throw new Error(errorPayload.message || 'Failed to fetch payments');
+      }
+
+      const payload = await response.json();
+      setPayments(payload.payments || []);
+    } catch (error) {
+      console.error('Error fetching host payments:', error);
+      setFetchError(error.message || 'Failed to load payments');
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
 
   useEffect(() => {
-    // Fetch verification status when component mounts
     const fetchVerificationStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!token) {
+          setVerificationStatus(normalizeVerificationStatus());
+          return;
+        }
 
-        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+        const response = await fetch(`${apiBaseUrl}/host/verification-status`, {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`
+          },
+          credentials: 'include'
         });
 
         if (response.ok) {
           const data = await response.json();
-          setVerificationStatus(data);
+          setVerificationStatus(normalizeVerificationStatus(data));
+        } else {
+          setVerificationStatus(normalizeVerificationStatus());
         }
       } catch (error) {
         console.error('Error fetching verification status:', error);
-        setVerificationStatus({
-          status: 'not_submitted',
-          message: 'Complete your verification to unlock all host features.'
-        });
+        setVerificationStatus(normalizeVerificationStatus());
       } finally {
-        setLoading(false);
+        setLoadingVerification(false);
       }
     };
 
     fetchVerificationStatus();
-  }, []);
+  }, [apiBaseUrl, token, user]);
 
-  // Check if user is verified
-  const isVerified = verificationStatus?.status === 'verified';
-
-  const paymentSummary = {
-    totalRevenue: isVerified ? '$6,470' : '$0',
-    revenueGrowth: isVerified ? '+18% vs last month' : '',
-    completedTransactions: isVerified ? 6 : 0,
-    pendingTransactions: isVerified ? 2 : 0,
-    avgTransaction: isVerified ? '$1,078' : '$0'
-  };
-
-  const pendingDeposits = isVerified ? [
-    {
-      id: 1,
-      name: 'Lisa Anderson',
-      property: 'Desert Oasis',
-      amount: '$500'
-    },
-    {
-      id: 2,
-      name: 'Rachel Green',
-      property: 'Beach House',
-      amount: '$300'
+  useEffect(() => {
+    if (loadingVerification) {
+      return;
     }
-  ] : [];
 
-  const transactions = isVerified ? [
-    {
-      id: 'PAY-001',
-      bookingId: 'BK-2024-001',
-      guest: 'Sarah Johnson',
-      unit: 'Sunset Villa',
-      type: 'Booking',
-      amount: '$1,350',
-      date: 'Feb 15, 2026',
-      status: 'Completed'
-    },
-    {
-      id: 'PAY-002',
-      bookingId: 'BK-2024-002',
-      guest: 'Michael Chen',
-      unit: 'Ocean View Apartment',
-      type: 'Booking',
-      amount: '$980',
-      date: 'Feb 14, 2026',
-      status: 'Completed'
-    },
-    {
-      id: 'PAY-003',
-      bookingId: 'BK-2024-003',
-      guest: 'Emma Williams',
-      unit: 'Mountain Cabin',
-      type: 'Booking',
-      amount: '$2,380',
-      date: 'Feb 13, 2026',
-      status: 'Completed'
-    },
-    {
-      id: 'PAY-004',
-      bookingId: 'BK-2024-004',
-      guest: 'David Brown',
-      unit: 'City Loft',
-      type: 'Booking',
-      amount: '$560',
-      date: 'Feb 16, 2026',
-      status: 'Completed'
-    },
-    {
-      id: 'PAY-005',
-      bookingId: 'BK-2024-005',
-      guest: 'Lisa Walker',
-      unit: 'Desert Oasis',
-      type: 'Deposit',
-      amount: '$500',
-      date: 'Feb 18, 2026',
-      status: 'Pending'
-    },
-    {
-      id: 'PAY-006',
-      bookingId: 'BK-2024-006',
-      guest: 'James Wilson',
-      unit: 'Sunset Villa',
-      type: 'Booking',
-      amount: '$1,200',
-      date: 'Feb 17, 2026',
-      status: 'Completed'
-    },
-    {
-      id: 'PAY-007',
-      bookingId: 'BK-2024-007',
-      guest: 'Rachel Green',
-      unit: 'Beach House',
-      type: 'Deposit',
-      amount: '$300',
-      date: 'Feb 19, 2026',
-      status: 'Pending'
-    },
-    {
-      id: 'PAY-008',
-      bookingId: 'BK-2024-008',
-      guest: 'Tom Anderson',
-      unit: 'City Loft',
-      type: 'Refund',
-      amount: '$450',
-      date: 'Feb 12, 2026',
-      status: 'Completed'
+    if (!isVerified) {
+      setPayments([]);
+      return;
     }
-  ] : []; // Empty array for unverified hosts
 
-  const handleApproveDeposit = (depositId) => {
-    console.log(`Approving deposit ${depositId}`);
-    // In real app, this would call an API
+    fetchPayments();
+  }, [loadingVerification, isVerified]);
+
+  const updatePaymentStatus = async (paymentId, status) => {
+    try {
+      setActionPaymentId(paymentId);
+      let response = await fetch(`${apiBaseUrl}/payments/${paymentId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status })
+      });
+
+      if (response.status === 404) {
+        const fallbackPath = status === 'completed' ? 'approve' : 'reject';
+        response = await fetch(`${apiBaseUrl}/payments/${paymentId}/${fallbackPath}`, {
+          method: 'PUT',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          credentials: 'include'
+        });
+      }
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        throw new Error(errorPayload.message || 'Failed to update payment status');
+      }
+
+      await fetchPayments();
+    } catch (error) {
+      console.error('Error reviewing payment:', error);
+      alert(error.message || 'Unable to update payment status');
+    } finally {
+      setActionPaymentId(null);
+    }
   };
 
-  const handleDeclineDeposit = (depositId) => {
-    console.log(`Declining deposit ${depositId}`);
-    // In real app, this would call an API
-  };
+  const formatCurrency = (value) => `PHP ${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatDate = (value) => new Date(value).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+
+  const paymentSummary = useMemo(() => {
+    const completed = payments.filter((payment) => payment.status === 'completed');
+    const pending = payments.filter((payment) => payment.status === 'pending');
+    const totalRevenue = completed.reduce((sum, payment) => sum + Number(payment.hostPayout || payment.amount || 0), 0);
+    const averageTransaction = completed.length > 0
+      ? totalRevenue / completed.length
+      : 0;
+
+    return {
+      totalRevenue,
+      completedTransactions: completed.length,
+      pendingTransactions: pending.length,
+      avgTransaction: averageTransaction
+    };
+  }, [payments]);
+
+  const pendingDeposits = useMemo(
+    () => payments.filter((payment) => payment.status === 'pending'),
+    [payments]
+  );
 
   const getStatusColor = (status) => {
+    const normalized = String(status || '').toLowerCase();
     switch (status) {
-      case 'Completed': return 'bg-green-100 text-green-800';
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      case 'Failed': return 'bg-red-100 text-red-800';
+      case 'Completed':
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'Pending':
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Failed':
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      case 'refunded':
+      case 'Refunded':
+        return 'bg-indigo-100 text-indigo-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatPaymentMethod = (method) => {
+    switch (String(method || '').toLowerCase()) {
+      case 'grab_pay': return 'Maya';
+      case 'gcash': return 'GCash';
+      case 'card': return 'Card';
+      case 'paymaya': return 'Maya';
+      default: return String(method || '').toUpperCase();
     }
   };
 
@@ -180,6 +218,8 @@ const HostPayments = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const loading = loadingVerification || (isVerified && loadingPayments);
 
   return (
     <HostLayout>
@@ -197,8 +237,8 @@ const HostPayments = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h3>
-                <p className="text-3xl font-bold text-gray-900">{paymentSummary.totalRevenue}</p>
-                <p className="text-sm text-green-600 mt-1">{paymentSummary.revenueGrowth}</p>
+                <p className="text-3xl font-bold text-gray-900">{formatCurrency(paymentSummary.totalRevenue)}</p>
+                <p className="text-sm text-gray-500 mt-1">From completed payments</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
@@ -239,7 +279,7 @@ const HostPayments = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Avg Transaction</h3>
-                <p className="text-3xl font-bold text-gray-900">{paymentSummary.avgTransaction}</p>
+                <p className="text-3xl font-bold text-gray-900">{formatCurrency(paymentSummary.avgTransaction)}</p>
                 <p className="text-sm text-gray-500 mt-1">Per Booking</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -261,21 +301,25 @@ const HostPayments = () => {
               {pendingDeposits.map((deposit) => (
                 <div key={deposit.id} className="flex items-center justify-between bg-white p-4 rounded-lg border border-yellow-200">
                   <div>
-                    <h4 className="font-medium text-gray-900">{deposit.name}</h4>
-                    <p className="text-sm text-gray-600">{deposit.property} • {deposit.amount}</p>
+                    <h4 className="font-medium text-gray-900">{deposit.guestName || `Guest #${deposit.payerUserId}`}</h4>
+                    <p className="text-sm text-gray-600">
+                      {deposit.propertyTitle || 'Property'} • {formatCurrency(deposit.amount)}
+                    </p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => handleDeclineDeposit(deposit.id)}
+                      onClick={() => updatePaymentStatus(deposit.id, 'failed')}
+                      disabled={actionPaymentId === deposit.id}
                       className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm font-medium"
                     >
-                      Decline
+                      {actionPaymentId === deposit.id ? 'Processing...' : 'Decline'}
                     </button>
                     <button
-                      onClick={() => handleApproveDeposit(deposit.id)}
+                      onClick={() => updatePaymentStatus(deposit.id, 'completed')}
+                      disabled={actionPaymentId === deposit.id}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
                     >
-                      Approve
+                      {actionPaymentId === deposit.id ? 'Processing...' : 'Approve'}
                     </button>
                   </div>
                 </div>
@@ -303,8 +347,16 @@ const HostPayments = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">All Transactions</h3>
           </div>
-          
-          {isVerified && transactions.length > 0 ? (
+
+          {loading && (
+            <div className="text-center py-12 text-gray-600">Loading payments...</div>
+          )}
+
+          {!loading && fetchError && (
+            <div className="p-6 bg-red-50 border border-red-200 text-red-700 text-sm">{fetchError}</div>
+          )}
+
+          {!loading && isVerified && payments.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -317,59 +369,78 @@ const HostPayments = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {transactions.map((transaction) => (
+                  {payments.map((transaction) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {transaction.id}
+                        PAY-{String(transaction.id).padStart(6, '0')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.bookingId}
+                        #{transaction.bookingId}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.guest}
+                        {transaction.guestName || `Guest #${transaction.payerUserId}`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.unit}
+                        {transaction.propertyTitle || 'Property'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(transaction.type)}`}>
-                          {transaction.type}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor('Booking')}`}>
+                          {formatPaymentMethod(transaction.paymentMethod)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {transaction.amount}
+                        {formatCurrency(transaction.amount)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.date}
+                        {formatDate(transaction.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(transaction.status)}`}>
-                          {transaction.status}
+                          {String(transaction.status || '').charAt(0).toUpperCase() + String(transaction.status || '').slice(1)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {transaction.status === 'pending' ? (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => updatePaymentStatus(transaction.id, 'failed')}
+                              disabled={actionPaymentId === transaction.id}
+                              className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200"
+                            >
+                              Decline
+                            </button>
+                            <button
+                              onClick={() => updatePaymentStatus(transaction.id, 'completed')}
+                              disabled={actionPaymentId === transaction.id}
+                              className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                            >
+                              Approve
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500">Reviewed</span>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : !loading ? (
             <div className="text-center py-12">
               <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions available</h3>
-              <p className="text-gray-600">Complete verification to view your transaction history.</p>
+              <p className="text-gray-600">
+                {isVerified
+                  ? 'No payment records found yet.'
+                  : 'Complete verification to view and manage payment history.'}
+              </p>
             </div>
-          )}
-        </div>
-
-        {/* Fixed Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="bg-[#4E7B22] text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
+          ) : null}
         </div>
       </div>
     </HostLayout>

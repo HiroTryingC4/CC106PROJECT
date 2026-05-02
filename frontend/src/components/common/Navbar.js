@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import RealtimeNotifications from './RealtimeNotifications';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,9 +11,6 @@ const Navbar = () => {
   const location = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
   const dropdownRef = useRef(null);
-
-  // Mock notification count - in real app this would come from context/API
-  const [notificationCount, setNotificationCount] = useState(2);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -103,31 +101,8 @@ const Navbar = () => {
           <div className="flex items-center space-x-3">
             {isAuthenticated && user && !isPublicPage ? (
               <>
-                {/* Notification Icon - Bell */}
-                <button
-                  onClick={() => {
-                    if (user?.role === 'admin') {
-                      navigate('/admin/notifications');
-                    } else if (user?.role === 'comm-admin') {
-                      navigate('/comm-admin/notifications');
-                    } else if (user?.role === 'host') {
-                      navigate('/host/notifications');
-                    } else {
-                      navigate('/guest/notifications');
-                    }
-                  }}
-                  className="relative w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                  </svg>
-                  {/* Notification Badge - only show if there are unread notifications */}
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-                      {notificationCount > 9 ? '9+' : notificationCount}
-                    </span>
-                  )}
-                </button>
+                {/* Real-time Notification Component */}
+                <RealtimeNotifications />
 
                 {/* Date Display with Calendar Icon */}
                 <div className="text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center" style={{backgroundColor: '#4E7B22'}}>

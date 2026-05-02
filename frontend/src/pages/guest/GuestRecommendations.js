@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import axios from 'axios';
+import API_CONFIG from '../../config/api';
 
 const GuestRecommendations = () => {
   const navigate = useNavigate();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   const [searchTerm, setSearchTerm] = useState('');
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filters, setFilters] = useState({
     type: 'All types',
     guests: 'Any Guests',
@@ -13,98 +19,43 @@ const GuestRecommendations = () => {
     sortBy: 'Default'
   });
 
-  const trendingProperties = [
-    {
-      id: 1,
-      title: 'Luxury Beachfront Condo',
-      type: 'CONDO',
-      description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
-      price: '₱150',
-      period: '/night',
-      details: '2 bed • 2 bath • 4 guests',
-      rating: 4.9,
-      reviews: 98,
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100',
-      image: '/images/beachfront-condo.jpg',
-      imageGradient: 'from-orange-400 to-orange-600'
-    },
-    {
-      id: 2,
-      title: 'Modern Downtown Studio',
-      type: 'STUDIO',
-      description: 'Cozy studio apartment in the heart of downtown, perfect for business travelers.',
-      price: '₱85',
-      period: '/night',
-      details: '1 bed • 1 bath • 2 guests',
-      rating: 4.5,
-      reviews: 28,
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100',
-      image: '/images/downtown-studio.jpg',
-      imageGradient: 'from-gray-400 to-gray-600'
-    },
-    {
-      id: 3,
-      title: 'Family-Friendly Villa',
-      type: 'VILLA',
-      description: 'Spacious 3-bedroom villa with private pool, perfect for families.',
-      price: '₱220',
-      period: '/night',
-      details: '3 bed • 3 bath • 6 guests',
-      rating: 4.5,
-      reviews: 65,
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100',
-      image: '/images/family-villa.jpg',
-      imageGradient: 'from-green-400 to-green-600'
-    },
-    {
-      id: 4,
-      title: 'Cozy Mountain Cabin',
-      type: 'CABIN',
-      description: 'Rustic cabin with mountain views, fireplace, and hiking trails nearby.',
-      price: '₱120',
-      period: '/night',
-      details: '2 bed • 1 bath • 4 guests',
-      rating: 4.5,
-      reviews: 22,
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100',
-      image: '/images/mountain-cabin.jpg',
-      imageGradient: 'from-green-500 to-blue-500'
-    },
-    {
-      id: 5,
-      title: 'Urban Loft Apartment',
-      type: 'APARTMENT',
-      description: 'Stylish loft with high ceilings and modern design in trendy neighborhood.',
-      price: '₱150',
-      period: '/night',
-      details: '1 bed • 1 bath • 2 guests',
-      rating: 4.5,
-      reviews: 56,
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100',
-      image: '/images/urban-loft.jpg',
-      imageGradient: 'from-gray-500 to-gray-700'
-    },
-    {
-      id: 6,
-      title: 'Lakeside Retreat',
-      type: 'HOUSE',
-      description: 'Beautiful lakefront property with dock, kayaks, and stunning sunset views.',
-      price: '₱280',
-      period: '/night',
-      details: '4 bed • 3 bath • 8 guests',
-      rating: 4.9,
-      reviews: 78,
-      typeColor: 'text-green-700',
-      typeBg: 'bg-green-100',
-      image: '/images/lakeside-retreat.jpg',
-      imageGradient: 'from-blue-400 to-green-500'
-    }
-  ];
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${apiBaseUrl}/properties`);
+        const availableProperties = (response.data.properties || [])
+          .filter(property => property.availability !== false)
+          .map((property) => ({
+            id: property.id,
+            title: property.title,
+            type: (property.type || '').toUpperCase(),
+            description: property.description,
+            price: `₱${Number(property.pricePerNight || 0).toLocaleString('en-PH')}`,
+            period: '/night',
+            details: `${property.bedrooms} bed • ${property.bathrooms} bath • ${property.maxGuests} guests`,
+            rating: property.rating || 0,
+            reviews: property.reviewCount || 0,
+            typeColor: 'text-green-700',
+            typeBg: 'bg-green-100',
+            image: property.images?.[0] || '/images/property-placeholder.jpg',
+            imageGradient: 'from-green-400 to-green-600'
+          }))
+          .sort((a, b) => b.rating - a.rating);
+
+        setProperties(availableProperties);
+        setError('');
+      } catch (fetchError) {
+        console.error('Error fetching recommendations:', fetchError);
+        setError('Unable to load recommendations at the moment.');
+        setProperties([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProperties();
+  }, [apiBaseUrl]);
 
   const clearFilters = () => {
     setFilters({
@@ -115,6 +66,44 @@ const GuestRecommendations = () => {
     });
     setSearchTerm('');
   };
+
+  let trendingProperties = [...properties];
+
+  if (searchTerm) {
+    trendingProperties = trendingProperties.filter(property =>
+      property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+
+  if (filters.type !== 'All types') {
+    trendingProperties = trendingProperties.filter(property => property.type === filters.type.toUpperCase());
+  }
+
+  if (filters.guests !== 'Any Guests') {
+    const guestCount = parseInt(filters.guests, 10);
+    trendingProperties = trendingProperties.filter(property => {
+      const maxGuests = parseInt(property.details.split(' guests')[0].split('•').pop() || '0', 10);
+      return maxGuests >= guestCount;
+    });
+  }
+
+  if (filters.bedrooms !== 'Any Bedrooms') {
+    trendingProperties = trendingProperties.filter(property => {
+      const bedrooms = parseInt(property.details.split(' bed')[0], 10);
+      if (filters.bedrooms === 'Studio') return bedrooms === 0;
+      const filterBeds = parseInt(filters.bedrooms, 10);
+      return bedrooms === filterBeds;
+    });
+  }
+
+  if (filters.sortBy === 'Price: Low to High') {
+    trendingProperties.sort((a, b) => parseInt(a.price.replace(/[^0-9]/g, ''), 10) - parseInt(b.price.replace(/[^0-9]/g, ''), 10));
+  } else if (filters.sortBy === 'Price: High to Low') {
+    trendingProperties.sort((a, b) => parseInt(b.price.replace(/[^0-9]/g, ''), 10) - parseInt(a.price.replace(/[^0-9]/g, ''), 10));
+  } else if (filters.sortBy === 'Rating: High to Low') {
+    trendingProperties.sort((a, b) => b.rating - a.rating);
+  }
 
   return (
     <GuestLayout>
@@ -221,6 +210,14 @@ const GuestRecommendations = () => {
         </div>
 
         {/* Properties Grid */}
+        {loading ? (
+          <div className="text-center py-12 text-gray-600">Loading recommendations...</div>
+        ) : error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            {error}
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {trendingProperties.map((property) => (
             <div 

@@ -1,43 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
+import API_CONFIG from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   TagIcon,
   PlusIcon,
-  PencilIcon,
   TrashIcon,
-  EyeIcon,
-  CalendarDaysIcon,
   PercentBadgeIcon,
   CheckIcon,
   ChartBarIcon,
   ClockIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 
 const HostPromoCodes = () => {
+  const { token, user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [promoCodes, setPromoCodes] = useState([]);
+  const [error, setError] = useState(null);
+  const [assignModal, setAssignModal] = useState(null); // { promoId, promoCode }
+  const [hostUnits, setHostUnits] = useState([]);
+  const [selectedUnitIds, setSelectedUnitIds] = useState([]);
+  const [assignLoading, setAssignLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch verification status when component mounts
-    const fetchVerificationStatus = async () => {
+    const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token');
         if (!token) return;
 
-        const response = await fetch('http://localhost:5000/api/host/verification-status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const verifyResponse = await fetch(`${API_CONFIG.BASE_URL}/host/verification-status`, {
+          headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include'
         });
-
-        if (response.ok) {
-          const data = await response.json();
+        if (verifyResponse.ok) {
+          const data = await verifyResponse.json();
           setVerificationStatus(data);
+          
+          if (['verified', 'approved'].includes(data.status) || data.verified === true) {
+            const [promoResponse, unitsResponse] = await Promise.all([
+              fetch(`${API_CONFIG.ROOT}/api/promo-codes`, { headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' }),
+              fetch(`${API_CONFIG.BASE_URL}/properties?hostId=${user?.id}`, { headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' })
+            ]);
+            if (promoResponse.ok) {
+              const result = await promoResponse.json();
+              setPromoCodes(result.data || result);
+            }
+            if (unitsResponse.ok) {
+              const result = await unitsResponse.json();
+              setHostUnits(result.properties || result.data || (Array.isArray(result) ? result : []));
+            }
+          }
         }
       } catch (error) {
-        console.error('Error fetching verification status:', error);
+        console.error('Error fetching data:', error);
+        setError(error.message);
         setVerificationStatus({
           status: 'not_submitted',
           message: 'Complete your verification to unlock all host features.'
@@ -47,11 +65,11 @@ const HostPromoCodes = () => {
       }
     };
 
-    fetchVerificationStatus();
-  }, []);
+    fetchData();
+  }, [token]);
 
   // Check if user is verified
-  const isVerified = verificationStatus?.status === 'verified';
+  const isVerified = ['verified', 'approved'].includes(verificationStatus?.status) || verificationStatus?.verified === true;
 
   const [newPromo, setNewPromo] = useState({
     code: '',
@@ -63,73 +81,12 @@ const HostPromoCodes = () => {
     usageLimit: '',
     minBookingAmount: ''
   });
-  const promoCodes = isVerified ? [
-    {
-      id: 1,
-      code: 'SUMMER2024',
-      type: 'percentage',
-      value: 20,
-      description: 'Summer vacation discount',
-      startDate: '2024-06-01',
-      endDate: '2024-08-31',
-      usageLimit: 100,
-      usedCount: 23,
-      minBookingAmount: 5000,
-      status: 'active',
-      totalSavings: '₱45,600'
-    },
-    {
-      id: 2,
-      code: 'WELCOME500',
-      type: 'fixed',
-      value: 500,
-      description: 'New guest welcome discount',
-      startDate: '2024-01-01',
-      endDate: '2024-12-31',
-      usageLimit: 50,
-      usedCount: 12,
-      minBookingAmount: 3000,
-      status: 'active',
-      totalSavings: '₱6,000'
-    },
-    {
-      id: 3,
-      code: 'LONGSTAY',
-      type: 'percentage',
-      value: 15,
-      description: 'Extended stay discount (7+ nights)',
-      startDate: '2024-03-01',
-      endDate: '2024-12-31',
-      usageLimit: 25,
-      usedCount: 8,
-      minBookingAmount: 10000,
-      status: 'active',
-      totalSavings: '₱18,400'
-    },
-    {
-      id: 4,
-      code: 'SPRING2024',
-      type: 'percentage',
-      value: 25,
-      description: 'Spring season special',
-      startDate: '2024-03-01',
-      endDate: '2024-05-31',
-      usageLimit: 75,
-      usedCount: 75,
-      minBookingAmount: 4000,
-      status: 'expired',
-      totalSavings: '₱32,100'
-    }
-  ] : []; // Empty array for unverified hosts
 
   // Calculate stats
   const totalCodes = promoCodes.length;
   const activeCodes = promoCodes.filter(p => p.status === 'active').length;
-  const totalUsage = promoCodes.reduce((sum, p) => sum + p.usedCount, 0);
-  const totalSavings = promoCodes.reduce((sum, p) => {
-    const amount = parseInt(p.totalSavings.replace('₱', '').replace(',', ''));
-    return sum + amount;
-  }, 0);
+  const totalUsage = promoCodes.reduce((sum, p) => sum + (p.usedCount || 0), 0);
+  const totalSavings = 0; // Calculate from booking data if needed
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -140,21 +97,104 @@ const HostPromoCodes = () => {
     }
   };
 
-  const handleCreatePromo = (e) => {
+  const openAssignModal = async (promo) => {
+    setAssignModal({ promoId: promo.id, promoCode: promo.code });
+    try {
+      const res = await fetch(`${API_CONFIG.ROOT}/api/promo-codes/${promo.id}/properties`, {
+        headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include'
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setSelectedUnitIds((result.data || []).map(p => p.id));
+      }
+    } catch { setSelectedUnitIds([]); }
+  };
+
+  const handleAssignUnits = async () => {
+    setAssignLoading(true);
+    try {
+      const res = await fetch(`${API_CONFIG.ROOT}/api/promo-codes/${assignModal.promoId}/properties`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ propertyIds: selectedUnitIds })
+      });
+      if (res.ok) {
+        setAssignModal(null);
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Failed to assign units');
+      }
+    } catch { alert('Failed to assign units'); }
+    finally { setAssignLoading(false); }
+  };
+
+  const toggleUnit = (id) => {
+    setSelectedUnitIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleCreatePromo = async (e) => {
     e.preventDefault();
-    // Handle promo code creation
-    console.log('Creating promo code:', newPromo);
-    setShowCreateModal(false);
-    setNewPromo({
-      code: '',
-      type: 'percentage',
-      value: '',
-      description: '',
-      startDate: '',
-      endDate: '',
-      usageLimit: '',
-      minBookingAmount: ''
-    });
+    try {
+      const response = await fetch(`${API_CONFIG.ROOT}/api/promo-codes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
+        body: JSON.stringify({
+          code: newPromo.code,
+          type: newPromo.type,
+          value: parseFloat(newPromo.value),
+          description: newPromo.description,
+          startDate: newPromo.startDate,
+          endDate: newPromo.endDate,
+          usageLimit: parseInt(newPromo.usageLimit, 10),
+          minBookingAmount: newPromo.minBookingAmount ? parseFloat(newPromo.minBookingAmount) : null
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const newCode = result.data || result;
+        setPromoCodes([...promoCodes, newCode]);
+        setShowCreateModal(false);
+        setNewPromo({
+          code: '',
+          type: 'percentage',
+          value: '',
+          description: '',
+          startDate: '',
+          endDate: '',
+          usageLimit: '',
+          minBookingAmount: ''
+        });
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Failed to create promo code');
+      }
+    } catch (error) {
+      console.error('Error creating promo code:', error);
+      alert('Failed to create promo code');
+    }
+  };
+
+  const handleDeletePromo = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this promo code?')) return;
+    try {
+      const response = await fetch(`${API_CONFIG.ROOT}/api/promo-codes/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setPromoCodes(promoCodes.filter(p => p.id !== id));
+      } else {
+        alert('Failed to delete promo code');
+      }
+    } catch (error) {
+      console.error('Error deleting promo code:', error);
+      alert('Failed to delete promo code');
+    }
   };
 
   return (
@@ -301,17 +341,17 @@ const HostPromoCodes = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-semibold text-gray-900">{promo.usedCount} / {promo.usageLimit}</p>
+                          <p className="font-semibold text-gray-900">{promo.usedCount || 0} / {promo.usageLimit}</p>
                           <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
                             <div 
                               className="bg-blue-600 h-2 rounded-full" 
-                              style={{ width: `${(promo.usedCount / promo.usageLimit) * 100}%` }}
+                              style={{ width: `${((promo.usedCount || 0) / promo.usageLimit) * 100}%` }}
                             ></div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{promo.endDate}</p>
+                        <p className="text-sm text-gray-600">{new Date(promo.endDate).toLocaleDateString()}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(promo.status)}`}>
@@ -320,13 +360,18 @@ const HostPromoCodes = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
-                          <button className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50">
-                            <EyeIcon className="w-4 h-4" />
+                          <button
+                            onClick={() => openAssignModal(promo)}
+                            className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                            title="Assign Units"
+                          >
+                            <BuildingOfficeIcon className="w-4 h-4" />
                           </button>
-                          <button className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50">
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50">
+                          <button 
+                            onClick={() => handleDeletePromo(promo.id)}
+                            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                            title="Delete"
+                          >
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
@@ -338,6 +383,59 @@ const HostPromoCodes = () => {
             </table>
           </div>
         </div>
+
+        {/* Assign Units Modal */}
+        {assignModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Assign Units</h3>
+                  <p className="text-sm text-gray-500">Promo: <span className="font-medium">{assignModal.promoCode}</span></p>
+                </div>
+                <button onClick={() => setAssignModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-3">
+                Select which units this promo code applies to. Leave all unchecked to apply to all units.
+              </p>
+
+              <div className="overflow-y-auto flex-1 space-y-2 mb-4">
+                {hostUnits.length === 0 ? (
+                  <p className="text-gray-500 text-sm text-center py-4">No units found.</p>
+                ) : hostUnits.map(unit => (
+                  <label key={unit.id} className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    selectedUnitIds.includes(unit.id) ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedUnitIds.includes(unit.id)}
+                      onChange={() => toggleUnit(unit.id)}
+                      className="text-green-600 focus:ring-green-500 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-900">{unit.title}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex space-x-3 pt-4 border-t">
+                <button
+                  onClick={handleAssignUnits}
+                  disabled={assignLoading}
+                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
+                >
+                  {assignLoading ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setAssignModal(null)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Create Promo Modal */}
         {showCreateModal && (

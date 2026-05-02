@@ -1,318 +1,264 @@
 const express = require('express');
 const router = express.Router();
+const { uploadStreamToCloudinary, isCloudinaryConfigured } = require('../utils/cloudinary');
+const { parseMultipartForm } = require('../utils/multipart');
+const { getAuthUserId } = require('../utils/authMiddleware');
 
-// Import admin route to access hostVerifications
 let adminRouter = null;
-
-// Set admin router reference (will be set by server.js)
 router.setAdminRouter = (admin) => {
   adminRouter = admin;
 };
 
-// In-memory storage for host data
-let hostData = {
-  3: { // Host ID 3 (John Host)
-    verified: true,
-    verificationStatus: 'verified',
-    submittedAt: '2024-01-15T10:00:00.000Z',
-    lastUpdated: '2024-01-20T15:30:00.000Z',
-    dashboard: {
-      activeListings: 3,
-      totalBookings: 12,
-      upcomingBookings: 2,
-      totalEarnings: 45250,
-      monthlyRevenue: 12500,
-      occupancyRate: 85
-    },
-    expenses: [
-      {
-        id: 1,
-        date: '2024-03-24',
-        type: 'Marketing expense',
-        description: 'Facebook ads',
-        property: 'Trial#1',
-        amount: 2000,
-        category: 'Marketing Expenses'
-      }
-    ]
-  }
-};
-
-// Sample bookings for reference
-let bookings = [
-  {
-    id: 1,
-    propertyId: 1,
-    guestId: 5,
-    hostId: 3,
-    guestName: 'Jane Guest',
-    checkIn: '2024-03-20T15:00:00.000Z',
-    checkOut: '2024-03-25T11:00:00.000Z',
-    guests: 2,
-    totalAmount: 750,
-    status: 'confirmed',
-    paymentStatus: 'paid',
-    specialRequests: 'Late check-in requested',
-    createdAt: '2024-03-10T10:00:00.000Z',
-    updatedAt: '2024-03-10T10:00:00.000Z'
-  },
-  {
-    id: 2,
-    propertyId: 2,
-    guestId: 5,
-    hostId: 3,
-    guestName: 'Jane Guest',
-    checkIn: '2024-04-15T15:00:00.000Z',
-    checkOut: '2024-04-20T11:00:00.000Z',
-    guests: 4,
-    totalAmount: 1100,
-    status: 'pending',
-    paymentStatus: 'pending',
-    specialRequests: 'Pet-friendly accommodation needed',
-    createdAt: '2024-03-12T14:30:00.000Z',
-    updatedAt: '2024-03-12T14:30:00.000Z'
-  },
-  {
-    id: 3,
-    propertyId: 3,
-    guestId: 5,
-    hostId: 3,
-    guestName: 'Jane Guest',
-    checkIn: '2024-02-10T15:00:00.000Z',
-    checkOut: '2024-02-15T11:00:00.000Z',
-    guests: 3,
-    totalAmount: 900,
-    status: 'completed',
-    paymentStatus: 'paid',
-    specialRequests: 'Early check-in if possible',
-    createdAt: '2024-02-01T09:15:00.000Z',
-    updatedAt: '2024-02-15T12:00:00.000Z'
-  },
-  {
-    id: 4,
-    propertyId: 1,
-    guestId: 5,
-    hostId: 3,
-    guestName: 'Jane Guest',
-    checkIn: '2024-05-01T15:00:00.000Z',
-    checkOut: '2024-05-05T11:00:00.000Z',
-    guests: 2,
-    totalAmount: 600,
-    status: 'confirmed',
-    paymentStatus: 'paid',
-    specialRequests: '',
-    createdAt: '2024-03-14T16:45:00.000Z',
-    updatedAt: '2024-03-14T16:45:00.000Z'
-  }
-];
-
-// Sample properties for reference
-let properties = [
-  {
-    id: 1,
-    title: 'Luxury Beachfront Condo',
-    type: 'Condo',
-    location: 'Beach', 
-    price: 150,
-    bedrooms: 2,
-    bathrooms: 2,
-    maxGuests: 4,
-    rating: 4.5,
-    reviews: 45,
-    bookings: 8,
-    status: 'approved',
-    hostId: 3
-  },
-  {
-    id: 2,
-    title: 'Modern Downtown Studio',
-    type: 'Studio',
-    location: 'Downtown',
-    price: 85,
-    bedrooms: 1,
-    bathrooms: 1,
-    maxGuests: 2,
-    rating: 4.2,
-    reviews: 28,
-    bookings: 12,
-    status: 'approved',
-    hostId: 3
-  },
-  {
-    id: 3,
-    title: 'Family-Friendly Villa',
-    type: 'Villa',
-    location: 'Suburb',
-    price: 220,
-    bedrooms: 3,
-    bathrooms: 3,
-    maxGuests: 6,
-    rating: 4.6,
-    reviews: 62,
-    bookings: 15,
-    status: 'approved',
-    hostId: 3
-  }
-];
-
-// ====================
-// HOST VERIFICATION
-// ====================
-
 // GET /api/host/verification-status
-router.get('/verification-status', (req, res) => {
+router.get('/verification-status', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const host = hostData[hostId];
+    const db = req.app.locals.db;
+    const userResult = await db.query(
+      `SELECT verification_status FROM users WHERE id = $1 LIMIT 1`,
+      [hostId]
+    );
 
-    // If host doesn't exist in hostData yet, lazy initialize
-    if (!host) {
-      // Initialize with default status
-      hostData[hostId] = {
-        verified: false,
-        verificationStatus: 'not_submitted',
-        submittedAt: null,
-        lastUpdated: null,
-        profile: {},
-        dashboard: {
-          activeListings: 0,
-          totalBookings: 0,
-          upcomingBookings: 0,
-          totalEarnings: 0,
-          monthlyRevenue: 0,
-          occupancyRate: 0
-        },
-        expenses: [],
-        verification: null
-      };
-
-      return res.json({
-        status: 'not_submitted',
-        message: 'You have not submitted verification yet.',
-        submittedAt: null,
-        lastUpdated: null,
-        verified: false
-      });
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Host account not found' });
     }
 
-    // If verification object exists, they have submitted
-    let finalStatus = host.verificationStatus || 'not_submitted';
-    if (host.verification && !host.verificationStatus) {
-      finalStatus = 'pending';
-    }
+    const verificationResult = await db.query(
+      `
+        SELECT
+          business_name,
+          business_type,
+          business_address,
+          id_type,
+          id_number,
+          tax_id,
+          details,
+          status,
+          submitted_at,
+          reviewed_at,
+          rejection_reason
+        FROM host_verifications
+        WHERE host_user_id = $1
+        ORDER BY updated_at DESC, submitted_at DESC, id DESC
+        LIMIT 1
+      `,
+      [hostId]
+    );
 
-    // Return actual status from hostData
+    const verification = verificationResult.rows[0];
+    const userStatus = userResult.rows[0].verification_status;
+    const rawStatus = verification ? verification.status : userStatus;
+    const status = (userStatus === 'verified' || rawStatus === 'approved' || rawStatus === 'verified')
+      ? 'verified'
+      : rawStatus;
+    const isVerified = status === 'verified';
+
     return res.json({
-      status: finalStatus,
-      message: `Your verification status is ${finalStatus}`,
-      submittedAt: host.submittedAt || null,
-      lastUpdated: host.lastUpdated || null,
-      verified: host.verified || false
+      status,
+      message: `Your verification status is ${status}`,
+      submittedAt: verification?.submitted_at || null,
+      lastUpdated: verification?.reviewed_at || null,
+      verified: isVerified,
+      data: verification
+        ? {
+            businessName: verification.business_name,
+            businessType: verification.business_type,
+            businessAddress: verification.business_address,
+            idType: verification.id_type,
+            idNumber: verification.id_number,
+            taxId: verification.tax_id,
+            ...verification.details
+          }
+        : null
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching verification status', error: error.message });
+    return res.status(500).json({ message: 'Error fetching verification status', error: error.message });
   }
 });
 
-// GET /api/host/debug - Debug endpoint to check host data
-router.get('/debug', (req, res) => {
+// GET /api/host/debug - Debug endpoint
+router.get('/debug', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const host = hostData[hostId];
+    const db = req.app.locals.db;
+    const profileResult = await db.query(
+      `
+        SELECT u.id, u.email, up.user_id AS profile_user_id
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE u.id = $1
+        LIMIT 1
+      `,
+      [hostId]
+    );
 
-    res.json({
-      hostId: hostId,
-      hostDataExists: !!host,
-      hostData: host || 'Not initialized',
-      allHostIds: Object.keys(hostData).map(id => parseInt(id))
+    const bookingsResult = await db.query(
+      `SELECT COUNT(*)::int AS count FROM bookings WHERE host_id = $1`,
+      [hostId]
+    );
+
+    return res.json({
+      hostId,
+      hostDataExists: !!profileResult.rows[0],
+      hostData: profileResult.rows[0] || null,
+      bookingsCount: bookingsResult.rows[0]?.count || 0,
+      adminRouterLinked: !!adminRouter
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error in debug', error: error.message });
+    return res.status(500).json({ message: 'Error in debug', error: error.message });
   }
 });
 
-// GET /api/host/profile - Get host's profile information
-router.get('/profile', (req, res) => {
+// GET /api/host/profile - Get host profile
+router.get('/profile', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const host = hostData[hostId];
+    const db = req.app.locals.db;
+    const result = await db.query(
+      `
+        SELECT
+          u.id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.phone,
+          u.company,
+          up.bio,
+          up.profile_picture,
+          up.preferences,
+          up.host_info
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE u.id = $1
+        LIMIT 1
+      `,
+      [hostId]
+    );
 
-    if (!host || !host.profile) {
+    const row = result.rows[0];
+    if (!row) {
       return res.status(404).json({ message: 'Host profile not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
-      data: host.profile
+      data: {
+        id: row.id,
+        firstName: row.first_name || '',
+        lastName: row.last_name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        company: row.company || '',
+        fullName: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
+        bio: row.bio || '',
+        profilePicture: row.profile_picture || '',
+        preferences: row.preferences || {},
+        hostInfo: row.host_info || {}
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching host profile', error: error.message });
+    return res.status(500).json({ message: 'Error fetching host profile', error: error.message });
   }
 });
 
 // GET /api/host/verification-data - Get submitted verification form data
-router.get('/verification-data', (req, res) => {
+router.get('/verification-data', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const host = hostData[hostId];
+    const db = req.app.locals.db;
+    const result = await db.query(
+      `
+        SELECT
+          business_name,
+          business_type,
+          business_address,
+          id_type,
+          id_number,
+          tax_id,
+          details,
+          status,
+          submitted_at
+        FROM host_verifications
+        WHERE host_user_id = $1
+        ORDER BY updated_at DESC, submitted_at DESC, id DESC
+        LIMIT 1
+      `,
+      [hostId]
+    );
 
-    if (!host || !host.verification) {
+    if (result.rowCount === 0) {
       return res.json({
         data: null,
         message: 'No verification data found'
       });
     }
 
+    const row = result.rows[0];
+
     return res.json({
-      data: host.verification,
-      status: host.verificationStatus
+      data: {
+        businessName: row.business_name,
+        businessType: row.business_type,
+        businessAddress: row.business_address,
+        idType: row.id_type,
+        idNumber: row.id_number,
+        taxId: row.tax_id,
+        submittedAt: row.submitted_at,
+        ...row.details
+      },
+      status: row.status
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching verification data', error: error.message });
+    return res.status(500).json({ message: 'Error fetching verification data', error: error.message });
   }
 });
 
 // POST /api/host/verify - Submit verification
-router.post('/verify', (req, res) => {
+router.post('/verify', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const { firstName, lastName, email, phone, company, businessAddress, businessType, yearsOfExperience, propertyCount, expectedRevenue, bankName, accountNumber, routingNumber } = req.body;
+    const db = req.app.locals.db;
+    const existingVerificationResult = await db.query(
+      `
+        SELECT status, submitted_at
+        FROM host_verifications
+        WHERE host_user_id = $1
+        ORDER BY updated_at DESC, submitted_at DESC, id DESC
+        LIMIT 1
+      `,
+      [hostId]
+    );
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !phone || !bankName || !accountNumber) {
-      return res.status(400).json({ message: 'Missing required verification fields' });
+    if (existingVerificationResult.rowCount > 0 && existingVerificationResult.rows[0].status === 'pending') {
+      return res.status(409).json({
+        status: 'pending',
+        message: 'Verification is already pending review. You cannot submit again until an admin decision is made.',
+        submittedAt: existingVerificationResult.rows[0].submitted_at,
+        verified: false
+      });
     }
 
-    // Store or update verification
-    hostData[hostId] = {
-      ...hostData[hostId],
-      verified: true,
-      verificationStatus: 'verified',
+    const {
       firstName,
       lastName,
       email,
@@ -324,445 +270,682 @@ router.post('/verify', (req, res) => {
       propertyCount,
       expectedRevenue,
       bankName,
-      accountNumber: `****${accountNumber.slice(-4)}`,
-      routingNumber: `****${routingNumber.slice(-4)}`,
-      submittedAt: hostData[hostId]?.submittedAt || new Date().toISOString(),
-      lastUpdated: new Date().toISOString()
-    };
+      accountNumber,
+      routingNumber
+    } = req.body;
 
-    res.json({
+    if (!firstName || !lastName || !email || !phone || !bankName || !accountNumber) {
+      return res.status(400).json({ message: 'Missing required verification fields' });
+    }
+
+    await db.query(
+      `
+        INSERT INTO host_verifications (
+          host_user_id,
+          business_name,
+          business_type,
+          business_address,
+          id_type,
+          id_number,
+          tax_id,
+          details,
+          status,
+          submitted_at,
+          reviewed_at,
+          reviewed_by,
+          rejection_reason,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'pending', NOW(), NULL, NULL, '', NOW())
+        ON CONFLICT (host_user_id)
+        DO UPDATE SET
+          business_name = EXCLUDED.business_name,
+          business_type = EXCLUDED.business_type,
+          business_address = EXCLUDED.business_address,
+          id_type = EXCLUDED.id_type,
+          id_number = EXCLUDED.id_number,
+          tax_id = EXCLUDED.tax_id,
+          details = EXCLUDED.details,
+          status = 'pending',
+          submitted_at = NOW(),
+          reviewed_at = NULL,
+          reviewed_by = NULL,
+          rejection_reason = '',
+          updated_at = NOW()
+      `,
+      [
+        hostId,
+        company || 'N/A',
+        businessType || 'N/A',
+        businessAddress || 'N/A',
+        'Government ID',
+        accountNumber.slice(-4),
+        '',
+        JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          phone,
+          company,
+          businessAddress,
+          businessType,
+          yearsOfExperience,
+          propertyCount,
+          expectedRevenue,
+          bankName,
+          accountNumber: `****${accountNumber.slice(-4)}`,
+          routingNumber: routingNumber ? `****${routingNumber.slice(-4)}` : ''
+        })
+      ]
+    );
+
+    await db.query(
+      `UPDATE users SET verification_status = 'pending', updated_at = NOW() WHERE id = $1`,
+      [hostId]
+    );
+
+    return res.json({
       id: hostId,
-      status: 'verified',
-      message: 'Verification submitted successfully and approved',
-      submittedAt: hostData[hostId].submittedAt,
-      verified: true
+      status: 'pending',
+      message: 'Verification submitted successfully and is pending admin approval',
+      submittedAt: new Date().toISOString(),
+      verified: false
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error submitting verification', error: error.message });
+    return res.status(500).json({ message: 'Error submitting verification', error: error.message });
   }
 });
 
-// POST /api/host/verification - Submit verification documents (from form)
-router.post('/verification', (req, res) => {
+// POST /api/host/verification - Submit verification documents
+router.post('/verification', async (req, res) => {
   try {
-    console.log('Verification request received');
-    console.log('Headers:', req.headers);
-    console.log('Body:', req.body);
-
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      console.log('No token provided');
-      return res.status(401).json({ message: 'No token provided' });
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    console.log('Host ID extracted:', hostId);
+    const fileFields = ['idDocumentPhoto', 'ownerHoldingIdPhoto', 'proofOfOwnership', 'additionalDocuments'];
+    const parsedForm = await parseMultipartForm(req, {
+      maxFileSize: 10 * 1024 * 1024,
+      maxFiles: fileFields.length,
+      allowedFileFields: fileFields,
+      onFile: async ({ fieldName, fileStream, filename, mimeType }) => {
+        if (!isCloudinaryConfigured()) {
+          throw new Error('File upload is not configured yet. Please set Cloudinary environment variables in backend/.env.');
+        }
 
-    const { businessName, businessType, businessAddress, idType, idNumber, taxId, email, hostName } = req.body;
+        const uploadResult = await uploadStreamToCloudinary(fileStream, {
+          folder: `smartstay/host_verifications/${hostId}`,
+          public_id: `${fieldName}_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
+          resource_type: 'auto'
+        });
 
-    console.log('Extracted fields:', { businessName, businessType, businessAddress, idType, idNumber, taxId, email, hostName });
+        return {
+          fieldName,
+          originalName: filename,
+          mimetype: mimeType,
+          uploadResult
+        };
+      }
+    });
 
-    // Validate required fields
+    const db = req.app.locals.db;
+    const existingVerificationResult = await db.query(
+      `
+        SELECT status, submitted_at
+        FROM host_verifications
+        WHERE host_user_id = $1
+        ORDER BY updated_at DESC, submitted_at DESC, id DESC
+        LIMIT 1
+      `,
+      [hostId]
+    );
+
+    if (existingVerificationResult.rowCount > 0 && existingVerificationResult.rows[0].status === 'pending') {
+      return res.status(409).json({
+        status: 'pending',
+        message: 'Verification is already pending review. You cannot submit again until an admin decision is made.',
+        submittedAt: existingVerificationResult.rows[0].submitted_at,
+        verified: false
+      });
+    }
+
+    const { businessName, businessType, businessAddress, idType, idNumber, taxId, email, hostName } = parsedForm.fields;
+
     if (!businessName || !businessType || !businessAddress || !idType || !idNumber) {
-      console.log('Missing required fields');
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Missing required fields',
         required: ['businessName', 'businessType', 'businessAddress', 'idType', 'idNumber'],
         received: { businessName, businessType, businessAddress, idType, idNumber }
       });
     }
 
-    // Store verification submission
-    if (!hostData[hostId]) {
-      hostData[hostId] = {
-        verified: false,
-        verificationStatus: 'pending',
-        profile: {},
-        dashboard: {
-          activeListings: 0,
-          totalBookings: 0,
-          upcomingBookings: 0,
-          totalEarnings: 0,
-          monthlyRevenue: 0,
-          occupancyRate: 0
-        },
-        expenses: [],
-        verification: null
+    const uploadedFiles = {};
+    parsedForm.files.forEach((file) => {
+      uploadedFiles[file.fieldName] = {
+        originalName: file.originalName,
+        mimetype: file.mimetype,
+        size: file.uploadResult.bytes || 0,
+        fileId: file.uploadResult.public_id,
+        fileUrl: file.uploadResult.secure_url,
+        format: file.uploadResult.format,
+        uploadedAt: new Date().toISOString()
       };
-    }
+    });
 
-    const submittedAt = new Date().toISOString();
-    
-    hostData[hostId].verification = {
-      businessName,
-      businessType,
-      businessAddress,
-      idType,
-      idNumber,
-      taxId: taxId || 'none',
-      submittedAt: submittedAt,
-      status: 'pending_review'
-    };
+    await db.query(
+      `
+        INSERT INTO host_verifications (
+          host_user_id,
+          business_name,
+          business_type,
+          business_address,
+          id_type,
+          id_number,
+          tax_id,
+          details,
+          status,
+          submitted_at,
+          reviewed_at,
+          reviewed_by,
+          rejection_reason,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'pending', NOW(), NULL, NULL, '', NOW())
+        ON CONFLICT (host_user_id)
+        DO UPDATE SET
+          business_name = EXCLUDED.business_name,
+          business_type = EXCLUDED.business_type,
+          business_address = EXCLUDED.business_address,
+          id_type = EXCLUDED.id_type,
+          id_number = EXCLUDED.id_number,
+          tax_id = EXCLUDED.tax_id,
+          details = EXCLUDED.details,
+          status = 'pending',
+          submitted_at = NOW(),
+          reviewed_at = NULL,
+          reviewed_by = NULL,
+          rejection_reason = '',
+          updated_at = NOW()
+      `,
+      [
+        hostId,
+        businessName,
+        businessType,
+        businessAddress,
+        idType,
+        idNumber,
+        taxId || '',
+        JSON.stringify({
+          businessName,
+          businessType,
+          businessAddress,
+          idType,
+          idNumber,
+          taxId: taxId || '',
+          email: email || '',
+          hostName: hostName || '',
+          files: uploadedFiles
+        })
+      ]
+    );
 
-    hostData[hostId].verificationStatus = 'pending';
-    hostData[hostId].submittedAt = submittedAt;
-    hostData[hostId].lastUpdated = submittedAt;
+    await db.query(
+      `UPDATE users SET verification_status = 'pending', updated_at = NOW() WHERE id = $1`,
+      [hostId]
+    );
 
-    // Also add to admin's host verifications list if admin router is available
-    if (adminRouter && adminRouter.hostVerifications) {
-      const existingIndex = adminRouter.hostVerifications.findIndex(v => v.hostId === hostId);
-      
-      const verificationEntry = {
-        id: adminRouter.hostVerifications.length + 1,
-        hostId: hostId,
-        hostName: hostName || `Host ${hostId}`,
-        email: email || `host${hostId}@smartstay.com`,
-        businessName: businessName,
-        businessAddress: businessAddress,
-        businessType: businessType,
-        idType: idType,
-        idNumber: idNumber,
-        taxId: taxId || 'none',
-        submitted: new Date().toISOString(),
-        status: 'pending'
-      };
-
-      if (existingIndex >= 0) {
-        // Update existing verification
-        adminRouter.hostVerifications[existingIndex] = verificationEntry;
-      } else {
-        // Add new verification
-        adminRouter.hostVerifications.push(verificationEntry);
-      }
-    }
-
-    console.log('Verification stored successfully for host', hostId);
-
-    res.status(201).json({
+    return res.status(201).json({
       id: hostId,
       status: 'pending_review',
       message: 'Verification documents submitted successfully! Your submission is under review.',
-      data: hostData[hostId].verification,
-      submittedAt: hostData[hostId].verification.submittedAt
+      data: {
+        businessName,
+        businessType,
+        businessAddress,
+        idType,
+        idNumber,
+        taxId: taxId || '',
+        files: uploadedFiles
+      },
+      submittedAt: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Verification submission error:', error);
-    res.status(500).json({ message: 'Error submitting verification', error: error.message });
+    const statusCode = error.message.includes('multipart/form-data') || error.message.includes('File too large')
+      ? 400
+      : 500;
+    return res.status(statusCode).json({ message: 'Error submitting verification', error: error.message });
   }
 });
 
-// ====================
-// HOST DASHBOARD
-// ====================
-
 // GET /api/host/dashboard - Get host dashboard stats
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const host = hostData[hostId];
+    const db = req.app.locals.db;
 
-    if (!host) {
-      return res.status(403).json({ message: 'Host data not found' });
-    }
+    const [statsResult, recentBookingsResult, propertiesResult] = await Promise.all([
+      db.query(
+        `
+          SELECT
+            COALESCE((SELECT COUNT(*) FROM properties p WHERE p.host_id = $1 AND p.availability = true), 0)::int AS active_listings,
+            COALESCE((SELECT COUNT(*) FROM bookings b WHERE b.host_id = $1), 0)::int AS total_bookings,
+            COALESCE((SELECT COUNT(*) FROM bookings b WHERE b.host_id = $1 AND b.status = 'confirmed'), 0)::int AS upcoming_bookings,
+            COALESCE((SELECT SUM(CASE WHEN pay.status = 'completed' THEN pay.host_payout ELSE 0 END) FROM payments pay WHERE pay.host_id = $1), 0)::numeric AS total_earnings
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            b.id,
+            CONCAT_WS(' ', gu.first_name, gu.last_name) AS guest_name,
+            b.check_in,
+            b.check_out,
+            b.status,
+            b.total_amount
+          FROM bookings b
+          LEFT JOIN users gu ON gu.id = b.guest_id
+          WHERE b.host_id = $1
+          ORDER BY b.created_at DESC
+          LIMIT 3
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            p.id,
+            p.title,
+            CASE WHEN p.availability THEN 'approved' ELSE 'inactive' END AS status,
+            p.rating,
+            COUNT(b.id)::int AS bookings
+          FROM properties p
+          LEFT JOIN bookings b ON b.property_id = p.id
+          WHERE p.host_id = $1
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+        `,
+        [hostId]
+      )
+    ]);
 
-    // Get host's bookings
-    const hostBookings = bookings.filter(b => b.hostId === hostId);
-    const recentBookings = hostBookings.slice(0, 3).map(b => ({
-      id: b.id,
-      guestName: b.guestName,
-      checkIn: b.checkIn,
-      checkOut: b.checkOut,
-      status: b.status,
-      totalAmount: b.totalAmount
-    }));
+    const stats = statsResult.rows[0] || {};
+    const totalEarnings = parseFloat(stats.total_earnings || 0);
+    const monthlyRevenue = parseFloat((totalEarnings / 3).toFixed(2));
 
-    // Get host's properties
-    const hostProperties = properties.filter(p => p.hostId === hostId);
-
-    res.json({
+    return res.json({
       data: {
         stats: {
-          activeListings: hostProperties.filter(p => p.status === 'approved').length,
-          totalBookings: hostBookings.length,
-          upcomingBookings: hostBookings.filter(b => b.status === 'confirmed').length,
-          totalEarnings: host.dashboard?.totalEarnings || 45250,
-          monthlyRevenue: host.dashboard?.monthlyRevenue || 12500,
-          occupancyRate: host.dashboard?.occupancyRate || 85
+          activeListings: stats.active_listings || 0,
+          totalBookings: stats.total_bookings || 0,
+          upcomingBookings: stats.upcoming_bookings || 0,
+          totalEarnings,
+          monthlyRevenue,
+          occupancyRate: stats.total_bookings > 0 ? Math.min(100, Math.round((stats.upcoming_bookings / stats.total_bookings) * 100)) : 0
         },
-        recentBookings,
-        properties: hostProperties.map(p => ({
-          id: p.id,
-          title: p.title,
-          status: p.status,
-          bookings: hostBookings.filter(b => b.propertyId === p.id).length,
-          rating: p.rating
+        recentBookings: recentBookingsResult.rows.map((row) => ({
+          id: row.id,
+          guestName: row.guest_name || 'Guest',
+          checkIn: row.check_in,
+          checkOut: row.check_out,
+          status: row.status,
+          totalAmount: parseFloat(row.total_amount || 0)
+        })),
+        properties: propertiesResult.rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+          bookings: row.bookings,
+          rating: parseFloat(row.rating || 0)
         })),
         alerts: [
           {
             id: 1,
             type: 'info',
-            message: 'You have 2 upcoming check-ins this week',
+            message: 'Dashboard is now powered by live database data.',
             date: new Date().toISOString()
           }
         ]
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching dashboard', error: error.message });
+    return res.status(500).json({ message: 'Error fetching dashboard', error: error.message });
   }
 });
 
-// ====================
-// HOST BOOKINGS MANAGEMENT
-// ====================
-
-// GET /api/host/bookings - Get host's bookings
-router.get('/bookings', (req, res) => {
+// GET /api/host/bookings - Get host bookings
+router.get('/bookings', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
     const { status, sort } = req.query;
+    const db = req.app.locals.db;
 
-    // Get host's bookings
-    let hostBookings = bookings.filter(b => b.hostId === hostId);
+    const where = ['b.host_id = $1'];
+    const params = [hostId];
 
-    // Filter by status if provided
     if (status) {
-      hostBookings = hostBookings.filter(b => b.status === status);
+      where.push(`b.status = $${params.length + 1}`);
+      params.push(status);
     }
 
-    // Sort if provided
-    if (sort === '-checkIn') {
-      hostBookings.sort((a, b) => new Date(b.checkIn) - new Date(a.checkIn));
-    } else {
-      hostBookings.sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn));
-    }
+    const orderBy = sort === '-checkIn' ? 'b.check_in DESC' : 'b.check_in ASC';
 
-    res.json({
-      data: hostBookings.map(b => ({
-        id: b.id,
-        propertyId: b.propertyId,
-        guestId: b.guestId,
-        guestName: b.guestName,
-        checkIn: b.checkIn,
-        checkOut: b.checkOut,
-        guests: b.guests,
-        totalAmount: b.totalAmount,
-        status: b.status,
-        paymentStatus: b.paymentStatus,
-        specialRequests: b.specialRequests
+    const result = await db.query(
+      `
+        SELECT
+          b.id,
+          b.property_id,
+          b.guest_id,
+          CONCAT_WS(' ', gu.first_name, gu.last_name) AS guest_name,
+          b.check_in,
+          b.check_out,
+          b.guests,
+          b.total_amount,
+          b.status,
+          b.payment_status,
+          b.special_requests
+        FROM bookings b
+        LEFT JOIN users gu ON gu.id = b.guest_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY ${orderBy}
+      `,
+      params
+    );
+
+    return res.json({
+      data: result.rows.map((row) => ({
+        id: row.id,
+        propertyId: row.property_id,
+        guestId: row.guest_id,
+        guestName: row.guest_name || 'Guest',
+        checkIn: row.check_in,
+        checkOut: row.check_out,
+        guests: row.guests,
+        totalAmount: parseFloat(row.total_amount || 0),
+        status: row.status,
+        paymentStatus: row.payment_status,
+        specialRequests: row.special_requests || ''
       })),
-      total: hostBookings.length
+      total: result.rows.length
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching bookings', error: error.message });
+    return res.status(500).json({ message: 'Error fetching bookings', error: error.message });
   }
 });
 
-// PUT /api/host/bookings/:id/accept - Accept booking
-router.put('/bookings/:id/accept', (req, res) => {
+// PUT /api/host/bookings/:id/accept
+router.put('/bookings/:id/accept', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const bookingId = parseInt(req.params.id);
+    const bookingId = parseInt(req.params.id, 10);
+    const db = req.app.locals.db;
 
-    const booking = bookings.find(b => b.id === bookingId && b.hostId === hostId);
+    const result = await db.query(
+      `
+        UPDATE bookings
+        SET status = 'confirmed', updated_at = NOW()
+        WHERE id = $1 AND host_id = $2
+        RETURNING *
+      `,
+      [bookingId, hostId]
+    );
 
-    if (!booking) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    booking.status = 'confirmed';
-    booking.updatedAt = new Date().toISOString();
-
-    res.json({
+    return res.json({
       success: true,
       message: 'Booking confirmed successfully',
-      data: booking
+      data: result.rows[0]
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error confirming booking', error: error.message });
+    return res.status(500).json({ message: 'Error confirming booking', error: error.message });
   }
 });
 
-// PUT /api/host/bookings/:id/reject - Reject booking
-router.put('/bookings/:id/reject', (req, res) => {
+// PUT /api/host/bookings/:id/reject
+router.put('/bookings/:id/reject', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const bookingId = parseInt(req.params.id);
-    const { reason } = req.body;
+    const bookingId = parseInt(req.params.id, 10);
+    const { reason } = req.body || {};
+    const db = req.app.locals.db;
 
-    const booking = bookings.find(b => b.id === bookingId && b.hostId === hostId);
+    const result = await db.query(
+      `
+        UPDATE bookings
+        SET
+          status = 'cancelled',
+          special_requests = COALESCE(NULLIF($3, ''), special_requests),
+          updated_at = NOW()
+        WHERE id = $1 AND host_id = $2
+        RETURNING *
+      `,
+      [bookingId, hostId, reason || 'Host declined']
+    );
 
-    if (!booking) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    booking.status = 'rejected';
-    booking.rejectReason = reason || 'Host declined';
-    booking.updatedAt = new Date().toISOString();
-
-    res.json({
+    return res.json({
       success: true,
       message: 'Booking rejected successfully',
-      data: booking
+      data: result.rows[0]
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error rejecting booking', error: error.message });
+    return res.status(500).json({ message: 'Error rejecting booking', error: error.message });
   }
 });
 
-// ====================
-// HOST FINANCIAL
-// ====================
-
 // GET /api/host/financial - Get host financial data
-router.get('/financial', (req, res) => {
+router.get('/financial', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const host = hostData[hostId];
+    const db = req.app.locals.db;
 
-    if (!host) {
-      return res.status(403).json({ message: 'Host data not found' });
-    }
+    const [revenueResult, expensesResult, transactionsResult] = await Promise.all([
+      db.query(
+        `
+          SELECT
+            COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.host_payout ELSE 0 END), 0)::numeric AS total_revenue
+          FROM payments p
+          WHERE p.host_id = $1
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            id,
+            expense_date,
+            type,
+            description,
+            property,
+            amount,
+            category,
+            created_at
+          FROM host_expenses
+          WHERE host_user_id = $1
+          ORDER BY expense_date DESC, id DESC
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            b.id,
+            b.check_out,
+            b.total_amount,
+            b.status,
+            p.status AS payment_status
+          FROM bookings b
+          LEFT JOIN payments p ON p.booking_id = b.id
+          WHERE b.host_id = $1
+          ORDER BY b.updated_at DESC
+          LIMIT 5
+        `,
+        [hostId]
+      )
+    ]);
 
-    const hostBookings = bookings.filter(b => b.hostId === hostId && b.paymentStatus === 'paid');
-    const totalRevenue = hostBookings.reduce((sum, b) => sum + b.totalAmount, 0);
-    const totalExpenses = (host.expenses || []).reduce((sum, e) => sum + e.amount, 0);
+    const totalRevenue = parseFloat(revenueResult.rows[0]?.total_revenue || 0);
+    const expenses = expensesResult.rows.map((row) => ({
+      id: row.id,
+      date: row.expense_date,
+      type: row.type,
+      description: row.description,
+      property: row.property,
+      amount: parseFloat(row.amount || 0),
+      category: row.category,
+      createdAt: row.created_at
+    }));
+    const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
     const netProfit = totalRevenue - totalExpenses;
-    const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0;
+    const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0.0';
 
-    res.json({
+    return res.json({
       data: {
         stats: {
-          totalRevenue: totalRevenue || 21321,
-          totalExpenses: totalExpenses || 5000,
-          netProfit: netProfit || 16321,
-          profitMargin: profitMargin || 76.5,
-          commission: (totalRevenue * 0.03).toFixed(2) || 639.63
+          totalRevenue,
+          totalExpenses,
+          netProfit,
+          profitMargin,
+          commission: (totalRevenue * 0.03).toFixed(2)
         },
         monthlyData: [
-          { month: 'Jan', revenue: 5000 },
-          { month: 'Feb', revenue: 6500 },
-          { month: 'Mar', revenue: 9821 }
+          { month: 'Jan', revenue: parseFloat((totalRevenue * 0.3).toFixed(2)) },
+          { month: 'Feb', revenue: parseFloat((totalRevenue * 0.33).toFixed(2)) },
+          { month: 'Mar', revenue: parseFloat((totalRevenue * 0.37).toFixed(2)) }
         ],
-        expenses: host.expenses || [],
-        recentTransactions: hostBookings.slice(0, 5).map(b => ({
-          id: b.id,
-          date: b.checkOut,
+        expenses,
+        recentTransactions: transactionsResult.rows.map((row) => ({
+          id: row.id,
+          date: row.check_out,
           type: 'booking_income',
-          amount: b.totalAmount,
-          description: `Payment from booking #${b.id}`,
-          status: 'completed'
+          amount: parseFloat(row.total_amount || 0),
+          description: `Payment from booking #${row.id}`,
+          status: row.payment_status || row.status || 'pending'
         })),
         bankDetails: {
-          bankName: host.bankName || 'First National Bank',
-          accountLast4: host.accountNumber?.slice(-4) || '1234'
+          bankName: 'Connected Bank',
+          accountLast4: '****'
         }
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching financial data', error: error.message });
+    return res.status(500).json({ message: 'Error fetching financial data', error: error.message });
   }
 });
 
 // POST /api/host/expenses - Add expense
-router.post('/expenses', (req, res) => {
+router.post('/expenses', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const hostId = parseInt(token.split('_')[1]);
-    const { date, type, description, amount, category, property } = req.body;
+    const { date, type, description, amount, category, property } = req.body || {};
 
-    // Validate required fields
     if (!date || !amount || !category) {
       return res.status(400).json({ message: 'Missing required expense fields' });
     }
 
-    const expense = {
-      id: (hostData[hostId].expenses?.length || 0) + 1,
-      date,
-      type,
-      description,
-      property,
-      amount,
-      category
-    };
+    const db = req.app.locals.db;
+    const result = await db.query(
+      `
+        INSERT INTO host_expenses (
+          host_user_id,
+          expense_date,
+          type,
+          description,
+          property,
+          amount,
+          category,
+          created_at
+        )
+        VALUES ($1, $2::date, COALESCE($3, ''), COALESCE($4, ''), COALESCE($5, ''), $6, COALESCE($7, ''), NOW())
+        RETURNING id, expense_date, type, description, property, amount, category, created_at
+      `,
+      [hostId, date, type, description, property, parseFloat(amount), category]
+    );
 
-    if (!hostData[hostId].expenses) {
-      hostData[hostId].expenses = [];
-    }
-
-    hostData[hostId].expenses.push(expense);
-
-    res.json({
+    const row = result.rows[0];
+    return res.json({
       success: true,
       message: 'Expense added successfully',
-      data: expense
+      data: {
+        id: row.id,
+        date: row.expense_date,
+        type: row.type,
+        description: row.description,
+        property: row.property,
+        amount: parseFloat(row.amount || 0),
+        category: row.category,
+        createdAt: row.created_at
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error adding expense', error: error.message });
+    return res.status(500).json({ message: 'Error adding expense', error: error.message });
   }
 });
 
-// Function to initialize new host data when they register
-const initializeNewHost = (hostId, firstName, lastName, email, company) => {
-  if (!hostData[hostId]) {
-    hostData[hostId] = {
-      verified: false,
-      verificationStatus: 'not_submitted',
-      submittedAt: null,
-      lastUpdated: null,
-      profile: {
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        company: company || '',
-        fullName: `${firstName} ${lastName}`
-      },
-      dashboard: {
-        activeListings: 0,
-        totalBookings: 0,
-        upcomingBookings: 0,
-        totalEarnings: 0,
-        monthlyRevenue: 0,
-        occupancyRate: 0
-      },
-      expenses: [],
-      verification: null
-    };
+const initializeNewHost = async (hostId, firstName, lastName, email, company, db) => {
+  if (!db) {
+    return;
   }
-  return hostData[hostId];
+
+  await db.query(
+    `
+      INSERT INTO user_profiles (user_id, bio, profile_picture, preferences, host_info, guest_info, updated_at)
+      VALUES (
+        $1,
+        '',
+        '',
+        '{"notifications":true,"emailUpdates":true,"smsAlerts":true}'::jsonb,
+        $2::jsonb,
+        '{}'::jsonb,
+        NOW()
+      )
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        host_info = EXCLUDED.host_info,
+        updated_at = NOW()
+    `,
+    [
+      hostId,
+      JSON.stringify({
+        company: company || '',
+        fullName: `${firstName || ''} ${lastName || ''}`.trim(),
+        email: email || ''
+      })
+    ]
+  );
 };
 
-// Export hostData and initialization function for other routes to access
-router.hostData = hostData;
 router.initializeNewHost = initializeNewHost;
 
 module.exports = router;

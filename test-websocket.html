@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+
+        function addLog(message, color = 'black') {
+            const p = document.createElement('p');
+            p.style.color = color;
+            p.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            log.appendChild(p);
+        }
+
+        // Test connection
+        const socket = io('http://localhost:5000', {
+            path: '/socket.io/',
+            transports: ['polling', 'websocket'],
+            reconnection: true
+        });
+
+        socket.on('connect', () => {
+            status.textContent = 'Connected ✅';
+            status.style.color = 'green';
+            addLog('Connected! Socket ID: ' + socket.id, 'green');
+            
+            // Test authentication
+            socket.emit('authenticate', { userId: 999, token: 'test' });
+        });
+
+        socket.on('authenticated', (data) => {
+            addLog('Authenticated: ' + JSON.stringify(data), 'blue');
+        });
+
+        socket.on('disconnect', () => {
+            status.textContent = 'Disconnected ❌';
+            status.style.color = 'red';
+            addLog('Disconnected', 'red');
+        });
+
+        socket.on('connect_error', (error) => {
+            status.textContent = 'Connection Error ❌';
+            status.style.color = 'red';
+            addLog('Error: ' + error.message, 'red');
+        });
+
+        socket.on('error', (error) => {
+            addLog('Socket Error: ' + error, 'red');
+        });
+    </script>
+</body>
+</html>

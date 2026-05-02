@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
+import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 import { 
   ChartBarIcon,
   CurrencyDollarIcon,
   PlusIcon,
   PencilIcon,
-  ChatBubbleLeftRightIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   XMarkIcon,
@@ -18,22 +19,35 @@ import {
 } from '@heroicons/react/24/outline';
 
 const HostFinancial = () => {
+  const { user, token } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] = useState([]);
+  const [financialStats, setFinancialStats] = useState({
+    totalRevenue: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    profitMargin: '0.0'
+  });
+
+  const getAuthHeaders = () => ({
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  });
 
   useEffect(() => {
-    // Fetch verification status when component mounts
     const fetchVerificationStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!user) {
+          setVerificationStatus(null);
+          return;
+        }
 
-        const response = await fetch('http://localhost:5000/api/host/verification-status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const response = await fetch(`${apiBaseUrl}/host/verification-status`, {
+          credentials: 'include',
+          headers: getAuthHeaders()
         });
 
         if (response.ok) {
@@ -52,27 +66,57 @@ const HostFinancial = () => {
     };
 
     fetchVerificationStatus();
-  }, []);
+  }, [apiBaseUrl, token, user]);
 
   // Check if user is verified
-  const isVerified = verificationStatus?.status === 'verified';
+  const isVerified = ['verified', 'approved'].includes(verificationStatus?.status) || verificationStatus?.verified === true;
 
-  const [expenses, setExpenses] = useState(isVerified ? [
-    {
-      id: 1,
-      date: '2/24/2026',
-      type: 'Marketing expense',
-      description: '2',
-      property: 'Trial#1',
-      amount: 2000,
-      category: 'Marketing Expenses'
-    }
-  ] : []); // Empty array for unverified hosts
+  useEffect(() => {
+    const fetchFinancialData = async () => {
+      if (!user || !isVerified) {
+        setExpenses([]);
+        setFinancialStats({
+          totalRevenue: 0,
+          totalExpenses: 0,
+          netProfit: 0,
+          profitMargin: '0.0'
+        });
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/host/financial`, {
+          credentials: 'include',
+          headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load financial data');
+        }
+
+        const payload = await response.json();
+        const stats = payload?.data?.stats || {};
+        const loadedExpenses = payload?.data?.expenses || [];
+
+        setFinancialStats({
+          totalRevenue: Number(stats.totalRevenue || 0),
+          totalExpenses: Number(stats.totalExpenses || 0),
+          netProfit: Number(stats.netProfit || 0),
+          profitMargin: String(stats.profitMargin || '0.0')
+        });
+        setExpenses(loadedExpenses);
+      } catch (error) {
+        console.error('Error fetching financial data:', error);
+      }
+    };
+
+    fetchFinancialData();
+  }, [apiBaseUrl, isVerified, token, user]);
 
   // Calculate totals automatically
   const calculateTotals = () => {
-    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-    const revenue = 21321; // This would come from bookings/payments in real app
+    const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    const revenue = Number(financialStats.totalRevenue || 0);
     const netProfit = revenue - totalExpenses;
     const profitMargin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
 
@@ -103,7 +147,7 @@ const HostFinancial = () => {
     return categories.map(category => {
       const categoryTotal = expenses
         .filter(expense => expense.category === category)
-        .reduce((sum, expense) => sum + expense.amount, 0);
+        .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
       
       return {
         name: category,
@@ -141,16 +185,6 @@ const HostFinancial = () => {
     }
   ] : []; // Empty array for unverified hosts
 
-  const expenseHistory = isVerified ? [
-    {
-      date: '2/24/2026',
-      type: 'Marketing expense',
-      description: '2',
-      property: 'Trial#1',
-      amount: '2,000'
-    }
-  ] : []; // Empty array for unverified hosts
-
   // Add Expense Form State
   const [expenseForm, setExpenseForm] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -183,7 +217,7 @@ const HostFinancial = () => {
     }));
   };
 
-  const handleSubmitExpense = (e) => {
+  const handleSubmitExpense = async (e) => {
     e.preventDefault();
     
     if (!expenseForm.category || !expenseForm.description || !expenseForm.amount) {
@@ -191,18 +225,50 @@ const HostFinancial = () => {
       return;
     }
 
-    const newExpense = {
-      id: expenses.length + 1,
-      date: expenseForm.date,
-      type: expenseForm.category,
-      description: expenseForm.description,
-      property: expenseForm.property || 'General',
-      amount: parseFloat(expenseForm.amount),
-      category: expenseForm.category
-    };
+    try {
+      const response = await fetch(`${apiBaseUrl}/host/expenses`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          date: expenseForm.date,
+          type: expenseForm.category,
+          description: expenseForm.description,
+          property: expenseForm.property || 'General',
+          amount: parseFloat(expenseForm.amount),
+          category: expenseForm.category
+        })
+      });
 
-    setExpenses(prev => [...prev, newExpense]);
-    handleCloseModal();
+      if (!response.ok) {
+        throw new Error('Failed to save expense');
+      }
+
+      const payload = await response.json();
+      const createdExpense = payload?.data;
+
+      if (createdExpense) {
+        setExpenses(prev => [createdExpense, ...prev]);
+        setFinancialStats((prev) => {
+          const nextTotalExpenses = Number(prev.totalExpenses || 0) + Number(createdExpense.amount || 0);
+          const revenue = Number(prev.totalRevenue || 0);
+          const nextNetProfit = revenue - nextTotalExpenses;
+          return {
+            ...prev,
+            totalExpenses: nextTotalExpenses,
+            netProfit: nextNetProfit,
+            profitMargin: revenue > 0 ? ((nextNetProfit / revenue) * 100).toFixed(1) : '0.0'
+          };
+        });
+      }
+
+      handleCloseModal();
+    } catch (error) {
+      alert(error.message || 'Failed to add expense');
+    }
   };
 
   const properties = ['Trial#1', 'Trial#2', 'Trial#3', 'General'];
@@ -350,19 +416,28 @@ const HostFinancial = () => {
                   </div>
                   
                   {/* Visual Bar Chart */}
+                  {(() => {
+                    const revenueAmount = Number(financialData.revenue.replace(/[^\d.-]/g, '')) || 0;
+                    const total = revenueAmount + financialData.totalExpenses;
+                    const revenueWidth = total > 0 ? (revenueAmount / total) * 100 : 0;
+                    const expenseWidth = total > 0 ? (financialData.totalExpenses / total) * 100 : 0;
+
+                    return (
                   <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
                     <div 
                       className="absolute left-0 top-0 h-full bg-green-500 rounded-full" 
-                      style={{ width: `${(21321 / (21321 + financialData.totalExpenses)) * 100}%` }}
+                      style={{ width: `${revenueWidth}%` }}
                     ></div>
                     <div 
                       className="absolute top-0 h-full bg-red-500" 
                       style={{ 
-                        left: `${(21321 / (21321 + financialData.totalExpenses)) * 100}%`,
-                        width: `${(financialData.totalExpenses / (21321 + financialData.totalExpenses)) * 100}%` 
+                        left: `${revenueWidth}%`,
+                        width: `${expenseWidth}%` 
                       }}
                     ></div>
                   </div>
+                    );
+                  })()}
                 </div>
               </>
             )}
@@ -555,7 +630,7 @@ const HostFinancial = () => {
                             {expense.property}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            ₱{expense.amount.toLocaleString()}
+                            ₱{Number(expense.amount || 0).toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
                             <button
@@ -574,13 +649,19 @@ const HostFinancial = () => {
                 <div className="text-center py-12">
                   <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No expense history available</h3>
-                  <p className="text-gray-600 mb-6">Complete verification to start tracking your expenses.</p>
-                  <a
-                    href="/host/verification"
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
-                  >
-                    <span>Complete Verification</span>
-                  </a>
+                  {isVerified ? (
+                    <p className="text-gray-600 mb-6">You are verified. Add your first expense to start tracking history.</p>
+                  ) : (
+                    <>
+                      <p className="text-gray-600 mb-6">Complete verification to start tracking your expenses.</p>
+                      <a
+                        href="/host/verification"
+                        className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                      >
+                        <span>Complete Verification</span>
+                      </a>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -588,15 +669,6 @@ const HostFinancial = () => {
             )}
           </div>
         )}
-
-        {/* Fixed Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="bg-[#4E7B22] text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
-        </div>
-
         {/* Add Expense Modal */}
         {showAddExpenseModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

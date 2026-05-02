@@ -9,9 +9,12 @@ import {
   UserCircleIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 
 const HostVerification = () => {
   const navigate = useNavigate();
+  const { token, loading: authLoading } = useAuth();
   const [selectedHost, setSelectedHost] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [verificationRequests, setVerificationRequests] = useState([]);
@@ -21,26 +24,51 @@ const HostVerification = () => {
   const [rejectModal, setRejectModal] = useState({ show: false, verificationId: null });
   const [rejectionReason, setRejectionReason] = useState('');
 
+  const normalizeVerification = (request) => {
+    const rawDetails = request?.details || {};
+    const files = rawDetails?.files || {};
+    const firstName = rawDetails?.firstName || '';
+    const lastName = rawDetails?.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    const normalizedDetails = {
+      ...rawDetails,
+      files,
+      idPhoto: rawDetails?.idPhoto || files?.idDocumentPhoto?.fileUrl || '',
+      ownerIdPhoto: rawDetails?.ownerIdPhoto || files?.ownerHoldingIdPhoto?.fileUrl || '',
+      proofOfOwnership: rawDetails?.proofOfOwnership || files?.proofOfOwnership?.originalName || '',
+      additionalDocs: rawDetails?.additionalDocs || files?.additionalDocuments?.originalName || ''
+    };
+
+    return {
+      ...request,
+      details: normalizedDetails,
+      displayName: fullName || request.hostName || `Host ${request.hostId}`,
+      displayEmail: normalizedDetails?.email || request.email || `host${request.hostId}@smartstay.com`,
+      displayBusinessName: request.businessName || normalizedDetails?.company || 'N/A'
+    };
+  };
+
   // Fetch verification requests from API
   useEffect(() => {
     const fetchVerifications = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setError('No authentication token found');
-          setLoading(false);
-          return;
+        const authToken = token || localStorage.getItem('token') || sessionStorage.getItem('token');
+
+        const headers = {};
+        if (authToken) {
+          headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch('http://localhost:5000/api/admin/host-verifications', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const response = await fetch(`${API_CONFIG.BASE_URL}/admin/host-verifications`, {
+          method: 'GET',
+          credentials: 'include',
+          headers
         });
 
         if (response.ok) {
           const data = await response.json();
-          setVerificationRequests(data.data || []);
+          setVerificationRequests((data.data || []).map(normalizeVerification));
         } else {
           setError('Failed to fetch verifications');
         }
@@ -52,8 +80,12 @@ const HostVerification = () => {
       }
     };
 
+    if (authLoading) {
+      return;
+    }
+
     fetchVerifications();
-  }, []);
+  }, [authLoading, token]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -80,20 +112,25 @@ const HostVerification = () => {
 
   const handleApprove = async (verificationId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/admin/host-verifications/${verificationId}/approve`, {
+      const authToken = token || localStorage.getItem('token') || sessionStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/admin/host-verifications/${verificationId}/approve`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include',
+        headers
       });
 
       if (response.ok) {
         const data = await response.json();
         // Update the verification in the list
         setVerificationRequests(verificationRequests.map(v => 
-          v.id === verificationId ? { ...v, status: 'approved' } : v
+          v.id === verificationId ? normalizeVerification({ ...v, status: 'approved' }) : v
         ));
         setShowDetailsModal(false);
         setSuccessModal({ show: true, message: 'Host verification approved successfully!', type: 'success' });
@@ -117,13 +154,18 @@ const HostVerification = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/admin/host-verifications/${rejectModal.verificationId}/reject`, {
+      const authToken = token || localStorage.getItem('token') || sessionStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/admin/host-verifications/${rejectModal.verificationId}/reject`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        credentials: 'include',
+        headers,
         body: JSON.stringify({ reason: rejectionReason })
       });
 
@@ -131,7 +173,7 @@ const HostVerification = () => {
         const data = await response.json();
         // Update the verification in the list
         setVerificationRequests(verificationRequests.map(v => 
-          v.id === rejectModal.verificationId ? { ...v, status: 'rejected' } : v
+          v.id === rejectModal.verificationId ? normalizeVerification({ ...v, status: 'rejected' }) : v
         ));
         setShowDetailsModal(false);
         setRejectModal({ show: false, verificationId: null });
@@ -209,9 +251,9 @@ const HostVerification = () => {
                 {verificationRequests.map((request) => (
                   <tr key={request.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.hostName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.businessName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.displayName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.displayEmail}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.displayBusinessName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.submitted}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
@@ -258,11 +300,11 @@ const HostVerification = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm text-gray-600">Name:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.hostName}</p>
+                      <p className="font-medium text-gray-900">{selectedHost.displayName}</p>
                     </div>
                     <div>
                       <label className="text-sm text-gray-600">Email:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.email}</p>
+                      <p className="font-medium text-gray-900">{selectedHost.displayEmail}</p>
                     </div>
                     <div className="col-span-2">
                       <label className="text-sm text-gray-600">Submitted:</label>
@@ -277,7 +319,7 @@ const HostVerification = () => {
                   <div className="space-y-3">
                     <div>
                       <label className="text-sm text-gray-600">Business Name:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.businessName}</p>
+                      <p className="font-medium text-gray-900">{selectedHost.displayBusinessName}</p>
                     </div>
                     {selectedHost.details && (
                       <>
@@ -324,12 +366,14 @@ const HostVerification = () => {
                         <label className="text-sm text-gray-600 mb-2 block">ID Document Photo:</label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
                           <img 
-                            src={selectedHost.details.idPhoto} 
+                            src={selectedHost.details.files?.idDocumentPhoto?.fileUrl || selectedHost.details.idPhoto} 
                             alt="ID Document" 
                             className="w-full h-40 object-cover rounded-lg bg-gray-200"
                             onError={(e) => {
                               e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              if (e.target.nextElementSibling) {
+                                e.target.nextElementSibling.style.display = 'flex';
+                              }
                             }}
                           />
                           <div className="hidden w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -346,12 +390,14 @@ const HostVerification = () => {
                         <label className="text-sm text-gray-600 mb-2 block">Owner Holding ID Photo:</label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
                           <img 
-                            src={selectedHost.details.ownerIdPhoto} 
+                            src={selectedHost.details.files?.ownerHoldingIdPhoto?.fileUrl || selectedHost.details.ownerIdPhoto} 
                             alt="Owner Holding ID" 
                             className="w-full h-40 object-cover rounded-lg bg-gray-200"
                             onError={(e) => {
                               e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              if (e.target.nextElementSibling) {
+                                e.target.nextElementSibling.style.display = 'flex';
+                              }
                             }}
                           />
                           <div className="hidden w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -382,11 +428,37 @@ const HostVerification = () => {
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm text-gray-600">Proof of Ownership:</label>
-                        <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">{selectedHost.details.proofOfOwnership}</p>
+                        <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                          {selectedHost.details.files?.proofOfOwnership?.fileUrl ? (
+                            <a
+                              href={selectedHost.details.files.proofOfOwnership.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              {selectedHost.details.files.proofOfOwnership.originalName || 'Open proof of ownership'}
+                            </a>
+                          ) : (
+                            <span>{selectedHost.details.proofOfOwnership || 'No file uploaded'}</span>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="text-sm text-gray-600">Additional Documents:</label>
-                        <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">{selectedHost.details.additionalDocs}</p>
+                        <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                          {selectedHost.details.files?.additionalDocuments?.fileUrl ? (
+                            <a
+                              href={selectedHost.details.files.additionalDocuments.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              {selectedHost.details.files.additionalDocuments.originalName || 'Open additional document'}
+                            </a>
+                          ) : (
+                            <span>{selectedHost.details.additionalDocs || 'No additional document uploaded'}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -581,12 +653,14 @@ const HostVerification = () => {
                           <div className="relative group">
                             <div className="border-2 border-gray-200 rounded-2xl p-4 bg-gradient-to-br from-gray-50 to-gray-100 hover:shadow-lg transition-all duration-300">
                               <img 
-                                src={selectedHost.details.idPhoto} 
+                                src={selectedHost.details.files?.idDocumentPhoto?.fileUrl || selectedHost.details.idPhoto} 
                                 alt="ID Document" 
                                 className="w-full h-48 object-cover rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300"
                                 onError={(e) => {
                                   e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
+                                  if (e.target.nextElementSibling) {
+                                    e.target.nextElementSibling.style.display = 'flex';
+                                  }
                                 }}
                               />
                               <div className="hidden w-full h-48 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl flex items-center justify-center border-2 border-dashed border-blue-300">
@@ -612,12 +686,14 @@ const HostVerification = () => {
                           <div className="relative group">
                             <div className="border-2 border-gray-200 rounded-2xl p-4 bg-gradient-to-br from-gray-50 to-gray-100 hover:shadow-lg transition-all duration-300">
                               <img 
-                                src={selectedHost.details.ownerIdPhoto} 
+                                src={selectedHost.details.files?.ownerHoldingIdPhoto?.fileUrl || selectedHost.details.ownerIdPhoto} 
                                 alt="Owner Holding ID" 
                                 className="w-full h-48 object-cover rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300"
                                 onError={(e) => {
                                   e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
+                                  if (e.target.nextElementSibling) {
+                                    e.target.nextElementSibling.style.display = 'flex';
+                                  }
                                 }}
                               />
                               <div className="hidden w-full h-48 bg-gradient-to-br from-green-50 to-green-100 rounded-xl flex items-center justify-center border-2 border-dashed border-green-300">
@@ -669,11 +745,37 @@ const HostVerification = () => {
                       <div className="space-y-4">
                         <div className="bg-gray-50 rounded-xl p-4">
                           <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Proof of Ownership</label>
-                          <p className="text-gray-900 mt-2 bg-white p-3 rounded-lg border font-mono text-sm">{selectedHost.details.proofOfOwnership}</p>
+                          <div className="text-gray-900 mt-2 bg-white p-3 rounded-lg border text-sm">
+                            {selectedHost.details.files?.proofOfOwnership?.fileUrl ? (
+                              <a
+                                href={selectedHost.details.files.proofOfOwnership.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                {selectedHost.details.files.proofOfOwnership.originalName || 'Open proof of ownership'}
+                              </a>
+                            ) : (
+                              <span className="font-mono">{selectedHost.details.proofOfOwnership || 'No file uploaded'}</span>
+                            )}
+                          </div>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
                           <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Additional Documents</label>
-                          <p className="text-gray-900 mt-2 bg-white p-3 rounded-lg border">{selectedHost.details.additionalDocs}</p>
+                          <div className="text-gray-900 mt-2 bg-white p-3 rounded-lg border text-sm">
+                            {selectedHost.details.files?.additionalDocuments?.fileUrl ? (
+                              <a
+                                href={selectedHost.details.files.additionalDocuments.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                {selectedHost.details.files.additionalDocuments.originalName || 'Open additional document'}
+                              </a>
+                            ) : (
+                              <span>{selectedHost.details.additionalDocs || 'No additional document uploaded'}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 import { 
   ArrowLeftIcon,
   ChevronLeftIcon,
@@ -15,6 +16,7 @@ const BookingForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -28,6 +30,36 @@ const BookingForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [property, setProperty] = useState(null);
   const [loadingProperty, setLoadingProperty] = useState(true);
+  const [unavailableDateSet, setUnavailableDateSet] = useState(new Set());
+
+  const formatPHP = (value) => Number(value || 0).toLocaleString('en-PH');
+  const nightlyRate = Number(property?.pricePerNight || 0);
+  const derivedHourlyRate = Number(property?.hourlyRate || (nightlyRate > 0 ? nightlyRate / 24 : 0));
+  const includedGuests = Number(property?.maxGuests || 1);
+  const extraGuestFeePerNight = Number(property?.extraGuestFee || property?.timeAvailability?.extraGuestFee || 0);
+  const extraGuestCount = Math.max(0, guests - includedGuests);
+  const computedNights = selectedCheckIn && selectedCheckOut
+    ? Math.max(1, Math.ceil((selectedCheckOut - selectedCheckIn) / (1000 * 60 * 60 * 24)))
+    : 1;
+  const baseBookingAmount = bookingType === 'hourly'
+    ? (selectedDuration?.price || 0)
+    : (nightlyRate * computedNights);
+  const extraGuestFeeAmount = bookingType === 'fixed'
+    ? (extraGuestCount * extraGuestFeePerNight * computedNights)
+    : 0;
+  const totalBookingPreview = baseBookingAmount + extraGuestFeeAmount;
+  const maxSelectableGuests = Math.max(6, includedGuests + 6);
+  const guestOptions = Array.from({ length: maxSelectableGuests }, (_, idx) => idx + 1);
+  const availableBookingTypes =
+    property?.bookingType === 'fixed' || property?.bookingType === 'hourly'
+      ? [property.bookingType]
+      : ['fixed', 'hourly'];
+  const durationHourValues = [3, 6, 12, 24, 48, 72];
+  const durationOptions = durationHourValues.map((hours) => ({
+    hours,
+    duration: `${hours} Hours`,
+    price: Math.round(derivedHourlyRate * hours)
+  }));
   
   // Guest information
   const [guestInfo, setGuestInfo] = useState({
@@ -40,24 +72,56 @@ const BookingForm = () => {
     hasMinors: false
   });
 
-  // Fetch property details
+  // Fetch property details and existing bookings for date blocking
   useEffect(() => {
-    const fetchProperty = async () => {
+    const fetchBookingContext = async () => {
       try {
         setLoadingProperty(true);
-        const response = await axios.get(`http://localhost:5000/api/properties/${id}`);
-        setProperty(response.data);
+
+        const propertyResponse = await axios.get(`${apiBaseUrl}/properties/${id}`);
+        setProperty(propertyResponse.data);
+
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const bookingsResponse = await axios.get(`${apiBaseUrl}/bookings`, {
+          params: { propertyId: id },
+          headers,
+          withCredentials: true
+        });
+
+        const blocked = new Set();
+        (bookingsResponse.data?.bookings || [])
+          .filter((booking) => booking.status === 'pending' || booking.status === 'confirmed')
+          .forEach((booking) => {
+            const start = new Date(booking.checkIn);
+            const end = new Date(booking.checkOut);
+            const cursor = new Date(start);
+
+            while (cursor < end) {
+              blocked.add(cursor.toISOString().split('T')[0]);
+              cursor.setDate(cursor.getDate() + 1);
+            }
+          });
+
+        setUnavailableDateSet(blocked);
       } catch (err) {
-        console.error('Error fetching property:', err);
+        console.error('Error fetching booking context:', err);
       } finally {
         setLoadingProperty(false);
       }
     };
 
     if (id) {
-      fetchProperty();
+      fetchBookingContext();
     }
-  }, [id]);
+  }, [id, apiBaseUrl, token]);
+
+  useEffect(() => {
+    if (!property?.bookingType) return;
+
+    if (property.bookingType === 'fixed' || property.bookingType === 'hourly') {
+      setBookingType(property.bookingType);
+    }
+  }, [property?.bookingType]);
 
   // Convert time string (HH:MM) to 12-hour format
   const formatTime = (timeStr) => {
@@ -116,16 +180,6 @@ const BookingForm = () => {
   // Available checkout time slots
   const checkoutTimeSlots = getPropertyCheckoutSlots();
 
-  // Duration options
-  const durationOptions = [
-    { duration: '3 Hours', price: 1500 },
-    { duration: '6 Hours', price: 2500 },
-    { duration: '12 Hours', price: 4000 },
-    { duration: '24 Hours', price: 6500 },
-    { duration: '48 Hours', price: 12000 },
-    { duration: '72 Hours', price: 18000 }
-  ];
-
   // Calendar functions
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -151,7 +205,7 @@ const BookingForm = () => {
       let status = 'available';
       if (currentDate < today) {
         status = 'past';
-      } else if ([4, 5, 10, 11, 12, 13, 14, 19, 20, 25, 26, 27].includes(day)) {
+      } else if (unavailableDateSet.has(currentDate.toISOString().split('T')[0])) {
         status = 'unavailable';
       } else if (selectedCheckIn && currentDate.toDateString() === selectedCheckIn.toDateString()) {
         status = 'selected';
@@ -246,8 +300,18 @@ const BookingForm = () => {
       return;
     }
     
-    if (!selectedDuration) {
+    if (bookingType === 'hourly' && !selectedDuration) {
       alert('Please select a duration');
+      return;
+    }
+
+    if (bookingType === 'hourly' && guests > includedGuests) {
+      alert(`Hourly booking supports up to ${includedGuests} guests for this unit`);
+      return;
+    }
+
+    if (bookingType === 'fixed' && guests > includedGuests && extraGuestFeePerNight <= 0) {
+      alert(`This unit supports up to ${includedGuests} guests`);
       return;
     }
     
@@ -256,67 +320,51 @@ const BookingForm = () => {
       return;
     }
 
-    try {
-      setSubmitting(true);
+    // Calculate total amount
+    const nights = Math.max(1, Math.ceil((selectedCheckOut - selectedCheckIn) / (1000 * 60 * 60 * 24)));
+    const baseAmount = bookingType === 'hourly'
+      ? (selectedDuration?.price || 0)
+      : (nightlyRate * nights);
+    const extraFeeAmount = bookingType === 'fixed'
+      ? (Math.max(0, guests - includedGuests) * extraGuestFeePerNight * nights)
+      : 0;
+    const totalAmount = baseAmount + extraFeeAmount;
 
-      // Calculate total amount
-      const totalAmount = selectedDuration?.price || (property?.pricePerNight || 0);
+    // Navigate to payment page with booking data (NO booking created yet)
+    const bookingData = {
+      propertyId: parseInt(id),
+      propertyTitle: property?.title,
+      propertyHostId: property?.hostId,
+      checkInDate: selectedCheckIn?.toISOString().split('T')[0],
+      checkOutDate: selectedCheckOut?.toISOString().split('T')[0],
+      checkIn: selectedCheckIn.toISOString(),
+      checkOut: selectedCheckOut.toISOString(),
+      selectedTime: selectedTime,
+      selectedCheckOutTime: selectedCheckOutTime,
+      selectedDuration: selectedDuration,
+      bookingType: bookingType,
+      guests: guests,
+      guestInfo: guestInfo,
+      totalAmount: totalAmount,
+      metadata: {
+        selectedDuration,
+        durationHours: selectedDuration?.hours || null,
+        extraGuestCount: Math.max(0, guests - includedGuests),
+        extraGuestFeePerNight,
+        extraGuestFeeTotal: extraFeeAmount,
+        includedGuests,
+        firstName: guestInfo.firstName,
+        lastName: guestInfo.lastName,
+        email: guestInfo.email,
+        phone: guestInfo.phone,
+        minors: guestInfo.hasMinors
+      },
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes expiration
+    };
 
-      // Create booking data
-      const bookingPayload = {
-        propertyId: parseInt(id),
-        guestId: user?.id || 5, // Default to guest ID 5 if not authenticated
-        hostId: property?.hostId || 3, // From property details
-        checkIn: selectedCheckIn.toISOString(),
-        checkOut: selectedCheckOut.toISOString(),
-        guests: guests,
-        totalAmount: totalAmount,
-        status: 'pending',
-        paymentStatus: 'pending',
-        specialRequests: guestInfo.specialRequests,
-        userInfo: {
-          firstName: guestInfo.firstName,
-          lastName: guestInfo.lastName,
-          email: guestInfo.email,
-          phone: guestInfo.phone,
-          minors: guestInfo.hasMinors
-        }
-      };
-
-      // Submit booking
-      const response = await axios.post('http://localhost:5000/api/bookings', bookingPayload, {
-        headers: {
-          Authorization: `Bearer ${token || 'guest_5'}`
-        }
-      });
-
-      if (response.data.data) {
-        // Navigate to payment with booking data
-        const bookingData = {
-          bookingId: response.data.data.id,
-          propertyId: id,
-          propertyTitle: property?.title,
-          checkInDate: selectedCheckIn?.toISOString().split('T')[0],
-          checkOutDate: selectedCheckOut?.toISOString().split('T')[0],
-          selectedTime: selectedTime,
-          selectedCheckOutTime: selectedCheckOutTime,
-          selectedDuration: selectedDuration,
-          bookingType: bookingType,
-          guests: guests,
-          guestInfo: guestInfo,
-          totalAmount: totalAmount
-        };
-
-        navigate(`/guest/units/${id}/payment`, { 
-          state: { bookingData } 
-        });
-      }
-    } catch (err) {
-      console.error('Error creating booking:', err);
-      alert('Failed to create booking. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
+    navigate(`/guest/units/${id}/payment`, { 
+      state: { bookingData } 
+    });
   };
 
   const monthNames = [
@@ -440,14 +488,19 @@ const BookingForm = () => {
                 <ul className="text-sm text-green-700 space-y-1">
                   <li>• Fixed Time: Standard check-in/out times with overnight stays</li>
                   <li>• Hourly: Flexible duration-based bookings for shorter stays</li>
-                  <li>• Choose the option that best fits your needs</li>
+                  <li>
+                    • {availableBookingTypes.length === 1
+                      ? `This unit only allows ${availableBookingTypes[0]} booking.`
+                      : 'Choose the option that best fits your needs'}
+                  </li>
                   <li>• Pricing varies based on selected booking type</li>
                 </ul>
               </div>
               
               <div className="space-y-4">
+                {availableBookingTypes.includes('fixed') && (
                 <div 
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  className={`p-4 rounded-lg border-2 transition-all ${
                     bookingType === 'fixed' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'
                   }`}
                   onClick={() => setBookingType('fixed')}
@@ -461,13 +514,15 @@ const BookingForm = () => {
                         <span className="text-2xl">📅</span>
                         <span className="font-semibold text-lg">Fixed Time Booking</span>
                       </div>
-                      <div className="text-gray-600">₱500/night - Standard overnight stays</div>
+                      <div className="text-gray-600">₱{formatPHP(nightlyRate)}/night - Standard overnight stays</div>
                     </div>
                   </div>
                 </div>
+                )}
 
+                {availableBookingTypes.includes('hourly') && (
                 <div 
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  className={`p-4 rounded-lg border-2 transition-all ${
                     bookingType === 'hourly' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'
                   }`}
                   onClick={() => setBookingType('hourly')}
@@ -481,10 +536,11 @@ const BookingForm = () => {
                         <span className="text-2xl">⏰</span>
                         <span className="font-semibold text-lg">Hourly Booking</span>
                       </div>
-                      <div className="text-gray-600">₱500/night - Standard overnight stays</div>
+                      <div className="text-gray-600">₱{formatPHP(derivedHourlyRate)}/hour - Flexible short-term stays</div>
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
@@ -563,6 +619,7 @@ const BookingForm = () => {
             </div>
 
             {/* Select Time */}
+            {bookingType === 'hourly' && (
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Select Time</h2>
               
@@ -579,69 +636,23 @@ const BookingForm = () => {
 
               {/* Time Slots */}
               <div className="grid grid-cols-3 gap-3 mb-6">
-                <button
-                  onClick={() => handleDurationSelect({ duration: '3 Hours', price: 1500 })}
-                  className={`
-                    p-4 rounded-lg border-2 text-center transition-all
-                    ${selectedDuration?.duration === '3 Hours' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                  `}
-                >
-                  <div className="font-medium">3 Hours</div>
-                  <div className="text-sm">₱1,500</div>
-                </button>
-                <button
-                  onClick={() => handleDurationSelect({ duration: '6 Hours', price: 2500 })}
-                  className={`
-                    p-4 rounded-lg border-2 text-center transition-all
-                    ${selectedDuration?.duration === '6 Hours' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                  `}
-                >
-                  <div className="font-medium">6 Hours</div>
-                  <div className="text-sm">₱2,500</div>
-                </button>
-                <button
-                  onClick={() => handleDurationSelect({ duration: '12 Hours', price: 4000 })}
-                  className={`
-                    p-4 rounded-lg border-2 text-center transition-all
-                    ${selectedDuration?.duration === '12 Hours' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                  `}
-                >
-                  <div className="font-medium">12 Hours</div>
-                  <div className="text-sm">₱4,000</div>
-                  <div className="text-xs text-green-600">Standard</div>
-                </button>
-                <button
-                  onClick={() => handleDurationSelect({ duration: '24 Hours', price: 6500 })}
-                  className={`
-                    p-4 rounded-lg border-2 text-center transition-all
-                    ${selectedDuration?.duration === '24 Hours' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                  `}
-                >
-                  <div className="font-medium">24 Hours</div>
-                  <div className="text-sm">₱6,500</div>
-                </button>
-                <button
-                  onClick={() => handleDurationSelect({ duration: '48 Hours', price: 12000 })}
-                  className={`
-                    p-4 rounded-lg border-2 text-center transition-all
-                    ${selectedDuration?.duration === '48 Hours' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                  `}
-                >
-                  <div className="font-medium">48 Hours</div>
-                  <div className="text-sm">₱12,000</div>
-                </button>
-                <button
-                  onClick={() => handleDurationSelect({ duration: '72 Hours', price: 18000 })}
-                  className={`
-                    p-4 rounded-lg border-2 text-center transition-all
-                    ${selectedDuration?.duration === '72 Hours' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
-                  `}
-                >
-                  <div className="font-medium">72 Hours</div>
-                  <div className="text-sm">₱18,000</div>
-                </button>
+                {durationOptions.map((option) => (
+                  <button
+                    key={option.hours}
+                    onClick={() => handleDurationSelect(option)}
+                    className={`
+                      p-4 rounded-lg border-2 text-center transition-all
+                      ${selectedDuration?.hours === option.hours ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
+                    `}
+                  >
+                    <div className="font-medium">{option.duration}</div>
+                    <div className="text-sm">₱{formatPHP(option.price)}</div>
+                    {option.hours === 12 && <div className="text-xs text-green-600">Standard</div>}
+                  </button>
+                ))}
               </div>
             </div>
+            )}
 
             {/* Guest Information */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -671,10 +682,23 @@ const BookingForm = () => {
                   onChange={(e) => setGuests(parseInt(e.target.value))}
                   className="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
-                  {[1, 2, 3, 4, 5, 6].map(num => (
+                  {guestOptions.map(num => (
                     <option key={num} value={num}>{num} Guest{num > 1 ? 's' : ''}</option>
                   ))}
                 </select>
+                <p className="mt-2 text-sm text-gray-600">
+                  Included guests: {includedGuests}. Extra guest fee: ₱{formatPHP(extraGuestFeePerNight)} per person/night.
+                </p>
+                {extraGuestCount > 0 && bookingType === 'fixed' && extraGuestFeePerNight > 0 && (
+                  <p className="mt-1 text-sm text-orange-700">
+                    {extraGuestCount} extra guest{extraGuestCount > 1 ? 's' : ''} x ₱{formatPHP(extraGuestFeePerNight)} x {computedNights} night{computedNights > 1 ? 's' : ''} = +₱{formatPHP(extraGuestFeeAmount)}
+                  </p>
+                )}
+                {extraGuestCount > 0 && bookingType === 'hourly' && (
+                  <p className="mt-1 text-sm text-red-600">
+                    Hourly booking is limited to {includedGuests} guest{includedGuests > 1 ? 's' : ''} for this unit.
+                  </p>
+                )}
               </div>
 
                 {/* Guest 1 (Primary Contact) */}
@@ -947,22 +971,41 @@ const BookingForm = () => {
                     <span className="text-gray-600">Booking Type:</span>
                     <span className="font-medium capitalize">{bookingType}</span>
                   </div>
-                  {selectedDuration && (
-                    <div className="flex justify-between font-semibold text-lg border-t pt-2 mt-4">
-                      <span>Total:</span>
-                      <span className="text-green-600">₱{selectedDuration.price.toLocaleString()}</span>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Base Amount:</span>
+                    <span className="font-medium">₱{formatPHP(baseBookingAmount)}</span>
+                  </div>
+                  {bookingType === 'fixed' && extraGuestFeeAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Extra Guest Fee:</span>
+                      <span className="font-medium">+₱{formatPHP(extraGuestFeeAmount)}</span>
                     </div>
                   )}
+                  <div className="flex justify-between font-semibold text-lg border-t pt-2 mt-4">
+                    <span>Total:</span>
+                    <span className="text-green-600">₱{formatPHP(totalBookingPreview)}</span>
+                  </div>
                 </div>
               </div>
 
               <button
                 onClick={handleConfirmBooking}
-                disabled={!selectedCheckIn || !selectedCheckOut || !selectedTime || !selectedCheckOutTime || !selectedDuration || !guestInfo.firstName || !guestInfo.lastName || !guestInfo.email || !guestInfo.phone || submitting || loadingProperty}
+                disabled={
+                  !selectedCheckIn
+                  || !selectedCheckOut
+                  || !selectedTime
+                  || !selectedCheckOutTime
+                  || (bookingType === 'hourly' && !selectedDuration)
+                  || !guestInfo.firstName
+                  || !guestInfo.lastName
+                  || !guestInfo.email
+                  || !guestInfo.phone
+                  || loadingProperty
+                }
                 className="w-full text-white py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{backgroundColor: '#4E7B22'}}
               >
-                {submitting ? 'Processing Booking...' : 'Confirm Booking'}
+                Continue to Payment
               </button>
 
               <p className="text-xs text-gray-500 text-center mt-3">

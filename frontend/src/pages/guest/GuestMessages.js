@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { 
   PaperAirplaneIcon, 
@@ -7,93 +8,373 @@ import {
   ChatBubbleLeftRightIcon,
   LifebuoyIcon
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../../contexts/AuthContext';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+import API_CONFIG from '../../config/api';
 
 const GuestMessages = () => {
-  const [selectedConversation, setSelectedConversation] = useState(1);
+  const { user, token } = useAuth();
+  const { startTyping, stopTyping, on, off, joinRoom, leaveRoom } = useWebSocket();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
+
+  const [selectedConversation, setSelectedConversation] = useState(null);
   const [newMessage, setNewMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSubject, setSupportSubject] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [messagesByConversation, setMessagesByConversation] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
+  const typingTimeoutRef = useRef({});
 
-  const conversations = [
-    {
-      id: 1,
-      hostName: 'Maria Santos',
-      propertyName: 'Modern Studio in Makati',
-      lastMessage: 'Thank you for your booking! Check-in instructions will be sent 24 hours before your arrival.',
-      timestamp: '2 hours ago',
-      unread: 2,
-      avatar: 'MS'
-    },
-    {
-      id: 2,
-      hostName: 'John Cruz',
-      propertyName: 'Cozy Apartment in BGC',
-      lastMessage: 'The WiFi password is SmartStay2024. Enjoy your stay!',
-      timestamp: '1 day ago',
-      unread: 0,
-      avatar: 'JC'
-    },
-    {
-      id: 3,
-      hostName: 'Anna Reyes',
-      propertyName: 'Executive Suite in Ortigas',
-      lastMessage: 'Hi! Just wanted to check if everything was okay during your stay.',
-      timestamp: '3 days ago',
-      unread: 1,
-      avatar: 'AR'
+  const currentUserId = user?.id;
+  const pendingTarget = location.state || {};
+
+  const getAuthHeaders = () => ({
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  });
+
+  const formatRelativeTimestamp = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+  };
+
+  const buildConversationId = (userId, otherUserId, propertyId = null) => {
+    const pair = [userId, otherUserId].sort((a, b) => a - b).join('_');
+    if (propertyId) {
+      return `conv_p_${propertyId}_${pair}`;
     }
-  ];
+    return `conv_u_${pair}`;
+  };
 
-  const messages = [
-    {
-      id: 1,
-      sender: 'host',
-      message: 'Hello! Welcome to Smart Stay. I\'m Maria, your host for the Modern Studio in Makati.',
-      timestamp: '10:30 AM',
-      date: 'Today'
-    },
-    {
-      id: 2,
-      sender: 'guest',
-      message: 'Hi Maria! Thank you for the warm welcome. I\'m excited about my stay.',
-      timestamp: '10:35 AM',
-      date: 'Today'
-    },
-    {
-      id: 3,
-      sender: 'host',
-      message: 'Great! I wanted to confirm your check-in time. You mentioned 3 PM, is that still good for you?',
-      timestamp: '10:40 AM',
-      date: 'Today'
-    },
-    {
-      id: 4,
-      sender: 'guest',
-      message: 'Yes, 3 PM works perfectly. Should I call when I arrive?',
-      timestamp: '10:45 AM',
-      date: 'Today'
-    },
-    {
-      id: 5,
-      sender: 'host',
-      message: 'Perfect! Yes, please call me at +63 917 123 4567 when you arrive. I\'ll meet you at the lobby.',
-      timestamp: '10:50 AM',
-      date: 'Today'
-    },
-    {
-      id: 6,
-      sender: 'host',
-      message: 'Thank you for your booking! Check-in instructions will be sent 24 hours before your arrival.',
-      timestamp: '2:15 PM',
-      date: 'Today'
+  const initializeConversations = (payload) => {
+    const summaries = payload.conversationSummaries || [];
+    const messagesStore = payload.conversations || {};
+
+    const mappedConversations = summaries.map((summary) => {
+      const fullName = summary.otherUser?.fullName?.trim()
+        || summary.otherUser?.email
+        || `User #${summary.otherUserId}`;
+      const initials = fullName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join('') || 'U';
+
+      return {
+        id: summary.conversationId,
+        conversationId: summary.conversationId,
+        otherUserId: summary.otherUserId,
+        hostName: fullName,
+        propertyName: 'Host Chat',
+        lastMessage: summary.lastMessage || '',
+        timestamp: formatRelativeTimestamp(summary.lastMessageAt),
+        unread: summary.unreadCount || 0,
+        avatar: initials,
+        isDraft: false,
+        propertyId: null
+      };
+    });
+
+    const normalizedMessageStore = {};
+    Object.entries(messagesStore).forEach(([conversationId, entries]) => {
+      normalizedMessageStore[conversationId] = (entries || []).map((entry) => ({
+        id: entry.id,
+        senderId: entry.senderId,
+        receiverId: entry.receiverId,
+        message: entry.message,
+        timestamp: entry.timestamp,
+        read: entry.read,
+        conversationId
+      }));
+    });
+
+    setMessagesByConversation(normalizedMessageStore);
+
+    const targetUserId = parseInt(pendingTarget.targetUserId, 10);
+    const targetPropertyId = parseInt(pendingTarget.propertyId, 10);
+    if (!Number.isNaN(targetUserId) && currentUserId && targetUserId !== currentUserId) {
+      const existingConversation = mappedConversations.find((conversation) => conversation.otherUserId === targetUserId);
+
+      if (existingConversation) {
+        setConversations(mappedConversations);
+        setSelectedConversation(existingConversation.id);
+        return;
+      }
+
+      const draftConversationId = buildConversationId(
+        currentUserId,
+        targetUserId,
+        Number.isNaN(targetPropertyId) ? null : targetPropertyId
+      );
+
+      const draftConversation = {
+        id: draftConversationId,
+        conversationId: draftConversationId,
+        otherUserId: targetUserId,
+        hostName: pendingTarget.hostName || `Host #${targetUserId}`,
+        propertyName: pendingTarget.propertyTitle || 'Host Chat',
+        lastMessage: 'Start a conversation with this host',
+        timestamp: 'Now',
+        unread: 0,
+        avatar: (pendingTarget.hostName || 'H').charAt(0).toUpperCase(),
+        isDraft: true,
+        propertyId: Number.isNaN(targetPropertyId) ? null : targetPropertyId
+      };
+
+      setConversations([draftConversation, ...mappedConversations]);
+      setSelectedConversation(draftConversationId);
+      return;
     }
-  ];
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      // Handle sending message
+    setConversations(mappedConversations);
+    setSelectedConversation(mappedConversations[0]?.id || null);
+  };
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await fetch(`${apiBaseUrl}/users/messages`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load conversations');
+        }
+
+        const payload = await response.json();
+        initializeConversations(payload);
+        setError('');
+      } catch (fetchError) {
+        setError(fetchError.message || 'Failed to load messages');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBaseUrl, user, token, currentUserId]);
+
+  // Listen for typing events
+  useEffect(() => {
+    if (!on || !off) return;
+
+    const handleTypingStart = (data) => {
+      console.log('Received typing:start event:', data);
+      const { conversationId, userId } = data;
+      setTypingUsers((prev) => ({
+        ...prev,
+        [conversationId]: userId
+      }));
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current[conversationId]) {
+        clearTimeout(typingTimeoutRef.current[conversationId]);
+      }
+
+      // Auto-clear typing indicator after 3 seconds
+      typingTimeoutRef.current[conversationId] = setTimeout(() => {
+        setTypingUsers((prev) => {
+          const updated = { ...prev };
+          delete updated[conversationId];
+          return updated;
+        });
+      }, 3000);
+    };
+
+    const handleTypingStop = (data) => {
+      console.log('Received typing:stop event:', data);
+      const { conversationId } = data;
+      if (typingTimeoutRef.current[conversationId]) {
+        clearTimeout(typingTimeoutRef.current[conversationId]);
+      }
+      setTypingUsers((prev) => {
+        const updated = { ...prev };
+        delete updated[conversationId];
+        return updated;
+      });
+    };
+
+    const unsubscribeStart = on('typing:start', handleTypingStart);
+    const unsubscribeStop = on('typing:stop', handleTypingStop);
+
+    return () => {
+      if (unsubscribeStart) unsubscribeStart();
+      if (unsubscribeStop) unsubscribeStop();
+      Object.values(typingTimeoutRef.current).forEach(clearTimeout);
+    };
+  }, [on, off]);
+
+  const selectedConv = conversations.find((conversation) => conversation.id === selectedConversation) || null;
+
+  // Join conversation room when selected
+  useEffect(() => {
+    if (selectedConversation && joinRoom) {
+      joinRoom(`conversation:${selectedConversation}`);
+      console.log(`Joined conversation room: conversation:${selectedConversation}`);
+    }
+    
+    return () => {
+      if (selectedConversation && leaveRoom) {
+        leaveRoom(`conversation:${selectedConversation}`);
+      }
+    };
+  }, [selectedConversation, joinRoom, leaveRoom]);
+
+  const messages = useMemo(() => {
+    if (!selectedConversation) {
+      return [];
+    }
+    return messagesByConversation[selectedConversation] || [];
+  }, [messagesByConversation, selectedConversation]);
+
+  const filteredConversations = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return conversations;
+    }
+
+    return conversations.filter((conversation) => {
+      return (
+        conversation.hostName.toLowerCase().includes(normalizedSearch)
+        || conversation.propertyName.toLowerCase().includes(normalizedSearch)
+        || conversation.lastMessage.toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [conversations, searchTerm]);
+
+  useEffect(() => {
+    const markIncomingAsRead = async () => {
+      if (!selectedConversation || !currentUserId) {
+        return;
+      }
+
+      const unreadIncoming = messages.filter((entry) => !entry.read && entry.senderId !== currentUserId);
+      if (unreadIncoming.length === 0) {
+        return;
+      }
+
+      try {
+        await Promise.all(
+          unreadIncoming.map((entry) =>
+            fetch(`${apiBaseUrl}/users/messages/${entry.id}/read`, {
+              method: 'PUT',
+              credentials: 'include',
+              headers: getAuthHeaders()
+            })
+          )
+        );
+
+        setMessagesByConversation((prev) => ({
+          ...prev,
+          [selectedConversation]: (prev[selectedConversation] || []).map((entry) => ({
+            ...entry,
+            read: true
+          }))
+        }));
+
+        setConversations((prev) => prev.map((conversation) => (
+          conversation.id === selectedConversation
+            ? { ...conversation, unread: 0 }
+            : conversation
+        )));
+      } catch (_) {
+        // Ignore read sync failures to keep messaging responsive.
+      }
+    };
+
+    markIncomingAsRead();
+  }, [apiBaseUrl, currentUserId, messages, selectedConversation, token]);
+
+  const handleSendMessage = async () => {
+    const outgoing = newMessage.trim();
+    if (!outgoing || !selectedConv || !selectedConv.otherUserId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/messages`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          receiverId: selectedConv.otherUserId,
+          conversationId: selectedConv.isDraft ? undefined : selectedConv.conversationId,
+          propertyId: selectedConv.propertyId || undefined,
+          message: outgoing
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const payload = await response.json();
+      const created = payload.messageData;
+      const conversationId = created.conversationId;
+
+      setMessagesByConversation((prev) => ({
+        ...prev,
+        [conversationId]: [...(prev[conversationId] || []), {
+          id: created.id,
+          senderId: created.senderId,
+          receiverId: created.receiverId,
+          message: created.message,
+          timestamp: created.timestamp,
+          read: created.read,
+          conversationId
+        }]
+      }));
+
+      setConversations((prev) => {
+        const next = prev.map((conversation) => {
+          if (conversation.id !== selectedConv.id) {
+            return conversation;
+          }
+
+          return {
+            ...conversation,
+            id: conversationId,
+            conversationId,
+            isDraft: false,
+            lastMessage: created.message,
+            timestamp: formatRelativeTimestamp(created.timestamp)
+          };
+        });
+
+        return next;
+      });
+
+      setSelectedConversation(conversationId);
       setNewMessage('');
+    } catch (sendError) {
+      setError(sendError.message || 'Failed to send message');
     }
   };
 
@@ -107,7 +388,23 @@ const GuestMessages = () => {
     }
   };
 
-  const selectedConv = conversations.find(c => c.id === selectedConversation);
+  const handleTyping = (e) => {
+    setNewMessage(e.target.value);
+    
+    if (selectedConv && selectedConv.otherUserId && startTyping) {
+      console.log('Sending typing:start event:', { conversationId: selectedConversation, recipientId: selectedConv.otherUserId });
+      startTyping(selectedConversation, selectedConv.otherUserId);
+    }
+  };
+
+  const handleStopTyping = () => {
+    if (selectedConversation && stopTyping) {
+      console.log('Sending typing:stop event:', { conversationId: selectedConversation });
+      stopTyping(selectedConversation);
+    }
+  };
+
+  const isOtherUserTyping = selectedConversation && typingUsers[selectedConversation];
 
   return (
     <GuestLayout>
@@ -131,6 +428,8 @@ const GuestMessages = () => {
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
                 <input
                   type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search conversations..."
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                 />
@@ -138,7 +437,15 @@ const GuestMessages = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto">
-              {conversations.map((conversation) => (
+              {loading && (
+                <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
+              )}
+
+              {!loading && filteredConversations.length === 0 && (
+                <div className="p-4 text-sm text-gray-500">No conversations yet.</div>
+              )}
+
+              {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => setSelectedConversation(conversation.id)}
@@ -201,28 +508,45 @@ const GuestMessages = () => {
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {error && (
+                    <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
+                  )}
+
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.sender === 'guest' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
                         className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          message.sender === 'guest'
+                          message.senderId === currentUserId
                             ? 'text-white'
                             : 'bg-gray-100 text-gray-900'
                         }`}
-                        style={message.sender === 'guest' ? {backgroundColor: '#4E7B22'} : {}}
+                        style={message.senderId === currentUserId ? {backgroundColor: '#4E7B22'} : {}}
                       >
                         <p className="text-sm">{message.message}</p>
                         <p className={`text-xs mt-1 ${
-                          message.sender === 'guest' ? 'text-green-100' : 'text-gray-500'
+                          message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'
                         }`}>
-                          {message.timestamp}
+                          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
                   ))}
+
+                  {/* Typing Indicator */}
+                  {isOtherUserTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-100 px-4 py-3 rounded-lg">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Message Input */}
@@ -231,13 +555,22 @@ const GuestMessages = () => {
                     <input
                       type="text"
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={handleTyping}
+                      onBlur={handleStopTyping}
                       placeholder="Type your message..."
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSendMessage();
+                          handleStopTyping();
+                        }
+                      }}
                     />
                     <button
-                      onClick={handleSendMessage}
+                      onClick={() => {
+                        handleSendMessage();
+                        handleStopTyping();
+                      }}
                       className="text-white p-2 rounded-lg hover:opacity-90"
                       style={{backgroundColor: '#4E7B22'}}
                     >
@@ -253,7 +586,16 @@ const GuestMessages = () => {
                     <ChatBubbleLeftRightIcon className="w-8 h-8 text-gray-400" />
                   </div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
-                  <p className="text-gray-600">Choose a conversation from the list to start messaging</p>
+                  <p className="text-gray-600">Choose a conversation from the list to start messaging a host</p>
+                  {!user && (
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="mt-4 px-4 py-2 text-white rounded-lg hover:opacity-90"
+                      style={{backgroundColor: '#4E7B22'}}
+                    >
+                      Login to Message Hosts
+                    </button>
+                  )}
                 </div>
               </div>
             )}

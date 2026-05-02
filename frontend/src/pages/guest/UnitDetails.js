@@ -1,38 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
+import PropertyReviews from '../../components/common/PropertyReviews';
 import { ArrowLeftIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 
 const UnitDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   const [unit, setUnit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedDates, setSelectedDates] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 1)); // February 2026
+  const [selectedDates, setSelectedDates] = useState({ checkIn: null, checkOut: null });
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [unavailableDates, setUnavailableDates] = useState({});
+
+  const formatPHPNumber = (value) => Number(value || 0).toLocaleString('en-PH');
+
+  // Fetch availability data when month changes
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!id) return;
+
+      try {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const response = await axios.get(
+          `${apiBaseUrl}/bookings/availability/${id}?year=${year}&month=${month}`
+        );
+        
+        setUnavailableDates(response.data.unavailableDates || {});
+      } catch (err) {
+        console.error('Error fetching availability:', err);
+        setUnavailableDates({});
+      }
+    };
+
+    fetchAvailability();
+  }, [id, currentMonth, apiBaseUrl]);
 
   // Fetch property details from API
   useEffect(() => {
     const fetchPropertyDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:5000/api/properties/${id}`);
+        const response = await axios.get(`${apiBaseUrl}/properties/${id}`);
         
         // API returns property directly, not wrapped in data object
         const property = response.data;
         
         if (property && property.id) {
+          let resolvedHostName = property.hostName || property.hostEmail || '';
+
+          if (!resolvedHostName && property.hostId) {
+            try {
+              const hostResponse = await axios.get(`${apiBaseUrl}/users/${property.hostId}/basic`);
+              const hostData = hostResponse.data || {};
+              resolvedHostName = hostData.fullName || hostData.email || '';
+            } catch (hostError) {
+              console.error('Error resolving host identity:', hostError);
+            }
+          }
+
+          const address = property.address || {};
+          const location = address.fullAddress
+            || [address.street, address.city, address.state].filter(Boolean).join(', ')
+            || 'Location unavailable';
+
           setUnit({
             id: property.id,
             title: property.title,
             type: property.type.toUpperCase(),
             rating: property.rating,
             reviews: property.reviewCount,
-            location: `${property.address.street}, ${property.address.city}, ${property.address.state}`,
-            host: property.hostId,
+            location,
+            hostId: property.hostId,
+            hostName: resolvedHostName || `Host #${property.hostId}`,
             description: property.description,
             bedrooms: property.bedrooms,
             bathrooms: property.bathrooms,
@@ -40,9 +88,9 @@ const UnitDetails = () => {
             price: property.pricePerNight,
             amenities: property.amenities || [],
             images: property.images || ['/images/property-placeholder.jpg'],
-            rules: 'No smoking. No pets. Check-in after 3 PM. Check-out before 11 AM.',
-            bookingType: 'both',
-            hourlyRate: Math.floor(property.pricePerNight / 2),
+            rules: property.houseRules || property.timeAvailability?.houseRules || 'No smoking. No pets. Check-in after 3 PM. Check-out before 11 AM.',
+            bookingType: property.bookingType || 'fixed',
+            hourlyRate: property.hourlyRate || null,
             minorsAllowed: true,
             minAge: 0,
             requiresAdultSupervision: true
@@ -61,7 +109,7 @@ const UnitDetails = () => {
     if (id) {
       fetchPropertyDetails();
     }
-  }, [id]);
+  }, [id, apiBaseUrl]);
 
   const setSampleProperty = () => {
     setUnit({
@@ -71,7 +119,8 @@ const UnitDetails = () => {
       rating: 4.8,
       reviews: 45,
       location: '123 Ocean Drive, Miami Beach, FL',
-      host: 'KSSIMPRIAL@GMAIL.COM',
+      hostId: 3,
+      hostName: 'KSSIMPRIAL@GMAIL.COM',
       description: 'Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.',
       bedrooms: 2,
       bathrooms: 2,
@@ -102,6 +151,54 @@ const UnitDetails = () => {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
+  const formatDateLabel = (dateValue) => {
+    if (!dateValue) return '';
+    return new Date(dateValue).toLocaleDateString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const isDateInRange = (dateValue, startValue, endValue) => {
+    if (!dateValue || !startValue || !endValue) return false;
+    const date = new Date(dateValue);
+    const start = new Date(startValue);
+    const end = new Date(endValue);
+    return date > start && date < end;
+  };
+
+  const handleDateSelect = (dateValue, isUnavailable, isPast) => {
+    if (isUnavailable || isPast) {
+      return;
+    }
+
+    const clickedDate = new Date(dateValue);
+    const currentCheckIn = selectedDates.checkIn ? new Date(selectedDates.checkIn) : null;
+    const currentCheckOut = selectedDates.checkOut ? new Date(selectedDates.checkOut) : null;
+
+    if (!currentCheckIn || (currentCheckIn && currentCheckOut)) {
+      setSelectedDates({
+        checkIn: dateValue,
+        checkOut: null
+      });
+      return;
+    }
+
+    if (clickedDate <= currentCheckIn) {
+      setSelectedDates({
+        checkIn: dateValue,
+        checkOut: null
+      });
+      return;
+    }
+
+    setSelectedDates({
+      checkIn: selectedDates.checkIn,
+      checkOut: dateValue
+    });
+  };
+
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentMonth);
     const firstDay = getFirstDayOfMonth(currentMonth);
@@ -116,24 +213,47 @@ const UnitDetails = () => {
 
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const isSelected = day === 23;
-      const isAvailable = day >= 15 && day <= 25;
-      const isUnavailable = day < 15 || day > 25;
+      const dateValue = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      const dateKey = dateValue.toISOString().split('T')[0];
+      const checkIn = selectedDates.checkIn;
+      const checkOut = selectedDates.checkOut;
 
-      let dayClass = 'h-10 w-10 flex items-center justify-center text-sm cursor-pointer rounded ';
-      
-      if (isSelected) {
-        dayClass += 'bg-green-500 text-white';
-      } else if (isAvailable) {
-        dayClass += 'bg-gray-100 text-gray-900 hover:bg-gray-200';
+      // Check if date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isPast = dateValue < today;
+
+      // Check if date is unavailable from backend
+      const isUnavailable = unavailableDates[dateKey] === true;
+      const isSelectedCheckIn = checkIn && new Date(checkIn).toDateString() === dateValue.toDateString();
+      const isSelectedCheckOut = checkOut && new Date(checkOut).toDateString() === dateValue.toDateString();
+      const isInSelectedRange = isDateInRange(dateKey, checkIn, checkOut);
+
+      let dayClass = 'h-10 w-10 flex items-center justify-center text-sm rounded transition-colors ';
+
+      if (isSelectedCheckIn || isSelectedCheckOut) {
+        dayClass += 'bg-green-500 text-white cursor-pointer';
+      } else if (isInSelectedRange) {
+        dayClass += 'bg-green-100 text-green-800 cursor-pointer';
+      } else if (isPast) {
+        dayClass += 'bg-gray-300 text-gray-500 cursor-not-allowed line-through';
       } else if (isUnavailable) {
         dayClass += 'bg-orange-200 text-orange-800 cursor-not-allowed';
+      } else {
+        dayClass += 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-pointer';
       }
 
       days.push(
-        <div key={day} className={dayClass}>
+        <button
+          key={day}
+          type="button"
+          onClick={() => handleDateSelect(dateKey, isUnavailable, isPast)}
+          className={dayClass}
+          disabled={isUnavailable || isPast}
+          title={isPast ? 'Past date' : isUnavailable ? 'Unavailable date' : 'Select date'}
+        >
           {day}
-        </div>
+        </button>
       );
     }
 
@@ -180,11 +300,35 @@ const UnitDetails = () => {
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 bg-orange-200 rounded"></div>
-            <span>Unavailable</span>
+            <span>Booked</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-gray-300 rounded"></div>
+            <span>Past</span>
           </div>
         </div>
       </div>
     );
+  };
+
+  const handleAskHost = () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (!unit?.hostId) {
+      return;
+    }
+
+    navigate('/guest/messages', {
+      state: {
+        targetUserId: unit.hostId,
+        propertyId: unit.id,
+        propertyTitle: unit.title,
+        hostName: unit.hostName
+      }
+    });
   };
 
   return (
@@ -226,17 +370,15 @@ const UnitDetails = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Image with Navigation */}
           <div className="relative">
-            <div className="h-96 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg relative overflow-hidden">
-              {/* Dynamic background based on current image */}
-              <div className={`h-full w-full bg-gradient-to-br ${
-                currentImageIndex === 0 ? 'from-orange-400 to-orange-600' :
-                currentImageIndex === 1 ? 'from-blue-400 to-blue-600' :
-                currentImageIndex === 2 ? 'from-green-400 to-green-600' :
-                currentImageIndex === 3 ? 'from-purple-400 to-purple-600' :
-                'from-pink-400 to-pink-600'
-              }`}>
-                <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-              </div>
+            <div className="h-96 bg-gray-200 rounded-lg relative overflow-hidden">
+              <img
+                src={unit.images?.[currentImageIndex] || '/images/property-placeholder.jpg'}
+                alt={`${unit.title} ${currentImageIndex + 1}`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = '/images/property-placeholder.jpg';
+                }}
+              />
               
               {/* Navigation Arrows */}
               {unit.images.length > 1 && (
@@ -320,10 +462,10 @@ const UnitDetails = () => {
                 <UserIcon className="w-4 h-4" />
                 <span>Hosted by </span>
                 <button 
-                  onClick={() => navigate('/guest/host/krisbernal')}
+                  onClick={() => navigate(`/guest/host/${unit.hostId}`)}
                   className="text-green-600 hover:text-green-700 font-medium hover:underline"
                 >
-                  {unit.host}
+                  {unit.hostName}
                 </button>
               </div>
             </div>
@@ -351,33 +493,21 @@ const UnitDetails = () => {
               <div className="bg-gray-50 p-4 rounded-lg text-center">
                 <div className="text-green-500 text-2xl mb-1">💰</div>
                 <div className="text-sm text-gray-600">Per Night</div>
-                <div className="font-semibold">₱{unit.price}</div>
-              </div>
-            </div>
-
-            {/* Amenities */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">TOP AMENITIES</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {unit.amenities.map((amenity, index) => (
-                  <div key={index} className="flex items-center space-x-2 text-green-600">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                    <span className="text-sm">{amenity}</span>
-                  </div>
-                ))}
+                <div className="font-semibold">₱{formatPHPNumber(unit.price)}</div>
               </div>
             </div>
 
             {/* Price and Actions */}
             <div className="flex justify-between items-center pt-4 border-t">
               <div>
-                <span className="text-2xl font-bold text-green-600">₱{unit.price}</span>
+                <span className="text-2xl font-bold text-green-600">₱{formatPHPNumber(unit.price)}</span>
                 <span className="text-gray-600">/night</span>
               </div>
               <div className="flex space-x-3">
-                <button className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
+                <button
+                  onClick={handleAskHost}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+                >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
@@ -395,97 +525,40 @@ const UnitDetails = () => {
           </div>
         </div>
 
-        {/* Booking Policies & Age Restrictions */}
-        <div className="bg-white p-6 rounded-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Booking Policies</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Booking Types */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                <span>Booking Options</span>
-              </h4>
-              <div className="space-y-3">
-                {(unit.bookingType === 'fixed' || unit.bookingType === 'both') && (
-                  <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-green-800">Fixed Time Booking</p>
-                      <p className="text-sm text-green-600">₱{unit.price}/night - Standard overnight stays</p>
-                    </div>
-                  </div>
-                )}
-                
-                {(unit.bookingType === 'hourly' || unit.bookingType === 'both') && (
-                  <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-                        <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-blue-800">Hourly Booking</p>
-                      <p className="text-sm text-blue-600">₱{unit.hourlyRate}/hour - Flexible short-term stays</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Age Restrictions */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 7H16c-.8 0-1.54.37-2 1l-3 4v2h2l2.54-3.4L16.5 16H18v6h2zM12.5 11.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5S11 9.17 11 10s.67 1.5 1.5 1.5zM5.5 6c1.11 0 2-.89 2-2s-.89-2-2-2-2 .89-2 2 .89 2 2 2zm2 16v-7H9V9c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v6h1.5v7h4z"/>
-                </svg>
-                <span>Age Policy</span>
-              </h4>
-              <div className="space-y-3">
-                {unit.minorsAllowed ? (
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                      </svg>
-                      <span className="font-medium text-green-800">Minors Allowed</span>
-                    </div>
-                    <div className="text-sm text-green-600 space-y-1">
-                      {unit.minAge > 0 && (
-                        <p>• Minimum age: {unit.minAge} years old</p>
-                      )}
-                      {unit.requiresAdultSupervision && (
-                        <p>• Adult supervision required for minors</p>
-                      )}
-                      <p>• Family-friendly accommodation</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-red-50 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                      <span className="font-medium text-red-800">Adults Only</span>
-                    </div>
-                    <p className="text-sm text-red-600">This property is restricted to guests 18+ years old</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Full Width Amenities */}
+        {/* Top Amenities */}
         <div className="bg-white p-6 rounded-lg">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">TOP AMENITIES</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+            {(unit.bookingType === 'fixed' || unit.bookingType === 'both') && (
+              <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-green-800">Booking Option: Fixed Time</p>
+                  <p className="text-sm text-green-700">₱{formatPHPNumber(unit.price)}/night</p>
+                </div>
+              </div>
+            )}
+
+            {(unit.bookingType === 'hourly' || unit.bookingType === 'both') && (
+              <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                    <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-blue-800">Booking Option: Hourly</p>
+                  <p className="text-sm text-blue-700">₱{formatPHPNumber(unit.hourlyRate)}/hour</p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {unit.amenities.map((amenity, index) => (
               <div key={index} className="flex items-center space-x-2 text-green-600">
@@ -510,8 +583,13 @@ const UnitDetails = () => {
                 <MapPinIcon className="w-4 h-4" />
                 <span>{unit.location}</span>
               </div>
-              <div className="h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500">Map would be displayed here</span>
+              <div className="h-64 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                <iframe
+                  title="Property location"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(unit.location)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                  className="w-full h-full"
+                  loading="lazy"
+                />
               </div>
             </div>
 
@@ -519,95 +597,15 @@ const UnitDetails = () => {
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">Check Availability</h4>
               <p className="text-gray-600 text-sm mb-4">Select your check-in and check-out dates</p>
+              <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm">
+                <p className="text-gray-700">
+                  Check-in: <span className="font-medium">{selectedDates.checkIn ? formatDateLabel(selectedDates.checkIn) : 'Not selected'}</span>
+                </p>
+                <p className="text-gray-700 mt-1">
+                  Check-out: <span className="font-medium">{selectedDates.checkOut ? formatDateLabel(selectedDates.checkOut) : 'Not selected'}</span>
+                </p>
+              </div>
               {renderCalendar()}
-            </div>
-          </div>
-        </div>
-
-        {/* Booking Policies & Age Restrictions */}
-        <div className="bg-white p-6 rounded-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Booking Policies</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Booking Types */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                <span>Booking Options</span>
-              </h4>
-              <div className="space-y-3">
-                {(unit.bookingType === 'fixed' || unit.bookingType === 'both') && (
-                  <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-green-800">Fixed Time Booking</p>
-                      <p className="text-sm text-green-600">₱{unit.price}/night - Standard overnight stays</p>
-                    </div>
-                  </div>
-                )}
-                
-                {(unit.bookingType === 'hourly' || unit.bookingType === 'both') && (
-                  <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-                        <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-blue-800">Hourly Booking</p>
-                      <p className="text-sm text-blue-600">₱{unit.hourlyRate}/hour - Flexible short-term stays</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Age Restrictions */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 7H16c-.8 0-1.54.37-2 1l-3 4v2h2l2.54-3.4L16.5 16H18v6h2zM12.5 11.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5S11 9.17 11 10s.67 1.5 1.5 1.5zM5.5 6c1.11 0 2-.89 2-2s-.89-2-2-2-2 .89-2 2 .89 2 2 2zm2 16v-7H9V9c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v6h1.5v7h4z"/>
-                </svg>
-                <span>Age Policy</span>
-              </h4>
-              <div className="space-y-3">
-                {unit.minorsAllowed ? (
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                      </svg>
-                      <span className="font-medium text-green-800">Minors Allowed</span>
-                    </div>
-                    <div className="text-sm text-green-600 space-y-1">
-                      {unit.minAge > 0 && (
-                        <p>• Minimum age: {unit.minAge} years old</p>
-                      )}
-                      {unit.requiresAdultSupervision && (
-                        <p>• Adult supervision required for minors</p>
-                      )}
-                      <p>• Family-friendly accommodation</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-red-50 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                      <span className="font-medium text-red-800">Adults Only</span>
-                    </div>
-                    <p className="text-sm text-red-600">This property is restricted to guests 18+ years old</p>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -617,18 +615,11 @@ const UnitDetails = () => {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">House Rules</h3>
           <p className="text-red-600">{unit.rules}</p>
         </div>
+
+        {/* Reviews Section */}
+        <PropertyReviews propertyId={id} />
         </>
         )}
-
-        {/* Floating Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="text-white p-4 rounded-full shadow-lg hover:opacity-90 flex items-center space-x-2" style={{backgroundColor: '#4E7B22'}}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="font-medium">Chat</span>
-          </button>
-        </div>
       </div>
     </GuestLayout>
   );

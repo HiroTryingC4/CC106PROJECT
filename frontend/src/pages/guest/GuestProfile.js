@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 
 const GuestProfile = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -30,22 +31,25 @@ const GuestProfile = () => {
 
   const handleSaveChanges = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const authToken = token || localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!authToken) {
         alert('No authentication token found');
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const API_BASE = API_CONFIG.BASE_URL;
+      const response = await fetch(`${API_BASE}/users/profile`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify(formData)
       });
 
       if (response.ok) {
+        await refreshUser();
         setSuccessMessage('Profile saved successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
@@ -208,7 +212,9 @@ const GuestProfile = () => {
                 {/* Member Since */}
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Member Since</p>
-                  <p className="text-lg font-medium text-gray-900">3/10/2024</p>
+                  <p className="text-lg font-medium text-gray-900">
+                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                  </p>
                 </div>
 
                 {/* Account Status */}
@@ -306,16 +312,6 @@ const GuestProfile = () => {
             </div>
           </div>
         )}
-
-        {/* Floating Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="text-white p-4 rounded-full shadow-lg hover:opacity-90 flex items-center space-x-2" style={{backgroundColor: '#4E7B22'}}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="font-medium">Chat</span>
-          </button>
-        </div>
       </div>
     </GuestLayout>
   );

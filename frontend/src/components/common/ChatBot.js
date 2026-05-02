@@ -1,18 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { XMarkIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import API_CONFIG from '../../config/api';
 
 const ChatBot = ({ isOpen, onClose }) => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "Hello! I'm your Smart Stay assistant. How can I help you today?",
-      sender: 'bot',
-      timestamp: '04:30 PM'
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState(() => {
+    const existing = localStorage.getItem('smartstay_chat_session_id');
+    return existing || '';
+  });
   const messagesEndRef = useRef(null);
+  const apiBaseUrl = API_CONFIG.BASE_URL;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -22,12 +21,75 @@ const ChatBot = ({ isOpen, onClose }) => {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const loadHistory = async () => {
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+        const response = await fetch(`${apiBaseUrl}/chat/history${query}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load chat history');
+        }
+
+        const data = await response.json();
+
+        if (data.sessionId && data.sessionId !== sessionId) {
+          setSessionId(data.sessionId);
+          localStorage.setItem('smartstay_chat_session_id', data.sessionId);
+        }
+
+        const mappedMessages = (data.messages || []).map((entry) => ({
+          id: entry.id,
+          text: entry.text,
+          sender: entry.sender === 'assistant' ? 'bot' : 'user',
+          timestamp: new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+
+        if (mappedMessages.length > 0) {
+          setMessages(mappedMessages);
+          return;
+        }
+
+        setMessages([
+          {
+            id: Date.now(),
+            text: "Hello! I'm your Smart Stay assistant. How can I help you today?",
+            sender: 'bot',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      } catch (error) {
+        setMessages([
+          {
+            id: Date.now(),
+            text: "Hello! I'm your Smart Stay assistant. How can I help you today?",
+            sender: 'bot',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      }
+    };
+
+    loadHistory();
+  }, [apiBaseUrl, isOpen, sessionId]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
+    const outgoingMessage = inputMessage.trim();
+
     const userMessage = {
       id: Date.now(),
-      text: inputMessage,
+      text: outgoingMessage,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -36,34 +98,54 @@ const ChatBot = ({ isOpen, onClose }) => {
     setInputMessage('');
     setIsTyping(true);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = getBotResponse(inputMessage);
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+
+      const response = await fetch(`${apiBaseUrl}/chat/message`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          sessionId,
+          roleHint: user?.role || 'guest',
+          message: outgoingMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Chat request failed');
+      }
+
+      const data = await response.json();
+
+      if (data.sessionId && data.sessionId !== sessionId) {
+        setSessionId(data.sessionId);
+        localStorage.setItem('smartstay_chat_session_id', data.sessionId);
+      }
+
       const botMessage = {
-        id: Date.now() + 1,
-        text: botResponse,
+        id: data.assistantMessage?.id || Date.now() + 1,
+        text: data.assistantMessage?.text || 'Thanks for your message. I am here to help.',
         sender: 'bot',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
+
       setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      const fallbackMessage = {
+        id: Date.now() + 1,
+        text: 'I am having trouble connecting right now. Please try again in a moment.',
+        sender: 'bot',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, fallbackMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
-  const getBotResponse = (message) => {
-    const lowerMessage = message.toLowerCase();
-    
-    if (lowerMessage.includes('booking') || lowerMessage.includes('book')) {
-      return "I can help you with bookings! You can search for available units, make reservations, and manage your existing bookings. What specific booking assistance do you need?";
-    } else if (lowerMessage.includes('payment') || lowerMessage.includes('pay')) {
-      return "For payments, you can use GCash, PayMaya, or bank transfer. I can guide you through the payment process or help with payment issues. What payment help do you need?";
-    } else if (lowerMessage.includes('cancel') || lowerMessage.includes('refund')) {
-      return "I understand you need help with cancellations or refunds. Please provide your booking ID and I'll assist you with the cancellation process and refund policy.";
-    } else if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-      return "Hello! Welcome to Smart Stay. I'm here to help you with bookings, payments, property information, and any other questions you might have. How can I assist you today?";
-    } else if (lowerMessage.includes('help') || lowerMessage.includes('support')) {
-      return "I'm here to help! I can assist with: 🏠 Finding and booking properties, 💳 Payment processing, 📅 Managing reservations, 🔧 Account settings, 📞 Contacting hosts. What do you need help with?";
-    } else {
-      return "Thank you for your message! I'm here to help with any questions about Smart Stay. You can ask me about bookings, payments, properties, or any other assistance you need.";
     }
   };
 
@@ -147,7 +229,7 @@ const ChatBot = ({ isOpen, onClose }) => {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Type your message ..."
               className="flex-1 px-4 py-3 bg-white rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
             />

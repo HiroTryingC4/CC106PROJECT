@@ -1,67 +1,202 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const session = require('express-session');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
-const multer = require('multer');
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+const http = require('http');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
+const websocketService = require('./websocket');
+const { runMigrations } = require('./migrate');
+
+const envPath = path.resolve(__dirname, '.env');
+const envConfig = fs.existsSync(envPath)
+  ? dotenv.parse(fs.readFileSync(envPath))
+  : {};
+
+// Ensure modules that read process.env (e.g., Cloudinary utility) see values from backend/.env.
+Object.assign(process.env, envConfig);
+
+const resolvedEnv = {
+  ...process.env,
+  ...envConfig
+};
 
 const app = express();
 
+// Request logging (development only)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`[REQ] ${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
+
+// Debug endpoint to verify swagger spec is loaded (development only)
+if (process.env.NODE_ENV === 'development') {
+  app.get('/api-docs-debug', (req, res) => {
+    try {
+      const hasSpec = !!swaggerSpec && Object.keys(swaggerSpec).length > 0;
+      return res.json({ swaggerSpecLoaded: hasSpec, keys: hasSpec ? Object.keys(swaggerSpec) : [] });
+    } catch (e) {
+      return res.json({ swaggerSpecLoaded: false, error: e.message });
+    }
+  });
+}
+
+// Swagger API Documentation
+// Serve the raw swagger JSON explicitly to avoid HTML/redirect responses
+app.get('/api-docs/swagger.json', (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'application/json');
+    return res.send(JSON.stringify(swaggerSpec, null, 2));
+  } catch (e) {
+    return res.status(500).json({ message: 'Failed to generate swagger JSON', error: e.message });
+  }
+});
+
+// Serve Swagger UI and force the UI's request base to the backend server
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'SmartStay API Documentation',
+  // Ensure the UI uses the backend at port 5000 for "Try it out" requests.
+  // This avoids cases where a saved client-side selection (or autodetected origin)
+  // points the UI at the frontend (port 3000) and returns 404s.
+  swaggerOptions: {
+    // Point the UI to the served swagger JSON so it doesn't try to fetch an API base path.
+    urls: [
+      { url: 'http://localhost:5000/api-docs/swagger.json', name: 'Local (swagger JSON)' }
+    ]
+  }
+}));
+
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false // Allow Swagger UI to load
+}));
 app.use(compression());
+
+// CORS configuration
+const allowedOrigins = [
+  process.env.LOCAL_REACT_ORIGIN,
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true
+}));
+
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true
+}));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
+  skip: (req) => (
+    req.method === 'OPTIONS' ||
+    (req.method === 'GET' && req.path.startsWith('/api/properties')) ||
+    (req.method === 'GET' && req.path.startsWith('/api/bookings')) ||
+    req.path === '/api/host/verification-status' ||
+    req.path === '/api/auth/me'
+  )
 });
 app.use(limiter);
-
-// CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Session middleware
+app.use(session({
+  secret: resolvedEnv.SESSION_SECRET || 'smartstay_dev_session_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false,
+    maxAge: 24 * 60 * 60 * 1000
+  }
+}));
+
 // Logging
-app.use(morgan('combined'));
+app.use(morgan('combined', {
+  skip: (req) => req.path === '/api/host/verification-status'
+}));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/smartstay', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('MongoDB connected successfully'))
-.catch(err => console.error('MongoDB connection error:', err));
+const pool = new Pool({
+  host: resolvedEnv.DB_HOST || 'localhost',
+  user: resolvedEnv.DB_USER || 'postgres',
+  password: resolvedEnv.DB_PASSWORD || 'postgres',
+  database: resolvedEnv.DB_NAME || 'smartstay',
+  port: parseInt(resolvedEnv.DB_PORT || '5432', 10)
+});
+
+app.locals.db = pool;
 
 // Routes
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const propertiesRouter = require('./routes/properties');
 const bookingsRouter = require('./routes/bookings');
+const bookingWithPaymentRouter = require('./routes/bookingWithPayment');
 const paymentsRouter = require('./routes/payments');
 const reviewsRouter = require('./routes/reviews');
 const adminRouter = require('./routes/admin');
 const analyticsRouter = require('./routes/analytics');
 const hostRouter = require('./routes/host');
+const chatRouter = require('./routes/chat');
+const notificationsRouter = require('./routes/notifications');
+const promoCodesRouter = require('./routes/promoCodes');
+const faqsRouter = require('./routes/faqs');
+const contactRouter = require('./routes/contact');
+const pendingBookingsRouter = require('./routes/pendingBookings');
+const checkoutPhotosRouter = require('./routes/checkoutPhotos');
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/properties', propertiesRouter);
+app.use('/api/bookings/with-payment', bookingWithPaymentRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/host', hostRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/promo-codes', promoCodesRouter);
+app.use('/api/faqs', faqsRouter);
+app.use('/api/contact', contactRouter);
+app.use('/api/pending-bookings', pendingBookingsRouter);
+app.use('/api/bookings/:id/checkout-photos', checkoutPhotosRouter);
 
 // Set admin router reference in host router
 if (hostRouter.setAdminRouter) {
@@ -78,182 +213,27 @@ if (authRouter.setHostRouter) {
   authRouter.setHostRouter(hostRouter);
 }
 
-// Simple in-memory verification storage
-let verificationSubmissions = {
-  // Pre-populate verified host (user ID 3) with completed verification
-  3: {
-    firstName: 'John',
-    lastName: 'Host',
-    email: 'host@smartstay.com',
-    phone: '+1234567890',
-    company: 'Host Properties LLC',
-    businessAddress: '123 Business St, City, State 12345',
-    businessType: 'Property Management',
-    yearsOfExperience: '5',
-    propertyCount: '3',
-    expectedRevenue: '$50,000',
-    bankName: 'First National Bank',
-    accountNumber: '****1234',
-    routingNumber: '****5678',
-    files: {
-      idDocumentPhoto: {
-        originalName: 'id_document.jpg',
-        size: 1024000,
-        mimetype: 'image/jpeg',
-        fileId: '3_idDocumentPhoto_verified'
-      },
-      ownerHoldingIdPhoto: {
-        originalName: 'owner_holding_id.jpg',
-        size: 1024000,
-        mimetype: 'image/jpeg',
-        fileId: '3_ownerHoldingIdPhoto_verified'
-      },
-      proofOfOwnership: {
-        originalName: 'property_deed.pdf',
-        size: 2048000,
-        mimetype: 'application/pdf',
-        fileId: '3_proofOfOwnership_verified'
-      }
-    },
-    submittedAt: '2024-02-01T10:00:00.000Z',
-    status: 'verified',
-    verifiedAt: '2024-02-02T14:30:00.000Z',
-    verifiedBy: 'admin@smartstay.com'
-  }
-};
-let fileStorage = {}; // Store actual file buffers
-
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  }
-});
-
-// Host verification endpoint (simple implementation)
-app.post('/api/host/verification', upload.fields([
-  { name: 'idDocumentPhoto', maxCount: 1 },
-  { name: 'ownerHoldingIdPhoto', maxCount: 1 },
-  { name: 'proofOfOwnership', maxCount: 1 },
-  { name: 'additionalDocuments', maxCount: 1 }
-]), (req, res) => {
-  console.log('Host verification submission received:');
-  console.log('Body:', req.body);
-  console.log('Files:', req.files);
-  
-  // Get user ID from token (simple implementation)
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const userId = parseInt(token.split('_')[1]);
-  
-  // Store actual file buffers
-  if (req.files) {
-    Object.keys(req.files).forEach(key => {
-      if (req.files[key][0]) {
-        const fileId = `${userId}_${key}_${Date.now()}`;
-        fileStorage[fileId] = {
-          buffer: req.files[key][0].buffer,
-          mimetype: req.files[key][0].mimetype,
-          originalName: req.files[key][0].originalname
-        };
-        // Store file ID in verification data
-        if (!verificationSubmissions[userId]) {
-          verificationSubmissions[userId] = {};
-        }
-        if (!verificationSubmissions[userId].fileIds) {
-          verificationSubmissions[userId].fileIds = {};
-        }
-        verificationSubmissions[userId].fileIds[key] = fileId;
-      }
-    });
-  }
-  
-  // Store verification data (including file info)
-  const verificationData = {
-    ...req.body,
-    files: req.files ? Object.keys(req.files).reduce((acc, key) => {
-      acc[key] = req.files[key][0] ? {
-        originalName: req.files[key][0].originalname,
-        size: req.files[key][0].size,
-        mimetype: req.files[key][0].mimetype,
-        fileId: verificationSubmissions[userId]?.fileIds?.[key]
-      } : null;
-      return acc;
-    }, {}) : {},
-    submittedAt: new Date().toISOString(),
-    status: 'pending'
-  };
-  
-  verificationSubmissions[userId] = { ...verificationSubmissions[userId], ...verificationData };
-  
-  console.log('Stored verification data for user', userId, ':', verificationData);
-  
-  res.json({
-    message: 'Verification documents submitted successfully! Please wait for admin approval.',
-    status: 'pending'
-  });
-});
-
-// Get host verification status and data
-app.get('/api/host/verification-status', (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const userId = parseInt(token.split('_')[1]);
-  const submission = verificationSubmissions[userId];
-  
-  if (submission) {
-    res.json({
-      status: submission.status,
-      submittedAt: submission.submittedAt,
-      message: 'Your verification is currently under review. We will notify you once it\'s complete.',
-      data: submission
-    });
-  } else {
-    res.json({
-      status: 'not_submitted',
-      message: 'Complete your verification to unlock all host features.'
-    });
-  }
-});
-
-// Serve uploaded files
-app.get('/api/files/:fileId', (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const userId = parseInt(token.split('_')[1]);
-  const fileId = req.params.fileId;
-  
-  // Check if file belongs to the requesting user
-  if (!fileId.startsWith(`${userId}_`)) {
-    return res.status(403).json({ message: 'Access denied' });
-  }
-  
-  const file = fileStorage[fileId];
-  if (!file) {
-    return res.status(404).json({ message: 'File not found' });
-  }
-  
-  // Set appropriate headers
-  res.set({
-    'Content-Type': file.mimetype,
-    'Content-Disposition': `inline; filename="${file.originalName}"`,
-    'Cache-Control': 'private, max-age=3600'
-  });
-  
-  res.send(file.buffer);
-});
-
-// Health check endpoint
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     tags: [System]
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: OK
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
@@ -272,7 +252,36 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await pool.query('SELECT 1');
+    console.log('PostgreSQL connected successfully');
+
+    const migratedFiles = await runMigrations(pool);
+    if (migratedFiles.length > 0) {
+      console.log(`Database migrations ready: ${migratedFiles.join(', ')}`);
+    }
+
+    const PORT = process.env.PORT || 5000;
+    
+    // Create HTTP server
+    const server = http.createServer(app);
+    
+    // Initialize WebSocket service
+    websocketService.initialize(server, allowedOrigins);
+    
+    // Store WebSocket service in app locals for route access
+    app.locals.websocket = websocketService;
+    
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
+      console.log(`WebSocket server ready`);
+    });
+  } catch (error) {
+    console.error('Server startup failed:', error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

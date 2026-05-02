@@ -7,9 +7,10 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 
 const AdminProfile = () => {
-  const { user } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -48,22 +49,25 @@ const AdminProfile = () => {
 
   const handleProfileUpdate = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const authToken = token || localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!authToken) {
         alert('No authentication token found');
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const API_BASE = API_CONFIG.BASE_URL;
+      const response = await fetch(`${API_BASE}/users/profile`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify(profileData)
       });
 
       if (response.ok) {
+        await refreshUser();
         setSuccessMessage('Profile updated successfully!');
         setIsEditing(false);
         setTimeout(() => setSuccessMessage(''), 3000);

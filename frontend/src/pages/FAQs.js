@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import axios from 'axios';
+import API_CONFIG from '../config/api';
 
 const FAQs = () => {
   const [faqs, setFaqs] = useState([]);
@@ -7,104 +9,19 @@ const FAQs = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load FAQs from localStorage
-    const loadFaqs = () => {
+    const loadFaqs = async () => {
       try {
-        const storedFaqs = JSON.parse(localStorage.getItem('smartStayFaqs') || '[]');
-        console.log('FAQ Page: Loading FAQs from localStorage:', storedFaqs.length);
-        
-        // Default FAQs to ensure we always have content
-        const defaultFaqs = [
-          {
-            id: 1,
-            category: "General",
-            question: "What is Smart Stay?",
-            answer: "Smart Stay is an AI-driven web-based platform for intelligent property booking and host financial management. We provide smart recommendations, automated chatbot support, and comprehensive analytics for both guests and hosts."
-          },
-          {
-            id: 2,
-            category: "General",
-            question: "How do I create an account?",
-            answer: "You can create an account by clicking the 'Sign Up' button on our homepage. Choose whether you want to register as a guest or host, fill in your details, and verify your email address to get started."
-          },
-          {
-            id: 3,
-            category: "General",
-            question: "Is Smart Stay free to use?",
-            answer: "Yes, Smart Stay is free to browse and search properties. Guests can create accounts and browse listings at no cost. Hosts can list their first property for free, with optional premium features available for enhanced visibility and analytics."
-          },
-          {
-            id: 4,
-            category: "General",
-            question: "What makes Smart Stay different from other booking platforms?",
-            answer: "Smart Stay uses advanced AI technology to provide personalized property recommendations, automated customer support through our intelligent chatbot, comprehensive financial analytics for hosts, and seamless QR code payment processing for secure transactions."
-          },
-          {
-            id: 5,
-            category: "Guests FAQ",
-            question: "How can I book a property?",
-            answer: "To book a property: 1) Browse available properties using our search filters, 2) Select your desired dates and number of guests, 3) Review property details and host information, 4) Complete the booking form with your details, 5) Make payment using our secure QR code system."
-          },
-          {
-            id: 6,
-            category: "Guests FAQ",
-            question: "Can I browse properties without an account?",
-            answer: "Yes, you can browse all available properties, view photos, read descriptions, and check availability without creating an account. However, you'll need to create a free account to make bookings and access personalized recommendations."
-          },
-          {
-            id: 7,
-            category: "Guests FAQ",
-            question: "How does the AI recommendation system work?",
-            answer: "Our AI recommendation system analyzes your browsing history, previous bookings, preferences, and search patterns to suggest properties that match your interests. The more you use Smart Stay, the better our recommendations become."
-          },
-          {
-            id: 8,
-            category: "Guests FAQ",
-            question: "What payment methods do you accept?",
-            answer: "We accept payments via QR code technology supporting major payment platforms including GCash, PayMaya, and bank transfers. After booking confirmation, you'll receive a secure QR code to complete your payment."
-          }
-        ];
-        
-        // If no stored FAQs or stored FAQs are empty, use defaults
-        if (storedFaqs.length === 0) {
-          console.log('FAQ Page: No stored FAQs found, using defaults');
-          localStorage.setItem('smartStayFaqs', JSON.stringify(defaultFaqs));
-          setFaqs(defaultFaqs);
-        } else {
-          console.log('FAQ Page: Using stored FAQs');
-          setFaqs(storedFaqs);
-        }
+        const response = await axios.get(`${API_CONFIG.ROOT}/api/faqs`);
+        setFaqs(response.data.faqs || []);
       } catch (error) {
         console.error('Error loading FAQs:', error);
         setFaqs([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadFaqs();
-
-    // Listen for localStorage changes to update FAQs in real-time
-    const handleStorageChange = (e) => {
-      if (e.key === 'smartStayFaqs') {
-        console.log('FAQ Page: localStorage changed, reloading FAQs');
-        loadFaqs();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also listen for custom events from the same tab
-    const handleFaqUpdate = () => {
-      console.log('FAQ Page: FAQ update event received');
-      loadFaqs();
-    };
-    
-    window.addEventListener('faqsUpdated', handleFaqUpdate);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('faqsUpdated', handleFaqUpdate);
-    };
   }, []);
 
   const toggleFaq = (faqId) => {
@@ -157,7 +74,7 @@ const FAQs = () => {
             {/* Group FAQs by category */}
             {Object.entries(
               faqs.reduce((acc, faq) => {
-                const category = faq.category || 'General';
+                const category = faq.category || 'general';
                 if (!acc[category]) acc[category] = [];
                 acc[category].push(faq);
                 return acc;

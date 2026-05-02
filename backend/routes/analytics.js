@@ -1,126 +1,279 @@
 const express = require('express');
 const router = express.Router();
+const { getAuthUserId } = require('../utils/authMiddleware');
 
 // GET /api/analytics/host - Host analytics dashboard
-router.get('/host', (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const hostId = parseInt(token.split('_')[1]);
-  
-  if (hostId !== 3) { // Only for verified host
-    return res.status(403).json({ message: 'Access denied' });
-  }
-  
-  res.json({
-    overview: {
-      totalProperties: 3,
-      activeBookings: 2,
-      totalRevenue: 2182.50,
-      averageRating: 4.8,
-      occupancyRate: 78,
-      responseRate: 95
-    },
-    revenueData: {
-      monthly: [
-        { month: 'Jan 2024', revenue: 0, bookings: 0 },
-        { month: 'Feb 2024', revenue: 900, bookings: 1 },
-        { month: 'Mar 2024', revenue: 1350, bookings: 2 },
-        { month: 'Apr 2024', revenue: 0, bookings: 0 },
-        { month: 'May 2024', revenue: 600, bookings: 1 }
-      ],
-      yearly: [
-        { year: '2022', revenue: 15420 },
-        { year: '2023', revenue: 28750 },
-        { year: '2024', revenue: 2850 }
-      ]
-    },
-    bookingTrends: {
-      daily: [
-        { date: '2024-03-10', bookings: 1 },
-        { date: '2024-03-11', bookings: 0 },
-        { date: '2024-03-12', bookings: 1 },
-        { date: '2024-03-13', bookings: 0 },
-        { date: '2024-03-14', bookings: 1 },
-        { date: '2024-03-15', bookings: 0 },
-        { date: '2024-03-16', bookings: 0 }
-      ],
-      seasonal: [
-        { season: 'Spring', bookings: 12, revenue: 2400 },
-        { season: 'Summer', bookings: 28, revenue: 6720 },
-        { season: 'Fall', bookings: 18, revenue: 3960 },
-        { season: 'Winter', bookings: 8, revenue: 1680 }
-      ]
-    },
-    propertyPerformance: [
-      {
-        propertyId: 1,
-        name: 'Luxury Downtown Apartment',
-        bookings: 15,
-        revenue: 2250,
-        averageRating: 4.8,
-        occupancyRate: 85
-      },
-      {
-        propertyId: 2,
-        name: 'Cozy Beach House',
-        bookings: 12,
-        revenue: 2640,
-        averageRating: 4.9,
-        occupancyRate: 72
-      },
-      {
-        propertyId: 3,
-        name: 'Mountain Cabin Retreat',
-        bookings: 18,
-        revenue: 3240,
-        averageRating: 4.7,
-        occupancyRate: 76
+router.get('/host', async (req, res) => {
+  try {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const db = req.app.locals.db;
+
+    const [overviewResult, propertiesResult, monthlyRevenueResult, monthlyBookingsResult, propertyPerformanceResult] = await Promise.all([
+      db.query(
+        `
+          SELECT
+            COALESCE((
+              SELECT SUM(COALESCE(p.host_payout, p.amount, 0))
+              FROM payments p
+              WHERE p.host_id = $1 AND p.status = 'completed'
+            ), 0)::numeric AS total_revenue,
+            COALESCE((
+              SELECT COUNT(*)
+              FROM bookings b
+              WHERE b.host_id = $1
+            ), 0)::int AS total_bookings,
+            COALESCE((
+              SELECT SUM(b.guests)
+              FROM bookings b
+              WHERE b.host_id = $1
+            ), 0)::int AS total_guests
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT COUNT(*)::int AS total_properties
+          FROM properties
+          WHERE host_id = $1
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            TO_CHAR(DATE_TRUNC('month', p.created_at), 'YYYY-MM') AS month_key,
+            DATE_TRUNC('month', p.created_at) AS month_date,
+            SUM(COALESCE(p.host_payout, p.amount, 0))::numeric AS revenue
+          FROM payments p
+          WHERE p.host_id = $1
+            AND p.status = 'completed'
+            AND p.created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '6 months'
+          GROUP BY month_key, month_date
+          ORDER BY month_date ASC
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            TO_CHAR(DATE_TRUNC('month', b.created_at), 'YYYY-MM') AS month_key,
+            DATE_TRUNC('month', b.created_at) AS month_date,
+            COUNT(*)::int AS bookings
+          FROM bookings b
+          WHERE b.host_id = $1
+            AND b.created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '6 months'
+          GROUP BY month_key, month_date
+          ORDER BY month_date ASC
+        `,
+        [hostId]
+      ),
+      db.query(
+        `
+          SELECT
+            pr.id AS property_id,
+            pr.title,
+            COALESCE(SUM(COALESCE(p.host_payout, p.amount, 0)), 0)::numeric AS revenue
+          FROM properties pr
+          LEFT JOIN bookings b
+            ON b.property_id = pr.id AND b.host_id = $1
+          LEFT JOIN payments p
+            ON p.booking_id = b.id AND p.host_id = $1 AND p.status = 'completed'
+          WHERE pr.host_id = $1
+          GROUP BY pr.id, pr.title
+          ORDER BY revenue DESC, pr.id ASC
+          LIMIT 6
+        `,
+        [hostId]
+      )
+    ]);
+
+    const overview = overviewResult.rows[0] || {};
+    const totalProperties = propertiesResult.rows[0]?.total_properties || 0;
+    const totalBookings = overview.total_bookings || 0;
+    const totalRevenue = parseFloat(overview.total_revenue || 0);
+    const totalGuests = overview.total_guests || 0;
+
+    const daysWindow = 30;
+    const occupancyRate = totalProperties > 0
+      ? Math.min(
+          100,
+          Math.round((totalBookings / (totalProperties * daysWindow)) * 100)
+        )
+      : 0;
+
+    const monthFormatter = new Intl.DateTimeFormat('en', { month: 'short' });
+    const monthKeys = [];
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const date = new Date();
+      date.setDate(1);
+      date.setHours(0, 0, 0, 0);
+      date.setMonth(date.getMonth() - offset);
+      monthKeys.push({
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        label: monthFormatter.format(date)
+      });
+    }
+
+    const monthlyRevenueMap = new Map(
+      monthlyRevenueResult.rows.map((row) => [row.month_key, parseFloat(row.revenue || 0)])
+    );
+    const monthlyBookingsMap = new Map(
+      monthlyBookingsResult.rows.map((row) => [row.month_key, parseInt(row.bookings, 10) || 0])
+    );
+
+    const revenueMonthly = monthKeys.map(({ key, label }) => ({
+      month: label,
+      revenue: monthlyRevenueMap.get(key) || 0
+    }));
+
+    const bookingsMonthly = monthKeys.map(({ key, label }) => ({
+      month: label,
+      bookings: monthlyBookingsMap.get(key) || 0
+    }));
+
+    const maxPropertyRevenue = Math.max(
+      ...propertyPerformanceResult.rows.map((row) => parseFloat(row.revenue || 0)),
+      0
+    );
+
+    const propertyPerformance = propertyPerformanceResult.rows.map((row) => {
+      const revenue = parseFloat(row.revenue || 0);
+      return {
+        propertyId: row.property_id,
+        name: row.title,
+        revenue,
+        performance: maxPropertyRevenue > 0
+          ? Math.min(1, revenue / maxPropertyRevenue)
+          : 0
+      };
+    });
+
+    // Generate AI insights based on data
+    const recommendations = [];
+    
+    // Insight: Low occupancy rate
+    if (occupancyRate < 50 && totalProperties > 0) {
+      recommendations.push({
+        title: 'Improve Occupancy Rate',
+        description: `Your occupancy rate is ${occupancyRate}%. Consider adjusting pricing or improving property descriptions to attract more bookings.`,
+        estimatedRevenue: parseFloat((totalRevenue * 0.3).toFixed(2))
+      });
+    }
+    
+    // Insight: High performing properties
+    if (propertyPerformance.length > 0 && maxPropertyRevenue > 0) {
+      const topProperty = propertyPerformance[0];
+      if (topProperty.revenue > totalRevenue * 0.4) {
+        recommendations.push({
+          title: 'Replicate Success',
+          description: `"${topProperty.name}" generates ${Math.round((topProperty.revenue / totalRevenue) * 100)}% of your revenue. Consider what makes it successful and apply those strategies to other properties.`,
+          estimatedRevenue: parseFloat((totalRevenue * 0.2).toFixed(2))
+        });
       }
-    ],
-    guestInsights: {
-      repeatGuests: 23,
-      averageStayLength: 3.2,
-      topCountries: [
-        { country: 'United States', percentage: 65 },
-        { country: 'Canada', percentage: 15 },
-        { country: 'United Kingdom', percentage: 12 },
-        { country: 'Germany', percentage: 8 }
-      ],
-      ageGroups: [
-        { group: '18-25', percentage: 15 },
-        { group: '26-35', percentage: 35 },
-        { group: '36-45', percentage: 28 },
-        { group: '46-55', percentage: 15 },
-        { group: '55+', percentage: 7 }
-      ]
-    },
-    recommendations: [
-      {
-        type: 'pricing',
-        title: 'Optimize Pricing for Beach House',
-        description: 'Consider increasing rates by 15% during summer months based on demand patterns.',
-        impact: 'high',
-        estimatedRevenue: 450
-      },
-      {
-        type: 'marketing',
-        title: 'Improve Mountain Cabin Photos',
-        description: 'Adding more interior photos could increase booking conversion by 20%.',
-        impact: 'medium',
-        estimatedRevenue: 280
-      },
-      {
-        type: 'amenities',
-        title: 'Add WiFi Upgrade to Mountain Cabin',
-        description: 'Guests frequently mention slow WiFi. Upgrading could improve ratings.',
-        impact: 'medium',
-        estimatedRevenue: 150
+    }
+    
+    // Insight: Revenue growth opportunity
+    if (revenueMonthly.length >= 2) {
+      const lastMonth = revenueMonthly[revenueMonthly.length - 1].revenue;
+      const prevMonth = revenueMonthly[revenueMonthly.length - 2].revenue;
+      if (lastMonth < prevMonth * 0.8) {
+        recommendations.push({
+          title: 'Revenue Decline Alert',
+          description: 'Your revenue decreased last month. Consider running promotions or updating your listings to boost bookings.',
+          estimatedRevenue: parseFloat(((prevMonth - lastMonth) * 1.2).toFixed(2))
+        });
       }
-    ]
-  });
+    }
+    
+    // Insight: Expand portfolio
+    if (totalProperties < 3 && totalRevenue > 5000) {
+      recommendations.push({
+        title: 'Expand Your Portfolio',
+        description: 'Your properties are performing well. Adding more listings could significantly increase your revenue.',
+        estimatedRevenue: parseFloat((totalRevenue * 0.5).toFixed(2))
+      });
+    }
+
+    // Get recent activity
+    const recentActivityResult = await db.query(
+      `
+        SELECT
+          b.id,
+          b.status,
+          b.created_at,
+          b.updated_at,
+          pr.title AS property_title,
+          CONCAT_WS(' ', u.first_name, u.last_name) AS guest_name
+        FROM bookings b
+        LEFT JOIN properties pr ON pr.id = b.property_id
+        LEFT JOIN users u ON u.id = b.guest_id
+        WHERE b.host_id = $1
+        ORDER BY b.updated_at DESC
+        LIMIT 5
+      `,
+      [hostId]
+    );
+
+    const recentActivity = recentActivityResult.rows.map((row) => {
+      const timeDiff = Date.now() - new Date(row.updated_at).getTime();
+      const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+      const timeStr = hoursAgo < 1 
+        ? 'Just now'
+        : hoursAgo < 24 
+        ? `${hoursAgo} hour${hoursAgo > 1 ? 's' : ''} ago`
+        : `${Math.floor(hoursAgo / 24)} day${Math.floor(hoursAgo / 24) > 1 ? 's' : ''} ago`;
+
+      let action = 'Booking created';
+      let status = 'success';
+      
+      if (row.status === 'confirmed') {
+        action = 'Booking confirmed';
+        status = 'success';
+      } else if (row.status === 'pending') {
+        action = 'Booking pending';
+        status = 'warning';
+      } else if (row.status === 'cancelled') {
+        action = 'Booking cancelled';
+        status = 'error';
+      } else if (row.status === 'completed') {
+        action = 'Check-out completed';
+        status = 'success';
+      }
+
+      return {
+        property: row.property_title || 'Unknown Property',
+        guest: row.guest_name || 'Guest',
+        action,
+        time: timeStr,
+        status
+      };
+    });
+
+    return res.json({
+      overview: {
+        totalProperties,
+        totalBookings,
+        totalRevenue,
+        occupancyRate,
+        totalGuests
+      },
+      revenueData: {
+        monthly: revenueMonthly
+      },
+      bookingTrends: {
+        monthly: bookingsMonthly
+      },
+      propertyPerformance,
+      recommendations,
+      recentActivity
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error fetching host analytics', error: error.message });
+  }
 });
 
 // GET /api/analytics/admin - Admin analytics dashboard

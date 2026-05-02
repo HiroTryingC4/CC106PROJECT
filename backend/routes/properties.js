@@ -1,443 +1,447 @@
 const express = require('express');
 const router = express.Router();
+const { createPropertiesRepository } = require('../repo/propertiesRepo');
+const { uploadStreamToCloudinary, isCloudinaryConfigured } = require('../utils/cloudinary');
+const { parseMultipartForm } = require('../utils/multipart');
+const { getAuthUserId } = require('../utils/authMiddleware');
 
-// Sample properties data
-let properties = [
-  {
-    id: 1,
-    hostId: 3, // John Host
-    title: 'Luxury Downtown Apartment',
-    description: 'Beautiful 2-bedroom apartment in the heart of downtown with stunning city views.',
-    type: 'Apartment',
-    bedrooms: 2,
-    bathrooms: 2,
-    maxGuests: 4,
-    pricePerNight: 150,
-    address: {
-      street: '123 Main Street',
-      city: 'New York',
-      state: 'NY',
-      zipCode: '10001',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Air Conditioning', 'Parking', 'Gym', 'Pool'],
-    images: [
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
-      'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800'
-    ],
-    availability: true,
-    rating: 4.8,
-    reviewCount: 127,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-01-15T10:00:00.000Z',
-    updatedAt: '2024-03-10T15:30:00.000Z'
-  },
-  {
-    id: 2,
-    hostId: 3, // John Host
-    title: 'Cozy Beach House',
-    description: 'Charming beach house just steps from the ocean. Perfect for a relaxing getaway.',
-    type: 'House',
-    bedrooms: 3,
-    bathrooms: 2,
-    maxGuests: 6,
-    pricePerNight: 220,
-    address: {
-      street: '456 Ocean Drive',
-      city: 'Miami Beach',
-      state: 'FL',
-      zipCode: '33139',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Beach Access', 'Parking', 'BBQ Grill', 'Hot Tub'],
-    images: [
-      'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800',
-      'https://images.unsplash.com/photo-1520637836862-4d197d17c93a?w=800',
-      'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800'
-    ],
-    availability: true,
-    rating: 4.9,
-    reviewCount: 89,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-02-01T10:00:00.000Z',
-    updatedAt: '2024-03-12T09:15:00.000Z'
-  },
-  {
-    id: 3,
-    hostId: 3, // John Host
-    title: 'Mountain Cabin Retreat',
-    description: 'Rustic cabin in the mountains with fireplace and hiking trails nearby.',
-    type: 'Cabin',
-    bedrooms: 2,
-    bathrooms: 1,
-    maxGuests: 4,
-    pricePerNight: 180,
-    address: {
-      street: '789 Mountain View Road',
-      city: 'Aspen',
-      state: 'CO',
-      zipCode: '81611',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Fireplace', 'Parking', 'Hiking Trails', 'Mountain View'],
-    images: [
-      'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800',
-      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
-      'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800'
-    ],
-    availability: true,
-    rating: 4.7,
-    reviewCount: 156,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-01-20T10:00:00.000Z',
-    updatedAt: '2024-03-08T14:20:00.000Z'
-  },
-  {
-    id: 4,
-    hostId: 4, // Another host
-    title: 'Modern Studio in Tech Hub',
-    description: 'Contemporary studio apartment in a vibrant tech hub neighborhood. Perfect for business travelers.',
-    type: 'Studio',
-    bedrooms: 1,
-    bathrooms: 1,
-    maxGuests: 2,
-    pricePerNight: 95,
-    address: {
-      street: '321 Innovation Drive',
-      city: 'San Francisco',
-      state: 'CA',
-      zipCode: '94105',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Workspace', 'Air Conditioning', 'Laundry'],
-    images: [
-      'https://images.unsplash.com/photo-1490644658840-ee6db43da12b?w=800',
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800'
-    ],
-    availability: true,
-    rating: 4.6,
-    reviewCount: 203,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-02-10T10:00:00.000Z',
-    updatedAt: '2024-03-11T11:45:00.000Z'
-  },
-  {
-    id: 5,
-    hostId: 4,
-    title: 'Victorian House Downtown',
-    description: 'Historic Victorian house with modern amenities. Close to restaurants and shops.',
-    type: 'House',
-    bedrooms: 4,
-    bathrooms: 3,
-    maxGuests: 8,
-    pricePerNight: 280,
-    address: {
-      street: '654 Heritage Street',
-      city: 'Boston',
-      state: 'MA',
-      zipCode: '02134',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Full Kitchen', 'Dining Room', 'Fireplace', 'Garden', 'Parking'],
-    images: [
-      'https://images.unsplash.com/photo-1570129476519-bbf64df27c4f?w=800',
-      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800',
-      'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800'
-    ],
-    availability: true,
-    rating: 4.9,
-    reviewCount: 98,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-01-05T10:00:00.000Z',
-    updatedAt: '2024-03-13T16:20:00.000Z'
-  },
-  {
-    id: 6,
-    hostId: 5,
-    title: 'Desert Oasis Bungalow',
-    description: 'Peaceful bungalow in the desert with pool and outdoor seating. Great for relaxation.',
-    type: 'Bungalow',
-    bedrooms: 2,
-    bathrooms: 2,
-    maxGuests: 4,
-    pricePerNight: 120,
-    address: {
-      street: '987 Cactus Road',
-      city: 'Phoenix',
-      state: 'AZ',
-      zipCode: '85016',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Pool', 'Air Conditioning', 'Patio', 'Parking'],
-    images: [
-      'https://images.unsplash.com/photo-1559400174-641ce0ac8abe?w=800',
-      'https://images.unsplash.com/photo-1507237998391-03ea16b03e39?w=800',
-      'https://images.unsplash.com/photo-1489749798305-4fea3ba63d60?w=800'
-    ],
-    availability: true,
-    rating: 4.5,
-    reviewCount: 76,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-02-14T10:00:00.000Z',
-    updatedAt: '2024-03-09T13:15:00.000Z'
-  },
-  {
-    id: 7,
-    hostId: 5,
-    title: 'Lakefront Cottage',
-    description: 'Charming cottage with private lake access. Perfect for fishing and water activities.',
-    type: 'Cottage',
-    bedrooms: 3,
-    bathrooms: 2,
-    maxGuests: 6,
-    pricePerNight: 200,
-    address: {
-      street: '147 Lakeside Lane',
-      city: 'Seattle',
-      state: 'WA',
-      zipCode: '98109',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Lake Access', 'Dock', 'Fireplace', 'Boat Included'],
-    images: [
-      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-      'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800'
-    ],
-    availability: true,
-    rating: 4.8,
-    reviewCount: 112,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-03-01T10:00:00.000Z',
-    updatedAt: '2024-03-12T10:30:00.000Z'
-  },
-  {
-    id: 8,
-    hostId: 6,
-    title: 'City Loft with Terrace',
-    description: 'Spacious loft with rooftop terrace overlooking the city skyline.',
-    type: 'Loft',
-    bedrooms: 2,
-    bathrooms: 2,
-    maxGuests: 4,
-    pricePerNight: 175,
-    address: {
-      street: '555 Sky Avenue',
-      city: 'Chicago',
-      state: 'IL',
-      zipCode: '60601',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Kitchen', 'Rooftop Terrace', 'Gym', 'Concierge', 'Parking'],
-    images: [
-      'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=800',
-      'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800'
-    ],
-    availability: true,
-    rating: 4.7,
-    reviewCount: 145,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-01-25T10:00:00.000Z',
-    updatedAt: '2024-03-10T12:00:00.000Z'
-  },
-  {
-    id: 9,
-    hostId: 6,
-    title: 'Tropical Garden Villa',
-    description: 'Luxurious villa with lush tropical garden and resort-style amenities.',
-    type: 'Villa',
-    bedrooms: 4,
-    bathrooms: 3,
-    maxGuests: 8,
-    pricePerNight: 350,
-    address: {
-      street: '222 Paradise Drive',
-      city: 'Honolulu',
-      state: 'HI',
-      zipCode: '96815',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Full Kitchen', 'Private Pool', 'Garden', 'Maid Service', 'Concierge'],
-    images: [
-      'https://images.unsplash.com/photo-1512207736139-a1b66464db19?w=800',
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
-      'https://images.unsplash.com/photo-1570129476519-bbf64df27c4f?w=800'
-    ],
-    availability: true,
-    rating: 4.9,
-    reviewCount: 64,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-02-20T10:00:00.000Z',
-    updatedAt: '2024-03-13T14:45:00.000Z'
-  },
-  {
-    id: 10,
-    hostId: 7,
-    title: 'Budget-Friendly Downtown Room',
-    description: 'Comfortable private room in downtown. Share bathroom and kitchen. Great for solo travelers.',
-    type: 'Room',
-    bedrooms: 1,
-    bathrooms: 1,
-    maxGuests: 1,
-    pricePerNight: 55,
-    address: {
-      street: '888 Budget Boulevard',
-      city: 'Denver',
-      state: 'CO',
-      zipCode: '80202',
-      country: 'USA'
-    },
-    amenities: ['WiFi', 'Shared Kitchen', 'Shared Bathroom', 'Laundry'],
-    images: [
-      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800',
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-      'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800'
-    ],
-    availability: true,
-    rating: 4.4,
-    reviewCount: 234,
-    timeAvailability: {
-      checkInTime: '15:00',
-      checkOutTime: '11:00'
-    },
-    createdAt: '2024-03-05T10:00:00.000Z',
-    updatedAt: '2024-03-13T09:20:00.000Z'
-  }
-];
+const getPropertiesRepo = (req) => createPropertiesRepository(req.app.locals.db);
 
-// GET /api/properties - Get all properties or filter by host
-router.get('/', (req, res) => {
-  const { hostId } = req.query;
-  
-  let filteredProperties = properties;
-  
-  if (hostId) {
-    filteredProperties = properties.filter(p => p.hostId === parseInt(hostId));
+const normalizeBookingType = (bookingType) => {
+  const allowed = ['fixed', 'hourly', 'both'];
+  return allowed.includes(bookingType) ? bookingType : 'fixed';
+};
+
+/**
+ * @swagger
+ * /properties:
+ *   get:
+ *     summary: Get all properties with optional filters
+ *     tags: [Properties]
+ *     parameters:
+ *       - in: query
+ *         name: hostId
+ *         schema:
+ *           type: integer
+ *         description: Filter by host ID
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *         description: Filter by property type
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum price per night
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum price per night
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term
+ *     responses:
+ *       200:
+ *         description: List of properties
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 properties:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Property'
+ *                 total:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
+router.get('/', async (req, res) => {
+  try {
+    const { hostId, type, minPrice, maxPrice, search } = req.query;
+    const repo = getPropertiesRepo(req);
+
+    const filters = {};
+    if (hostId) filters.hostId = parseInt(hostId);
+    if (type) filters.type = type;
+    if (minPrice) filters.minPrice = parseFloat(minPrice);
+    if (maxPrice) filters.maxPrice = parseFloat(maxPrice);
+    if (search) filters.search = search;
+
+    const properties = await repo.getAllProperties(filters);
+
+    res.json({
+      properties,
+      total: properties.length
+    });
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({ message: 'Failed to fetch properties' });
   }
-  
-  res.json({
-    properties: filteredProperties,
-    total: filteredProperties.length
-  });
 });
 
-// GET /api/properties/:id - Get single property
-router.get('/:id', (req, res) => {
-  const propertyId = parseInt(req.params.id);
-  const property = properties.find(p => p.id === propertyId);
-  
-  if (!property) {
-    return res.status(404).json({ message: 'Property not found' });
+// POST /api/properties/upload - Upload property image
+router.post('/upload', async (req, res) => {
+  try {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({
+        message: 'File upload is not configured. Set Cloudinary environment variables.'
+      });
+    }
+
+    const parsedForm = await parseMultipartForm(req, {
+      maxFileSize: 10 * 1024 * 1024,
+      maxFiles: 1,
+      allowedFileFields: ['file'],
+      onFile: async ({ fieldName, fileStream, filename, mimeType }) => {
+        const uploadResult = await uploadStreamToCloudinary(fileStream, {
+          folder: `smartstay/properties/${hostId}`,
+          public_id: `property_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
+          resource_type: 'auto'
+        });
+
+        return {
+          fieldName,
+          originalName: filename,
+          mimetype: mimeType,
+          uploadResult
+        };
+      }
+    });
+
+    const uploadedFile = parsedForm.files.find((file) => file.fieldName === 'file');
+    if (!uploadedFile) {
+      return res.status(400).json({ message: 'No file provided' });
+    }
+
+    const uploadResult = uploadedFile.uploadResult;
+
+    res.json({
+      message: 'Image uploaded successfully',
+      imageUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id
+    });
+  } catch (error) {
+    console.error('Error uploading property image:', error);
+    const statusCode = error.message.includes('multipart/form-data') || error.message.includes('File too large')
+      ? 400
+      : 500;
+    res.status(statusCode).json({ message: error.message || 'Failed to upload image' });
   }
-  
-  res.json(property);
 });
 
-// POST /api/properties - Create new property
-router.post('/', (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
+/**
+ * @swagger
+ * /properties/{id}:
+ *   get:
+ *     summary: Get a single property by ID
+ *     tags: [Properties]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Property ID
+ *     responses:
+ *       200:
+ *         description: Property details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Property'
+ *       404:
+ *         description: Property not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const propertyId = parseInt(req.params.id);
+    const repo = getPropertiesRepo(req);
+
+    const property = await repo.getPropertyById(propertyId);
+
+    if (!property) {
+      return res.status(404).json({ message: 'Property not found' });
+    }
+
+    res.json(property);
+  } catch (error) {
+    console.error('Error fetching property:', error);
+    res.status(500).json({ message: 'Failed to fetch property' });
   }
-  
-  const hostId = parseInt(token.split('_')[1]);
-  
-  const newProperty = {
-    id: properties.length + 1,
-    hostId,
-    ...req.body,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    rating: 0,
-    reviewCount: 0,
-    availability: true
-  };
-  
-  properties.push(newProperty);
-  
-  res.status(201).json({
-    message: 'Property created successfully',
-    property: newProperty
-  });
 });
 
-// PUT /api/properties/:id - Update property
-router.put('/:id', (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
+/**
+ * @swagger
+ * /properties:
+ *   post:
+ *     summary: Create a new property
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - type
+ *               - pricePerNight
+ *               - address
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               bedrooms:
+ *                 type: integer
+ *               bathrooms:
+ *                 type: integer
+ *               maxGuests:
+ *                 type: integer
+ *               pricePerNight:
+ *                 type: number
+ *               address:
+ *                 type: string
+ *               amenities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               bookingType:
+ *                 type: string
+ *                 enum: [fixed, hourly, both]
+ *               hourlyRate:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Property created successfully
+ *       401:
+ *         description: Not authenticated
+ *       500:
+ *         description: Server error
+ */
+router.post('/', async (req, res) => {
+  try {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const repo = getPropertiesRepo(req);
+
+    const bookingType = normalizeBookingType(req.body.bookingType);
+    const parsedHourlyRate = parseFloat(req.body.hourlyRate);
+    const parsedExtraGuestFee = parseFloat(req.body.extraGuestFee);
+    const houseRules = typeof req.body.houseRules === 'string' ? req.body.houseRules.trim() : '';
+    const hourlyRate = (bookingType === 'hourly' || bookingType === 'both')
+      ? (Number.isFinite(parsedHourlyRate) ? parsedHourlyRate : null)
+      : null;
+    const extraGuestFee = Number.isFinite(parsedExtraGuestFee) && parsedExtraGuestFee >= 0
+      ? parsedExtraGuestFee
+      : 0;
+
+    const propertyData = {
+      hostId,
+      title: req.body.title,
+      description: req.body.description,
+      type: req.body.type,
+      bedrooms: req.body.bedrooms,
+      bathrooms: req.body.bathrooms,
+      maxGuests: req.body.maxGuests,
+      pricePerNight: req.body.pricePerNight,
+      address: req.body.address,
+      amenities: req.body.amenities || [],
+      images: req.body.images || [],
+      availability: req.body.availability !== false,
+      bookingType,
+      hourlyRate,
+      extraGuestFee,
+      houseRules,
+      timeAvailability: req.body.timeAvailability || { checkInTime: '15:00', checkOutTime: '11:00' }
+    };
+
+    const property = await repo.createProperty(propertyData);
+
+    res.status(201).json({
+      message: 'Property created successfully',
+      property
+    });
+  } catch (error) {
+    console.error('Error creating property:', error);
+    res.status(500).json({ message: 'Failed to create property' });
   }
-  
-  const hostId = parseInt(token.split('_')[1]);
-  const propertyId = parseInt(req.params.id);
-  
-  const propertyIndex = properties.findIndex(p => p.id === propertyId && p.hostId === hostId);
-  
-  if (propertyIndex === -1) {
-    return res.status(404).json({ message: 'Property not found or access denied' });
-  }
-  
-  properties[propertyIndex] = {
-    ...properties[propertyIndex],
-    ...req.body,
-    updatedAt: new Date().toISOString()
-  };
-  
-  res.json({
-    message: 'Property updated successfully',
-    property: properties[propertyIndex]
-  });
 });
 
-// DELETE /api/properties/:id - Delete property
-router.delete('/:id', (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
+/**
+ * @swagger
+ * /properties/{id}:
+ *   put:
+ *     summary: Update a property
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Property updated successfully
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Property not found or access denied
+ *       500:
+ *         description: Server error
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const propertyId = parseInt(req.params.id);
+    const repo = getPropertiesRepo(req);
+
+    const property = await repo.getPropertyById(propertyId);
+    if (!property || property.hostId !== hostId) {
+      return res.status(404).json({ message: 'Property not found or access denied' });
+    }
+
+    const bookingType = normalizeBookingType(req.body.bookingType || property.bookingType);
+    const parsedHourlyRate = parseFloat(req.body.hourlyRate);
+    const parsedExtraGuestFee = parseFloat(req.body.extraGuestFee);
+    const houseRules = typeof req.body.houseRules === 'string'
+      ? req.body.houseRules.trim()
+      : (property.houseRules || '');
+    const hourlyRate = (bookingType === 'hourly' || bookingType === 'both')
+      ? (Number.isFinite(parsedHourlyRate) ? parsedHourlyRate : property.hourlyRate)
+      : null;
+    const extraGuestFee = Number.isFinite(parsedExtraGuestFee) && parsedExtraGuestFee >= 0
+      ? parsedExtraGuestFee
+      : Number(property.extraGuestFee || property.timeAvailability?.extraGuestFee || 0);
+
+    const parsedPricePerNight = typeof req.body.pricePerNight === 'string'
+      ? parseFloat(req.body.pricePerNight.replace(/,/g, ''))
+      : parseFloat(req.body.pricePerNight);
+
+    const updatePayload = {
+      title: req.body.title,
+      description: req.body.description,
+      type: req.body.type,
+      bedrooms: parseInt(req.body.bedrooms, 10),
+      bathrooms: parseInt(req.body.bathrooms, 10),
+      maxGuests: parseInt(req.body.maxGuests, 10),
+      pricePerNight: Number.isFinite(parsedPricePerNight) ? parsedPricePerNight : undefined,
+      address: req.body.address,
+      amenities: req.body.amenities,
+      images: req.body.images,
+      availability: req.body.availability !== false,
+      timeAvailability: {
+        ...(property.timeAvailability || {}),
+        ...(req.body.timeAvailability || {}),
+        bookingType,
+        hourlyRate,
+        extraGuestFee,
+        houseRules
+      }
+    };
+
+    const sanitizedPayload = Object.fromEntries(
+      Object.entries(updatePayload).filter(([, value]) => value !== undefined && !Number.isNaN(value))
+    );
+
+    const updatedProperty = await repo.updateProperty(propertyId, sanitizedPayload);
+
+    res.json({
+      message: 'Property updated successfully',
+      property: updatedProperty
+    });
+  } catch (error) {
+    console.error('Error updating property:', error);
+    res.status(500).json({ message: 'Failed to update property' });
   }
-  
-  const hostId = parseInt(token.split('_')[1]);
-  const propertyId = parseInt(req.params.id);
-  
-  const propertyIndex = properties.findIndex(p => p.id === propertyId && p.hostId === hostId);
-  
-  if (propertyIndex === -1) {
-    return res.status(404).json({ message: 'Property not found or access denied' });
+});
+
+/**
+ * @swagger
+ * /properties/{id}:
+ *   delete:
+ *     summary: Delete a property
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Property deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Property not found or access denied
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const propertyId = parseInt(req.params.id);
+    const repo = getPropertiesRepo(req);
+
+    const property = await repo.getPropertyById(propertyId);
+    if (!property || property.hostId !== hostId) {
+      return res.status(404).json({ message: 'Property not found or access denied' });
+    }
+
+    await repo.deleteProperty(propertyId);
+
+    res.json({ message: 'Property deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting property:', error);
+    res.status(500).json({ message: 'Failed to delete property' });
   }
-  
-  properties.splice(propertyIndex, 1);
-  
-  res.json({ message: 'Property deleted successfully' });
 });
 
 module.exports = router;

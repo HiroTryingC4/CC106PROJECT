@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Star, MapPin, Users, Bed, Bath } from 'lucide-react';
+import API_CONFIG from '../../config/api';
 
 const PropertySearch = () => {
   const navigate = useNavigate();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   const [properties, setProperties] = useState([]);
   const [filteredProperties, setFilteredProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,11 +25,12 @@ const PropertySearch = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/properties');
+      const response = await fetch(`${apiBaseUrl}/properties`);
       if (!response.ok) throw new Error('Failed to fetch properties');
       const data = await response.json();
-      setProperties(data.properties || []);
-      setFilteredProperties(data.properties || []);
+      const availableProperties = (data.properties || []).filter(property => property.availability !== false);
+      setProperties(availableProperties);
+      setFilteredProperties(availableProperties);
     } catch (err) {
       setError('Unable to load properties. Please try again later.');
       console.error('Fetch error:', err);
@@ -256,7 +259,7 @@ const PropertySearch = () => {
                   {/* Price and Button */}
                   <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">₱{property.pricePerNight.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-gray-900">₱{Number(property.pricePerNight || 0).toLocaleString('en-PH')}</p>
                       <p className="text-xs text-gray-500">per night</p>
                     </div>
                     <button

@@ -403,12 +403,20 @@ const Units = () => {
                 </div>
 
                 {/* Book Button */}
-                <Link
-                  to={`/guest/units/${property.id}`}
-                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium text-center block"
-                >
-                  View Details
-                </Link>
+                <div className="flex space-x-2">
+                  <Link
+                    to={`/guest/units/${property.id}/reviews`}
+                    className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium text-center block"
+                  >
+                    Reviews
+                  </Link>
+                  <Link
+                    to={`/guest/units/${property.id}`}
+                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium text-center block"
+                  >
+                    View Details
+                  </Link>
+                </div>
               </div>
             </div>
           ))}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 import { 
   HomeIcon,
   BuildingOfficeIcon,
@@ -10,14 +11,14 @@ import {
   CurrencyDollarIcon,
   ChartBarIcon,
   InformationCircleIcon,
-  ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const HostDashboard = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const API_BASE = API_CONFIG.BASE_URL;
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [verificationFormData, setVerificationFormData] = useState(null);
   const [hostProfile, setHostProfile] = useState(null);
@@ -28,15 +29,12 @@ const HostDashboard = () => {
     // Fetch verification status and dashboard data when component mounts
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        const authToken = token;
+        if (!authToken) return;
+        const authHeaders = { 'Authorization': `Bearer ${authToken}` };
 
         // Fetch host profile
-        const profileResponse = await fetch('http://localhost:5000/api/host/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const profileResponse = await fetch(`${API_BASE}/host/profile`, { headers: authHeaders });
 
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
@@ -44,11 +42,7 @@ const HostDashboard = () => {
         }
 
         // Fetch verification status
-        const verificationResponse = await fetch('http://localhost:5000/api/host/verification-status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const verificationResponse = await fetch(`${API_BASE}/host/verification-status`, { headers: authHeaders });
 
         if (verificationResponse.ok) {
           const verificationData = await verificationResponse.json();
@@ -57,15 +51,10 @@ const HostDashboard = () => {
           // Always try to fetch verification form data if status is pending or verified
           if (verificationData.status === 'pending' || verificationData.status === 'verified') {
             try {
-              const formDataResponse = await fetch('http://localhost:5000/api/host/verification-data', {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
+              const formDataResponse = await fetch(`${API_BASE}/host/verification-data`, { headers: authHeaders });
 
               if (formDataResponse.ok) {
                 const formData = await formDataResponse.json();
-                console.log('Verification form data:', formData.data);
                 setVerificationFormData(formData.data);
               }
             } catch (err) {
@@ -76,25 +65,9 @@ const HostDashboard = () => {
           // If verified, fetch dashboard data
           if (verificationData.status === 'verified') {
             // Fetch properties
-            const propertiesResponse = await fetch(`http://localhost:5000/api/properties?hostId=${user.id}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-
-            // Fetch bookings
-            const bookingsResponse = await fetch('http://localhost:5000/api/bookings', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-
-            // Fetch analytics
-            const analyticsResponse = await fetch('http://localhost:5000/api/analytics/host', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
+            const propertiesResponse = await fetch(`${API_BASE}/properties?hostId=${user.id}`, { headers: authHeaders });
+            const bookingsResponse = await fetch(`${API_BASE}/bookings`, { headers: authHeaders });
+            const analyticsResponse = await fetch(`${API_BASE}/analytics/host`, { headers: authHeaders });
 
             const [propertiesData, bookingsData, analyticsData] = await Promise.all([
               propertiesResponse.ok ? propertiesResponse.json() : { properties: [], total: 0 },
@@ -244,7 +217,7 @@ const HostDashboard = () => {
   };
 
   // Check if user is verified
-  const isVerified = verificationStatus?.status === 'verified';
+  const isVerified = ['verified', 'approved'].includes(verificationStatus?.status) || verificationStatus?.verified === true;
 
   const getVerificationFormDisplay = () => {
     // Show card if verification data exists and status is pending or verified
@@ -444,7 +417,7 @@ const HostDashboard = () => {
       },
       {
         title: 'Revenue (MTD)',
-        value: `₱${monthlyRevenue.toLocaleString()}`,
+        value: `₱${monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         subtitle: 'this month',
         icon: CurrencyDollarIcon,
         iconBg: 'bg-green-100',
@@ -466,29 +439,7 @@ const HostDashboard = () => {
     
     return {
       insights: analytics.recommendations || [],
-      activity: [
-        {
-          property: 'Luxury Downtown Apartment',
-          guest: 'Jane Guest',
-          action: 'Check-in confirmed',
-          time: '2 hours ago',
-          status: 'success'
-        },
-        {
-          property: 'Cozy Beach House',
-          guest: 'Jane Guest',
-          action: 'Payment received',
-          time: '4 hours ago',
-          status: 'success'
-        },
-        {
-          property: 'Mountain Cabin Retreat',
-          guest: 'Jane Guest',
-          action: 'Booking confirmed',
-          time: '6 hours ago',
-          status: 'success'
-        }
-      ]
+      activity: analytics.recentActivity || []
     };
   };
 
@@ -567,7 +518,7 @@ const HostDashboard = () => {
                       <h3 className="font-semibold text-blue-800 mb-1">{insight.title}</h3>
                       <p className="text-sm text-blue-800 opacity-90">{insight.description}</p>
                       {insight.estimatedRevenue && (
-                        <p className="text-xs text-blue-600 mt-2">Potential revenue: ₱{insight.estimatedRevenue}</p>
+                        <p className="text-xs text-blue-600 mt-2">Potential revenue: ₱{insight.estimatedRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       )}
                     </div>
                   ))}
@@ -628,14 +579,6 @@ const HostDashboard = () => {
               )}
             </div>
           </div>
-        </div>
-
-        {/* Chat Button - Fixed Position */}
-        <div className="fixed bottom-6 right-6">
-          <button className="bg-[#4E7B22] text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
         </div>
       </div>
     </HostLayout>

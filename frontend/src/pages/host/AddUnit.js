@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
+import FeedbackModal from '../../components/common/FeedbackModal';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { 
   PlusIcon,
   MapPinIcon,
   InformationCircleIcon,
-  PhotoIcon,
-  ChatBubbleLeftRightIcon
+  PhotoIcon
 } from '@heroicons/react/24/outline';
+import { handleImageFileSelect, uploadImageToCloudinary } from '../../utils/fileUpload';
+import API_CONFIG from '../../config/api';
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,11 +23,14 @@ L.Icon.Default.mergeOptions({
 
 const AddUnit = () => {
   const navigate = useNavigate();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   const [formData, setFormData] = useState({
     unitName: '',
     propertyType: 'Apartment',
     location: '',
     pricePerNight: '',
+    bookingType: 'fixed',
+    hourlyRate: '',
     hoursIncluded: '22 hours',
     bedrooms: '1',
     bathrooms: '1',
@@ -35,6 +40,7 @@ const AddUnit = () => {
     description: '',
     unitRules: '',
     amenities: [],
+    images: [],
     autoConfirmation: false,
     paymentMethods: {
       cash: true,
@@ -59,6 +65,17 @@ const AddUnit = () => {
     checkOutTime: '11:00',   // 11:00 AM default
     enableTimeSlots: true
   });
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+    actionLabel: 'Close',
+    onAction: null
+  });
+  const fileInputRef = React.useRef(null);
 
   // Component for handling map clicks
   const LocationMarker = () => {
@@ -184,8 +201,143 @@ const AddUnit = () => {
     setHourlyPricing([...hourlyPricing, { hours: '', price: '' }]);
   };
 
+  const handlePhotoUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAddUnitImageSelect = async (e) => {
+    try {
+      const didStart = handleImageFileSelect(e, async (fileData) => {
+        try {
+          // Upload to Cloudinary
+          const imageUrl = await uploadImageToCloudinary(fileData.file);
+          
+          // Add to uploaded images state
+          setUploadedImages(prev => [...prev, imageUrl]);
+          setFormData(prev => ({
+            ...prev,
+            images: [...(prev.images || []), imageUrl]
+          }));
+
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          alert('Failed to upload image. Please try again.');
+        } finally {
+          setUploadingImage(false);
+        }
+      });
+
+      if (didStart) {
+        setUploadingImage(true);
+      } else {
+        setUploadingImage(false);
+      }
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    const newImages = uploadedImages.filter((_, i) => i !== index);
+    setUploadedImages(newImages);
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const payload = {
+        title: formData.unitName,
+        description: formData.description,
+        type: formData.propertyType,
+        bedrooms: parseInt(formData.bedrooms, 10) || 1,
+        bathrooms: parseInt(formData.bathrooms, 10) || 1,
+        maxGuests: parseInt(formData.maxGuests, 10) || 1,
+        pricePerNight: parseFloat((formData.pricePerNight || '').replace(/,/g, '')) || 0,
+        bookingType: formData.bookingType,
+        hourlyRate: (formData.bookingType === 'hourly' || formData.bookingType === 'both')
+          ? (parseFloat((formData.hourlyRate || '').replace(/,/g, '')) || null)
+          : null,
+        extraGuestFee: parseFloat((formData.extraGuestFee || '').replace(/,/g, '')) || 0,
+        houseRules: formData.unitRules,
+        address: {
+          fullAddress: formData.location,
+          city: formData.location,
+          state: 'N/A'
+        },
+        amenities: formData.amenities,
+        images: formData.images || [],
+        availability: true,
+        timeAvailability: {
+          ...timeAvailability,
+          extraGuestFee: parseFloat((formData.extraGuestFee || '').replace(/,/g, '')) || 0,
+          houseRules: formData.unitRules
+        }
+      };
+
+      const response = await fetch(`${apiBaseUrl}/properties`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create property');
+      }
+
+      setFeedbackModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Unit Created',
+        message: 'Your unit was created successfully.',
+        actionLabel: 'Back to Units',
+        onAction: () => navigate('/host/units')
+      });
+    } catch (error) {
+      console.error('Create unit error:', error);
+      setFeedbackModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Unable to Create Unit',
+        message: error.message || 'Failed to create unit. Please try again.',
+        actionLabel: 'Close',
+        onAction: null
+      });
+    }
+  };
+
   return (
     <HostLayout>
+      <FeedbackModal
+        isOpen={feedbackModal.isOpen}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        actionLabel={feedbackModal.actionLabel}
+        onAction={feedbackModal.onAction}
+        onClose={() => setFeedbackModal(prev => ({ ...prev, isOpen: false }))}
+      />
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div>
@@ -194,7 +346,7 @@ const AddUnit = () => {
         </div>
         {/* Form */}
         <div className="bg-white rounded-lg shadow-sm p-8">
-          <form className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -231,7 +383,7 @@ const AddUnit = () => {
             </div>
 
             {/* Location and Pricing */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                 <div className="relative">
@@ -278,7 +430,37 @@ const AddUnit = () => {
                   <option value="24 hours">24 hours</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Booking Option</label>
+                <select
+                  name="bookingType"
+                  value={formData.bookingType}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="fixed">Fixed Time</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
             </div>
+
+            {(formData.bookingType === 'hourly' || formData.bookingType === 'both') && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (₱)</label>
+                  <input
+                    type="text"
+                    name="hourlyRate"
+                    value={formData.hourlyRate}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Map Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -785,14 +967,21 @@ const AddUnit = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h4 className="font-semibold text-yellow-800 mb-2">Auto-Confirmation (Instant Booking)</h4>
-                  <p className="text-sm text-yellow-700 mb-4">When enabled, bookings are automatically confirmed without requiring your approval. Guest can book instantly.</p>
+                  <p className="text-sm text-yellow-700 mb-4">When enabled, bookings are automatically confirmed without requiring your approval. Guests can book instantly.</p>
                   
                   <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
                       <InformationCircleIcon className="w-5 h-5 text-gray-600 mt-0.5" />
                       <div>
-                        <p className="font-medium text-gray-800">Manual Approval Required</p>
-                        <p className="text-sm text-gray-600">You'll need to manually approve each booking request. Guests will wait for your confirmation.</p>
+                        <p className="font-medium text-gray-800">
+                          {formData.autoConfirmation ? 'Auto-Confirmation Enabled' : 'Manual Approval Required'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {formData.autoConfirmation
+                            ? 'Guests can book instantly without waiting for approval.'
+                            : 'You\'ll need to manually approve each booking request. Guests will wait for your confirmation.'
+                          }
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -816,18 +1005,65 @@ const AddUnit = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Property Images</h3>
               <p className="text-sm text-gray-600 mb-4">Select property images</p>
               
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <PhotoIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <button
-                  type="button"
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg mb-2 flex items-center space-x-2 mx-auto"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  <span>Add Photos</span>
-                </button>
-                <p className="text-sm text-gray-500">No Photos Selected</p>
-                <p className="text-xs text-gray-400 mt-2">Max size: 5MB per file. Multiple files allowed. Images will be uploaded when you create the unit.</p>
-              </div>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAddUnitImageSelect}
+                style={{ display: 'none' }}
+              />
+              
+              {uploadedImages.length === 0 ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <PhotoIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <button
+                    type="button"
+                    onClick={handlePhotoUpload}
+                    disabled={uploadingImage}
+                    className="bg-green-600 text-white px-6 py-2 rounded-lg mb-2 flex items-center space-x-2 mx-auto hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    <span>{uploadingImage ? 'Uploading...' : 'Add Photos'}</span>
+                  </button>
+                  <p className="text-sm text-gray-500">No Photos Selected</p>
+                  <p className="text-xs text-gray-400 mt-2">Max size: 5MB per file. Multiple files allowed.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {uploadedImages.map((image, index) => (
+                      <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200">
+                        <img 
+                          src={image} 
+                          alt={`Property ${index + 1}`} 
+                          className="w-full h-40 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <span className="text-white text-sm font-medium">Remove</span>
+                        </button>
+                      </div>
+                    ))}
+                    
+                    <button
+                      type="button"
+                      onClick={handlePhotoUpload}
+                      disabled={uploadingImage}
+                      className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center hover:border-green-600 hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="text-center">
+                        <PlusIcon className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                        <span className="text-sm text-gray-600 font-medium">{uploadingImage ? 'Uploading...' : 'Add More'}</span>
+                      </div>
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500">{uploadedImages.length} photo(s) selected</p>
+                </div>
+              )}
             </div>
 
             {/* Form Actions */}
@@ -847,14 +1083,6 @@ const AddUnit = () => {
               </button>
             </div>
           </form>
-        </div>
-
-        {/* Fixed Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="bg-[#4E7B22] text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
         </div>
       </div>
     </HostLayout>

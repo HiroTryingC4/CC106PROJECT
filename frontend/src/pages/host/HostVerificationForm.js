@@ -12,8 +12,11 @@ import {
   CheckCircleIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
+import API_CONFIG, { getFileUrl } from '../../config/api';
 
 const HostVerificationForm = () => {
+  const getAuthToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+
   const [formData, setFormData] = useState({
     businessName: '',
     businessType: 'Individual',
@@ -33,6 +36,15 @@ const HostVerificationForm = () => {
     proofOfOwnership: null,
     additionalDocuments: null
   });
+
+  const isRenderableImagePreview = (preview) => (
+    typeof preview === 'string' && (
+      preview.startsWith('data:image/') ||
+      preview.startsWith('blob:') ||
+      preview.startsWith('http://') ||
+      preview.startsWith('https://')
+    )
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verificationStatus, setVerificationStatus] = useState(null);
@@ -58,7 +70,7 @@ const HostVerificationForm = () => {
     const fetchData = async () => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         
         // Pre-fill with company name from registration
         if (user.company) {
@@ -70,7 +82,7 @@ const HostVerificationForm = () => {
 
         // Fetch verification status and existing data
         if (token) {
-          const response = await fetch('http://localhost:5000/api/host/verification-status', {
+          const response = await fetch(`${API_CONFIG.BASE_URL}/host/verification-status`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -132,14 +144,20 @@ const HostVerificationForm = () => {
     };
   }, []);
 
-  // Poll for verification status changes every 5 seconds
+  // Poll for verification updates only while pending to avoid rate limiting.
   useEffect(() => {
+    if (verificationStatus?.status !== 'pending') {
+      return undefined;
+    }
+
     const pollInterval = setInterval(async () => {
       try {
-        const token = localStorage.getItem('token');
+        if (document.hidden) return;
+
+        const token = getAuthToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:5000/api/host/verification-status', {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/host/verification-status`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -153,10 +171,10 @@ const HostVerificationForm = () => {
       } catch (error) {
         console.error('Error polling verification status:', error);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 30000); // Poll every 30 seconds while pending
 
     return () => clearInterval(pollInterval);
-  }, []);
+  }, [verificationStatus?.status]);
 
   // Address search function using OpenStreetMap Nominatim API
   const searchAddresses = async (query) => {
@@ -191,6 +209,14 @@ const HostVerificationForm = () => {
   const handleAddressSearch = (e) => {
     const query = e.target.value;
     setAddressSearchQuery(query);
+    setFormData(prev => ({
+      ...prev,
+      businessAddress: query
+    }));
+
+    if (!query.trim()) {
+      setSelectedAddressData(null);
+    }
     
     // Clear existing debounce timer
     if (debounceTimer.current) {
@@ -232,6 +258,20 @@ const HostVerificationForm = () => {
     const { name, value, files } = e.target;
     if (files) {
       const file = files[0];
+
+      if ((name === 'idDocumentPhoto' || name === 'ownerHoldingIdPhoto') && file && !file.type?.startsWith('image/')) {
+        setError('ID document photos must be image files (JPG, PNG, WEBP, etc.).');
+        setFormData(prev => ({
+          ...prev,
+          [name]: null
+        }));
+        setImagePreviews(prev => ({
+          ...prev,
+          [name]: null
+        }));
+        return;
+      }
+
       setFormData(prev => ({
         ...prev,
         [name]: file
@@ -251,7 +291,7 @@ const HostVerificationForm = () => {
         // For non-image files, just show file name
         setImagePreviews(prev => ({
           ...prev,
-          [name]: file.name
+          [name]: null
         }));
       }
     } else {
@@ -269,7 +309,7 @@ const HostVerificationForm = () => {
   };
 
   const handleViewFile = (fileInfo, fileType) => {
-    if (fileInfo && fileInfo.fileId) {
+    if (fileInfo && (fileInfo.fileId || fileInfo.fileUrl)) {
       if (fileInfo.mimetype?.startsWith('image/')) {
         // For images, show in image modal with actual image
         setSelectedImage({
@@ -277,7 +317,8 @@ const HostVerificationForm = () => {
           type: fileType,
           size: fileInfo.size,
           mimetype: fileInfo.mimetype,
-          fileId: fileInfo.fileId
+          fileId: fileInfo.fileId,
+          fileUrl: fileInfo.fileUrl || null
         });
         setShowImageModal(true);
       } else {
@@ -287,7 +328,8 @@ const HostVerificationForm = () => {
           type: fileType,
           size: fileInfo.size,
           mimetype: fileInfo.mimetype,
-          fileId: fileInfo.fileId
+          fileId: fileInfo.fileId,
+          fileUrl: fileInfo.fileUrl || null
         });
         setShowDocumentModal(true);
       }
@@ -298,11 +340,42 @@ const HostVerificationForm = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (verificationStatus?.status === 'pending') {
+      setError('Your verification is already pending review. You cannot submit again until an admin reviews it.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      // Create JSON payload (not FormData)
+      const normalizedBusinessAddress = (
+        formData.businessAddress ||
+        selectedAddressData?.address ||
+        addressSearchQuery ||
+        ''
+      ).trim();
+      const normalizedIdType = (formData.idType === 'Other' ? customIdType : formData.idType || '').trim();
+
+      const requiredFields = {
+        businessName: formData.businessName?.trim(),
+        businessType: formData.businessType?.trim(),
+        businessAddress: normalizedBusinessAddress,
+        idType: normalizedIdType,
+        idNumber: formData.idNumber?.trim()
+      };
+
+      const missingFields = Object.entries(requiredFields)
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+
+      if (missingFields.length > 0) {
+        setError(`Please complete required fields: ${missingFields.join(', ')}`);
+        setLoading(false);
+        return;
+      }
+
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       console.log('User from localStorage:', user);
       
@@ -320,27 +393,37 @@ const HostVerificationForm = () => {
         hostName = user.name;
       }
       
-      const submitData = {
-        businessName: formData.businessName,
-        businessType: formData.businessType,
-        businessAddress: formData.businessAddress,
-        idType: formData.idType,
-        idNumber: formData.idNumber,
-        taxId: formData.taxId,
-        email: user.email || '', // Include user's email
-        hostName: hostName // Include host name
-        // Note: File uploads will be handled separately in future updates
-      };
+      const submitData = new FormData();
+      submitData.append('businessName', formData.businessName.trim());
+      submitData.append('businessType', formData.businessType.trim());
+      submitData.append('businessAddress', normalizedBusinessAddress);
+      submitData.append('idType', normalizedIdType);
+      submitData.append('idNumber', formData.idNumber.trim());
+      submitData.append('taxId', (formData.taxId || '').trim());
+      submitData.append('email', user.email || '');
+      submitData.append('hostName', hostName);
 
-      console.log('Submitting verification data...', submitData);
+      if (formData.idDocumentPhoto) {
+        submitData.append('idDocumentPhoto', formData.idDocumentPhoto);
+      }
+      if (formData.ownerHoldingIdPhoto) {
+        submitData.append('ownerHoldingIdPhoto', formData.ownerHoldingIdPhoto);
+      }
+      if (formData.proofOfOwnership) {
+        submitData.append('proofOfOwnership', formData.proofOfOwnership);
+      }
+      if (formData.additionalDocuments) {
+        submitData.append('additionalDocuments', formData.additionalDocuments);
+      }
+
+      console.log('Submitting verification data...');
       
-      const response = await fetch('http://localhost:5000/api/host/verification', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/host/verification`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         },
-        body: JSON.stringify(submitData),
+        body: submitData,
       });
 
       const data = await response.json();
@@ -367,6 +450,14 @@ const HostVerificationForm = () => {
           }
         }, 1000);
       } else {
+        if (response.status === 409 && data.status === 'pending') {
+          setVerificationStatus(prev => ({
+            ...prev,
+            ...data,
+            data: prev?.data || null
+          }));
+          setIsEditing(false);
+        }
         setError(data.message || 'Submission failed');
       }
     } catch (err) {
@@ -395,21 +486,6 @@ const HostVerificationForm = () => {
                 Your verification documents were submitted on {new Date(submittedAt).toLocaleDateString()} and are currently being reviewed by our team.
               </p>
               <div className="flex space-x-3">
-                {!isEditing ? (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Edit Submission
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel Edit
-                  </button>
-                )}
                 <button
                   onClick={() => navigate('/host/dashboard')}
                   className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 transition-colors"
@@ -427,16 +503,23 @@ const HostVerificationForm = () => {
   };
 
   // Image Modal Component
-  const ImageModal = () => {
+  const ImageModal = ({ showImageModal, selectedImage }) => {
     const [imageUrl, setImageUrl] = useState(null);
     const [imageLoading, setImageLoading] = useState(true);
     const [imageError, setImageError] = useState(false);
 
     // Load image with authentication
     useEffect(() => {
-      if (showImageModal && selectedImage && selectedImage.fileId) {
-        const token = localStorage.getItem('token');
-        const url = `http://localhost:5000/api/files/${selectedImage.fileId}`;
+      if (showImageModal && selectedImage && (selectedImage.fileId || selectedImage.fileUrl)) {
+        if (selectedImage.fileUrl) {
+          setImageUrl(selectedImage.fileUrl);
+          setImageLoading(false);
+          setImageError(false);
+          return;
+        }
+
+        const token = getAuthToken();
+        const url = getFileUrl(selectedImage.fileId);
         
         setImageLoading(true);
         setImageError(false);
@@ -470,7 +553,7 @@ const HostVerificationForm = () => {
           URL.revokeObjectURL(imageUrl);
         }
       };
-    }, [showImageModal, selectedImage?.fileId, imageUrl]);
+    }, [showImageModal, selectedImage, imageUrl]);
 
     if (!showImageModal || !selectedImage) return null;
 
@@ -486,11 +569,22 @@ const HostVerificationForm = () => {
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              {selectedImage.fileId && (
+              {(selectedImage.fileId || selectedImage.fileUrl) && (
                 <button
                   onClick={() => {
-                    const token = localStorage.getItem('token');
-                    const url = `http://localhost:5000/api/files/${selectedImage.fileId}`;
+                    if (selectedImage.fileUrl) {
+                      const link = document.createElement('a');
+                      link.href = selectedImage.fileUrl;
+                      link.download = selectedImage.name;
+                      link.target = '_blank';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      return;
+                    }
+
+                    const token = getAuthToken();
+                    const url = getFileUrl(selectedImage.fileId);
                     
                     fetch(url, {
                       headers: {
@@ -567,16 +661,23 @@ const HostVerificationForm = () => {
     );
   };
   // Document Modal Component
-  const DocumentModal = () => {
+  const DocumentModal = ({ showDocumentModal, selectedDocument }) => {
     const [documentUrl, setDocumentUrl] = useState(null);
     const [documentLoading, setDocumentLoading] = useState(true);
     const [documentError, setDocumentError] = useState(false);
 
     // Load document with authentication
     useEffect(() => {
-      if (showDocumentModal && selectedDocument && selectedDocument.fileId) {
-        const token = localStorage.getItem('token');
-        const url = `http://localhost:5000/api/files/${selectedDocument.fileId}`;
+      if (showDocumentModal && selectedDocument && (selectedDocument.fileId || selectedDocument.fileUrl)) {
+        if (selectedDocument.fileUrl) {
+          setDocumentUrl(selectedDocument.fileUrl);
+          setDocumentLoading(false);
+          setDocumentError(false);
+          return;
+        }
+
+        const token = getAuthToken();
+        const url = getFileUrl(selectedDocument.fileId);
         
         setDocumentLoading(true);
         setDocumentError(false);
@@ -610,7 +711,7 @@ const HostVerificationForm = () => {
           URL.revokeObjectURL(documentUrl);
         }
       };
-    }, [showDocumentModal, selectedDocument?.fileId, documentUrl]);
+    }, [showDocumentModal, selectedDocument, documentUrl]);
 
     if (!showDocumentModal || !selectedDocument) return null;
 
@@ -973,7 +1074,7 @@ const HostVerificationForm = () => {
             {(isEditing || !verificationStatus?.data) && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {verificationStatus?.status === 'pending' ? 'Update Verification Documents' : 'Submit Verification Documents'}
+                  Submit Verification Documents
                 </h2>
               </div>
             )}
@@ -1271,7 +1372,7 @@ const HostVerificationForm = () => {
                     <label htmlFor="idDocumentPhoto" className={!isEditing ? 'cursor-default' : 'cursor-pointer'}>
                       {imagePreviews.idDocumentPhoto || (verificationStatus?.data?.files?.idDocumentPhoto && !isEditing) ? (
                         <div>
-                          {imagePreviews.idDocumentPhoto ? (
+                          {isRenderableImagePreview(imagePreviews.idDocumentPhoto) ? (
                             <img 
                               src={imagePreviews.idDocumentPhoto} 
                               alt="ID Document Preview" 
@@ -1342,7 +1443,7 @@ const HostVerificationForm = () => {
                     <label htmlFor="ownerHoldingIdPhoto" className={!isEditing ? 'cursor-default' : 'cursor-pointer'}>
                       {imagePreviews.ownerHoldingIdPhoto || (verificationStatus?.data?.files?.ownerHoldingIdPhoto && !isEditing) ? (
                         <div>
-                          {imagePreviews.ownerHoldingIdPhoto ? (
+                          {isRenderableImagePreview(imagePreviews.ownerHoldingIdPhoto) ? (
                             <img 
                               src={imagePreviews.ownerHoldingIdPhoto} 
                               alt="Owner Holding ID Preview" 
@@ -1547,7 +1648,7 @@ const HostVerificationForm = () => {
                         {verificationStatus?.status === 'pending' ? 'Updating...' : 'Submitting...'}
                       </>
                     ) : (
-                      verificationStatus?.status === 'pending' ? 'Update Verification' : 'Submit For Verification'
+                      'Submit For Verification'
                     )}
                   </button>
                   
@@ -1565,7 +1666,7 @@ const HostVerificationForm = () => {
               ) : (
                 <div className="text-center py-4">
                   <p className="text-gray-600 mb-4">
-                    Your verification documents are currently under review. You can edit your submission if needed.
+                    Your verification documents are currently under review. Editing and re-submission are disabled while status is pending.
                   </p>
                   <button
                     type="button"
@@ -1588,8 +1689,8 @@ const HostVerificationForm = () => {
       </div>
 
       {/* Modals */}
-      <ImageModal />
-      <DocumentModal />
+      <ImageModal showImageModal={showImageModal} selectedImage={selectedImage} />
+      <DocumentModal showDocumentModal={showDocumentModal} selectedDocument={selectedDocument} />
     </div>
   );
 };

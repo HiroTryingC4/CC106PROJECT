@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import API_CONFIG from '../../config/api';
 
 const Register = () => {
   const [searchParams] = useSearchParams();
@@ -20,6 +21,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
     minLength: false,
     hasUppercase: false,
@@ -28,6 +30,7 @@ const Register = () => {
     hasSpecialChar: false
   });
   const navigate = useNavigate();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
 
   // Password validation function
   const validatePasswordRequirements = (pwd) => {
@@ -74,7 +77,7 @@ const Register = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(`${apiBaseUrl}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,19 +96,12 @@ const Register = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Store user data in localStorage (simple frontend storage)
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('token', data.token);
-        
-        // Redirect based on user role
-        if (data.user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (data.user.role === 'host') {
-          // For hosts, redirect to dashboard directly
-          navigate('/host/dashboard');
-        } else {
-          navigate('/guest/dashboard');
-        }
+        setShowSuccessModal(true);
+
+        // Redirect to login after showing confirmation modal
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
       } else {
         setError(data.message || 'Registration failed');
       }
@@ -408,6 +404,23 @@ const Register = () => {
         </form>
         </div>
       </div>
+
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl text-center">
+            <CheckCircleIcon className="h-14 w-14 text-green-600 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Account Created Successfully</h3>
+            <p className="text-gray-600 mb-6">Your account has been created. Redirecting you to the login page...</p>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="w-full rounded-lg bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 transition-colors"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

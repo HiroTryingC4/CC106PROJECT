@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
+import API_CONFIG from '../../config/api';
 
 const GuestUnits = () => {
   const navigate = useNavigate();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
   const [searchTerm, setSearchTerm] = useState('');
   const [units, setUnits] = useState([]);
   const [filteredUnits, setFilteredUnits] = useState([]);
@@ -27,15 +29,18 @@ const GuestUnits = () => {
     const fetchProperties = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5000/api/properties');
+        const response = await axios.get(`${apiBaseUrl}/properties`);
+        const properties = response.data.properties || response.data.data || [];
         
-        if (response.data.data) {
-          const formattedUnits = response.data.data.map(property => ({
+        if (properties) {
+          const formattedUnits = properties
+            .filter(property => property.availability !== false)
+            .map(property => ({
             id: property.id,
             title: property.title,
             type: property.type.toUpperCase(),
             description: property.description,
-            price: `₱${property.pricePerNight}`,
+            price: `₱${Number(property.pricePerNight || 0).toLocaleString('en-PH')}`,
             period: '/night',
             details: `${property.bedrooms} bed • ${property.bathrooms} bath • ${property.maxGuests} guests`,
             rating: property.rating,
@@ -50,7 +55,7 @@ const GuestUnits = () => {
         setError(null);
       } catch (err) {
         console.error('Error fetching properties:', err);
-        setError('Failed to load properties');
+        setError('Failed to load available units');
         setSampleUnits();
       } finally {
         setLoading(false);

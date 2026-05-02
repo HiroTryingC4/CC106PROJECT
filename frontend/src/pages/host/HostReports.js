@@ -1,32 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import HostLayout from '../../components/common/HostLayout';
+import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 import { 
   CurrencyDollarIcon,
   ChartBarIcon,
   HomeIcon,
   UsersIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const HostReports = () => {
+  const { user, token } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
+
   const [activeTab, setActiveTab] = useState('revenue');
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsOverview, setAnalyticsOverview] = useState({
+    totalRevenue: 0,
+    totalBookings: 0,
+    occupancyRate: 0,
+    totalGuests: 0
+  });
+  const [revenueData, setRevenueData] = useState([]);
+  const [bookingsData, setBookingsData] = useState([]);
+  const [unitPerformance, setUnitPerformance] = useState([]);
+
+  const getAuthHeaders = () => ({
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  });
 
   useEffect(() => {
-    // Fetch verification status when component mounts
     const fetchVerificationStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!user) {
+          setVerificationStatus(null);
+          return;
+        }
 
-        const response = await fetch('http://localhost:5000/api/host/verification-status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const response = await fetch(`${apiBaseUrl}/host/verification-status`, {
+          credentials: 'include',
+          headers: getAuthHeaders()
         });
 
         if (response.ok) {
@@ -45,69 +62,92 @@ const HostReports = () => {
     };
 
     fetchVerificationStatus();
-  }, []);
+  }, [apiBaseUrl, token, user]);
 
-  // Check if user is verified
-  const isVerified = verificationStatus?.status === 'verified';
+  const isVerified = ['verified', 'approved'].includes(verificationStatus?.status) || verificationStatus?.verified === true;
 
-  // Analytics data
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      if (!user || !isVerified) {
+        setAnalyticsOverview({
+          totalRevenue: 0,
+          totalBookings: 0,
+          occupancyRate: 0,
+          totalGuests: 0
+        });
+        setRevenueData([]);
+        setBookingsData([]);
+        setUnitPerformance([]);
+        return;
+      }
+
+      try {
+        setAnalyticsLoading(true);
+        const response = await fetch(`${apiBaseUrl}/analytics/host`, {
+          credentials: 'include',
+          headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load analytics');
+        }
+
+        const payload = await response.json();
+        const overview = payload?.overview || {};
+        setAnalyticsOverview({
+          totalRevenue: Number(overview.totalRevenue || 0),
+          totalBookings: Number(overview.totalBookings || 0),
+          occupancyRate: Number(overview.occupancyRate || 0),
+          totalGuests: Number(overview.totalGuests || 0)
+        });
+
+        const normalizedRevenue = (payload?.revenueData?.monthly || []).map((item) => ({
+          month: item.month,
+          value: Number(item.revenue || 0)
+        }));
+        const normalizedBookings = (payload?.bookingTrends?.monthly || []).map((item) => ({
+          month: item.month,
+          value: Number(item.bookings || 0)
+        }));
+        setRevenueData(normalizedRevenue);
+        setBookingsData(normalizedBookings);
+
+        const normalizedPerformance = (payload?.propertyPerformance || []).map((item) => ({
+          name: item.name,
+          performance: Number(item.performance || 0)
+        }));
+        setUnitPerformance(normalizedPerformance);
+      } catch (error) {
+        console.error('Error fetching host analytics:', error);
+      } finally {
+        setAnalyticsLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [apiBaseUrl, isVerified, token, user]);
+
+  const maxRevenue = Math.max(...revenueData.map((d) => d.value), 1);
+  const maxBookings = Math.max(...bookingsData.map((d) => d.value), 1);
+
   const analyticsData = {
     totalRevenue: {
-      value: isVerified ? '$161,130' : '$0',
-      change: isVerified ? '+15.3% YoY' : '',
-      trend: 'up'
+      value: `₱${analyticsOverview.totalRevenue.toLocaleString('en-PH')}`,
+      change: ''
     },
     totalBookings: {
-      value: isVerified ? '216' : '0',
-      change: isVerified ? '+8.2% vs last period' : '',
-      trend: 'up'
+      value: analyticsOverview.totalBookings.toLocaleString('en-PH'),
+      change: ''
     },
     avgOccupancy: {
-      value: isVerified ? '68%' : '0%',
-      change: isVerified ? '+5% vs last month' : '',
-      trend: 'up'
+      value: `${analyticsOverview.occupancyRate}%`,
+      change: ''
     },
     totalGuests: {
-      value: isVerified ? '847' : '0',
-      change: isVerified ? '+12% vs last period' : '',
-      trend: 'up'
+      value: analyticsOverview.totalGuests.toLocaleString('en-PH'),
+      change: ''
     }
   };
-
-  // Revenue chart data (last 7 months)
-  const revenueData = isVerified ? [
-    { month: 'Aug', value: 18000 },
-    { month: 'Sep', value: 23000 },
-    { month: 'Oct', value: 20000 },
-    { month: 'Nov', value: 26000 },
-    { month: 'Dec', value: 29500 },
-    { month: 'Jan', value: 22000 },
-    { month: 'Feb', value: 24500 }
-  ] : [];
-
-  // Bookings chart data (last 7 months)
-  const bookingsData = isVerified ? [
-    { month: 'Aug', value: 25 },
-    { month: 'Sep', value: 31 },
-    { month: 'Oct', value: 28 },
-    { month: 'Nov', value: 35 },
-    { month: 'Dec', value: 41 },
-    { month: 'Jan', value: 29 },
-    { month: 'Feb', value: 27 }
-  ] : [];
-
-  // Unit performance data
-  const unitPerformance = isVerified ? [
-    { name: 'Beach House', performance: 0.48 },
-    { name: 'Ocean View', performance: 0.45 },
-    { name: 'Desert Oasis', performance: 0.4 },
-    { name: 'City Loft', performance: 0.35 },
-    { name: 'Mountain Cabin', performance: 0.33 },
-    { name: 'Sunset Villa', performance: 0.3 }
-  ] : [];
-
-  const maxRevenue = Math.max(...revenueData.map(d => d.value));
-  const maxBookings = Math.max(...bookingsData.map(d => d.value));
 
   return (
     <HostLayout>
@@ -130,12 +170,14 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.totalRevenue.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              {analyticsData.totalRevenue.change && (
+              {analyticsData.totalRevenue.change ? (
                 <>
                   <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                   {analyticsData.totalRevenue.change}
                 </>
-              )}
+              ) : analyticsLoading ? (
+                'Loading...'
+              ) : null}
             </p>
           </div>
 
@@ -149,12 +191,14 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.totalBookings.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              {analyticsData.totalBookings.change && (
+              {analyticsData.totalBookings.change ? (
                 <>
                   <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                   {analyticsData.totalBookings.change}
                 </>
-              )}
+              ) : analyticsLoading ? (
+                'Loading...'
+              ) : null}
             </p>
           </div>
 
@@ -168,12 +212,14 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.avgOccupancy.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              {analyticsData.avgOccupancy.change && (
+              {analyticsData.avgOccupancy.change ? (
                 <>
                   <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                   {analyticsData.avgOccupancy.change}
                 </>
-              )}
+              ) : analyticsLoading ? (
+                'Loading...'
+              ) : null}
             </p>
           </div>
 
@@ -187,12 +233,14 @@ const HostReports = () => {
             </div>
             <p className="text-3xl font-bold text-gray-900 mb-1">{analyticsData.totalGuests.value}</p>
             <p className="text-sm text-green-600 flex items-center">
-              {analyticsData.totalGuests.change && (
+              {analyticsData.totalGuests.change ? (
                 <>
                   <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                   {analyticsData.totalGuests.change}
                 </>
-              )}
+              ) : analyticsLoading ? (
+                'Loading...'
+              ) : null}
             </p>
           </div>
         </div>
@@ -324,13 +372,19 @@ const HostReports = () => {
               <div className="text-center py-16">
                 <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No revenue data available</h3>
-                <p className="text-gray-600 mb-6">Complete verification to view your revenue analytics and trends.</p>
-                <a
-                  href="/host/verification"
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
-                >
-                  <span>Complete Verification</span>
-                </a>
+                {!isVerified ? (
+                  <>
+                    <p className="text-gray-600 mb-6">Complete verification to view your revenue analytics and trends.</p>
+                    <a
+                      href="/host/verification"
+                      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                    >
+                      <span>Complete Verification</span>
+                    </a>
+                  </>
+                ) : (
+                  <p className="text-gray-600 mb-6">No backend revenue records yet for this period.</p>
+                )}
               </div>
             )}
           </div>
@@ -392,13 +446,19 @@ const HostReports = () => {
               <div className="text-center py-16">
                 <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No booking data available</h3>
-                <p className="text-gray-600 mb-6">Complete verification to view your booking analytics and trends.</p>
-                <a
-                  href="/host/verification"
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
-                >
-                  <span>Complete Verification</span>
-                </a>
+                {!isVerified ? (
+                  <>
+                    <p className="text-gray-600 mb-6">Complete verification to view your booking analytics and trends.</p>
+                    <a
+                      href="/host/verification"
+                      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                    >
+                      <span>Complete Verification</span>
+                    </a>
+                  </>
+                ) : (
+                  <p className="text-gray-600 mb-6">No backend booking records yet for this period.</p>
+                )}
               </div>
             )}
           </div>
@@ -443,25 +503,23 @@ const HostReports = () => {
               <div className="text-center py-16">
                 <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No performance data available</h3>
-                <p className="text-gray-600 mb-6">Complete verification to view your unit performance analytics.</p>
-                <a
-                  href="/host/verification"
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
-                >
-                  <span>Complete Verification</span>
-                </a>
+                {!isVerified ? (
+                  <>
+                    <p className="text-gray-600 mb-6">Complete verification to view your unit performance analytics.</p>
+                    <a
+                      href="/host/verification"
+                      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
+                    >
+                      <span>Complete Verification</span>
+                    </a>
+                  </>
+                ) : (
+                  <p className="text-gray-600 mb-6">No property performance data available yet.</p>
+                )}
               </div>
             )}
           </div>
         )}
-
-        {/* Fixed Chat Button */}
-        <div className="fixed bottom-6 right-6">
-          <button className="bg-[#4E7B22] text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <span className="font-medium">Chat</span>
-          </button>
-        </div>
       </div>
     </HostLayout>
   );

@@ -1,84 +1,132 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import API_CONFIG from '../../config/api';
+
+const API_BASE = API_CONFIG.BASE_URL;
+
+const STATUS_COLORS = {
+  confirmed: 'bg-green-100 text-green-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+  completed: 'bg-blue-100 text-blue-800',
+  cancelled: 'bg-red-100 text-red-800'
+};
 
 const GuestDashboard = () => {
   const { user, token } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    upcoming: 0,
+    completed: 0,
+    cancelled: 0,
+    totalSpent: 0,
+    propertyTypeBreakdown: [],
+    averageSpend: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchBookings = async () => {
+    const fetchDashboardData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5000/api/bookings', {
-          headers: {
-            Authorization: `Bearer ${token}`
+        const config = {
+          withCredentials: true,
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        };
+
+        // Fetch all bookings for this guest
+        const response = await axios.get(`${API_BASE}/bookings`, config);
+        const bookingsData = response.data.bookings || [];
+
+        // Build formatted bookings list
+        const formattedBookings = bookingsData.map(booking => ({
+          rawId: booking.id,
+          id: `Booking #${booking.id}`,
+          propertyTitle: booking.propertyTitle || `Property #${booking.propertyId}`,
+          dates: `${new Date(booking.checkIn).toLocaleDateString()} - ${new Date(booking.checkOut).toLocaleDateString()}`,
+          totalAmount: parseFloat(booking.totalAmount) || 0,
+          price: `₱${(parseFloat(booking.totalAmount) || 0).toLocaleString()}`,
+          status: booking.status,
+          statusColor: STATUS_COLORS[booking.status] || 'bg-gray-100 text-gray-800',
+          propertyId: booking.propertyId,
+          guests: booking.guests,
+          paymentStatus: booking.paymentStatus
+        }));
+
+        setBookings(formattedBookings);
+
+        // Compute real stats from booking data
+        const totalSpent = bookingsData
+          .filter(b => b.status === 'completed' || b.status === 'confirmed')
+          .reduce((sum, b) => sum + (parseFloat(b.totalAmount) || 0), 0);
+
+        const upcoming = bookingsData.filter(b => b.status === 'confirmed').length;
+        const completed = bookingsData.filter(b => b.status === 'completed').length;
+        const cancelled = bookingsData.filter(b => b.status === 'cancelled').length;
+
+        // Fetch property type breakdown from properties booked
+        let propertyTypeBreakdown = [];
+        try {
+          const propertyIds = [...new Set(bookingsData.map(b => b.propertyId).filter(Boolean))];
+          if (propertyIds.length > 0) {
+            // Query properties for type data
+            const propResponses = await Promise.all(
+              propertyIds.slice(0, 10).map(id =>
+                axios.get(`${API_BASE}/properties/${id}`, config).catch(() => null)
+              )
+            );
+
+            const typeCounts = {};
+            propResponses.forEach(res => {
+              if (res?.data) {
+                const type = res.data.type || res.data.propertyType || 'Other';
+                typeCounts[type] = (typeCounts[type] || 0) + 1;
+              }
+            });
+
+            propertyTypeBreakdown = Object.entries(typeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([type, count]) => ({ type, count }));
           }
-        });
-        
-        if (response.data.data) {
-          const formattedBookings = response.data.data.map(booking => ({
-            id: `Booking #${booking.id}`,
-            dates: `${new Date(booking.checkIn).toLocaleDateString()} - ${new Date(booking.checkOut).toLocaleDateString()}`,
-            price: `₱${booking.totalAmount.toLocaleString()}`,
-            status: booking.status,
-            statusColor: booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
-                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-blue-100 text-blue-800',
-            propertyId: booking.propertyId,
-            guests: booking.guests,
-            paymentStatus: booking.paymentStatus
-          }));
-          setBookings(formattedBookings);
+        } catch {
+          propertyTypeBreakdown = [];
         }
+
+        setStats({
+          totalBookings: bookingsData.length,
+          upcoming,
+          completed,
+          cancelled,
+          totalSpent,
+          propertyTypeBreakdown,
+          averageSpend: bookingsData.length > 0
+            ? totalSpent / Math.max(1, completed + upcoming)
+            : 0
+        });
+
         setError(null);
       } catch (err) {
-        console.error('Error fetching bookings:', err);
+        console.error('Error fetching dashboard data:', err);
         setError('Failed to load bookings');
-        // Fallback to sample data if API fails
-        setSampleBookings();
+        setBookings([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (token) {
-      fetchBookings();
-    } else {
-      setSampleBookings();
-      setLoading(false);
-    }
-  }, [token]);
-
-  const setSampleBookings = () => {
-    setBookings([
-      {
-        id: 'Booking #1',
-        dates: '6/15/2024 - 6/20/2024',
-        price: '₱750',
-        status: 'confirmed',
-        statusColor: 'bg-green-100 text-green-800'
-      },
-      {
-        id: 'Booking #2',
-        dates: '7/1/2024 - 7/7/2024',
-        price: '₱1520',
-        status: 'pending',
-        statusColor: 'bg-yellow-100 text-yellow-800'
-      },
-      {
-        id: 'Booking #3',
-        dates: '5/1/2024 - 5/3/2024',
-        price: '₱540',
-        status: 'completed',
-        statusColor: 'bg-blue-100 text-blue-800'
-      }
-    ]);
-  };
+    fetchDashboardData();
+  }, [token, user]);
 
   return (
     <GuestLayout>
@@ -107,27 +155,29 @@ const GuestDashboard = () => {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Guest Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome back! Here's your booking overview</p>
+          <p className="text-gray-600 mt-2">
+            Welcome back, {user?.firstName || 'Guest'}! Here's your booking overview.
+          </p>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards — all from real DB data */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Total Bookings</h3>
-            <p className="text-3xl font-bold text-blue-600">{bookings.length}</p>
+            <p className="text-3xl font-bold text-blue-600">{stats.totalBookings}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Upcoming</h3>
-            <p className="text-3xl font-bold text-green-600">{bookings.filter(b => b.status === 'confirmed').length}</p>
+            <p className="text-3xl font-bold text-green-600">{stats.upcoming}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <h3 className="text-sm font-medium text-gray-500 mb-2">Completed</h3>
-            <p className="text-3xl font-bold text-blue-600">{bookings.filter(b => b.status === 'completed').length}</p>
+            <p className="text-3xl font-bold text-blue-600">{stats.completed}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Total Spend</h3>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Total Spent</h3>
             <p className="text-3xl font-bold text-purple-600">
-              ₱{bookings.reduce((sum, b) => sum + (parseInt(b.price.replace(/[^0-9]/g, '')) || 0), 0).toLocaleString()}
+              ₱{stats.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </p>
           </div>
         </div>
@@ -137,8 +187,11 @@ const GuestDashboard = () => {
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-gray-900">Recent Bookings</h2>
-              <button className="text-sm text-gray-500 hover:text-gray-700 bg-gray-100 px-3 py-1 rounded">
-                View all
+              <button
+                onClick={() => navigate('/guest/bookings')}
+                className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+              >
+                View all →
               </button>
             </div>
           </div>
@@ -156,20 +209,24 @@ const GuestDashboard = () => {
             </div>
           )}
           
-          {!loading && bookings.length === 0 && (
+          {!loading && !error && bookings.length === 0 && (
             <div className="p-12 text-center text-gray-500">
               <p>No bookings yet. Start exploring properties!</p>
+              <Link to="/guest/units" className="mt-3 inline-block text-blue-600 hover:underline text-sm">
+                Browse Properties →
+              </Link>
             </div>
           )}
           
           {!loading && bookings.length > 0 && (
             <div className="divide-y divide-gray-200">
-              {bookings.map((booking, index) => (
-                <div key={index} className="p-6 flex justify-between items-center">
+              {bookings.slice(0, 5).map((booking) => (
+                <div key={booking.rawId} className="p-6 flex justify-between items-center">
                   <div className="flex-1">
                     <div className="flex items-center space-x-4">
                       <div>
-                        <h3 className="font-medium text-gray-900">{booking.id}</h3>
+                        <h3 className="font-medium text-gray-900">{booking.propertyTitle}</h3>
+                        <p className="text-xs text-gray-400">{booking.id}</p>
                         <p className="text-sm text-gray-500">{booking.dates}</p>
                         <p className="text-sm font-medium text-blue-600">{booking.price}</p>
                       </div>
@@ -178,7 +235,11 @@ const GuestDashboard = () => {
                       </span>
                     </div>
                   </div>
-                  <button className="text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90" style={{backgroundColor: '#4E7B22'}}>
+                  <button
+                    onClick={() => navigate(`/guest/bookings/${booking.rawId}`)}
+                    className="text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90"
+                    style={{backgroundColor: '#4E7B22'}}
+                  >
                     View
                   </button>
                 </div>
@@ -187,53 +248,61 @@ const GuestDashboard = () => {
           )}
         </div>
 
-        {/* Browsing Insights */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center mb-4">
-            <span className="text-yellow-500 mr-2">📊</span>
-            <h2 className="text-xl font-semibold text-gray-900">Your Browsing Insights</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Properties Viewed</h3>
-              <p className="text-2xl font-bold text-blue-600">123</p>
+        {/* Booking Stats — real data from DB */}
+        {!loading && stats.totalBookings > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center mb-4">
+              <span className="text-blue-500 mr-2">📊</span>
+              <h2 className="text-xl font-semibold text-gray-900">Your Booking Stats</h2>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Preferred Property Types</h3>
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Condo</span>
-                  <span className="text-gray-500">53 views</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Apartment</span>
-                  <span className="text-gray-500">28 views</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Studio</span>
-                  <span className="text-gray-500">9 views</span>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Booking Breakdown</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>Confirmed</span>
+                    <span className="text-green-600 font-medium">{stats.upcoming}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Completed</span>
+                    <span className="text-blue-600 font-medium">{stats.completed}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Cancelled</span>
+                    <span className="text-red-500 font-medium">{stats.cancelled}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Your Price Range</h3>
-              <p className="text-sm text-gray-700">₱15 - ₱2132</p>
-              <p className="text-xs text-gray-500">Average: ₱924/night</p>
-            </div>
-          </div>
 
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">Amenities You Look For:</h3>
-            <div className="flex flex-wrap gap-2">
-              {['WiFi', 'Air Conditioning', 'Pool', 'Kitchen', 'Parking'].map((amenity) => (
-                <span key={amenity} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  {amenity}
-                </span>
-              ))}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Property Types Booked</h3>
+                {stats.propertyTypeBreakdown.length > 0 ? (
+                  <div className="space-y-1">
+                    {stats.propertyTypeBreakdown.map(({ type, count }) => (
+                      <div key={type} className="flex justify-between text-sm">
+                        <span>{type}</span>
+                        <span className="text-gray-500">{count} booking{count !== 1 ? 's' : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No data yet</p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Spending Summary</h3>
+                <p className="text-2xl font-bold text-purple-600">
+                  ₱{stats.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Avg per stay: ₱{stats.averageSpend.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </GuestLayout>
   );

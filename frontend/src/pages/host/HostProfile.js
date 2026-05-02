@@ -9,13 +9,18 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import API_CONFIG from '../../config/api';
+
+const API_BASE = API_CONFIG.BASE_URL;
 
 const HostProfile = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -25,53 +30,105 @@ const HostProfile = () => {
     company: ''
   });
 
-  useEffect(() => {
-    // Load profile data from logged-in user
-    if (user) {
-      setProfileData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        company: user.company || ''
-      });
-      setLoading(false);
-    }
-  }, [user]);
+  // Computed display values pulled from real DB data
+  const [memberSince, setMemberSince] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState('not_submitted');
 
-  const handleProfileUpdate = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('No authentication token found');
-        return;
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+
+      try {
+        // Fetch full profile from server to get latest data
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE}/users/profile`, {
+          credentials: 'include',
+          headers
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setProfileData({
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            company: data.company || ''
+          });
+        } else {
+          // Fallback to AuthContext user data
+          setProfileData({
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            phone: user.phone || '',
+            company: user.company || ''
+          });
+        }
+      } catch {
+        setProfileData({
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          phone: user.phone || '',
+          company: user.company || ''
+        });
       }
 
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      // Real member since from user.createdAt (set by userRepo)
+      const createdAt = user.createdAt;
+      if (createdAt) {
+        const date = new Date(createdAt);
+        setMemberSince(date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+      } else {
+        setMemberSince('—');
+      }
+
+      // Real verification status
+      setVerificationStatus(user.verificationStatus || 'not_submitted');
+      setLoading(false);
+    };
+
+    fetchProfile();
+  }, [user, token]);
+
+  const handleProfileUpdate = async () => {
+    setSaving(true);
+    setErrorMessage('');
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE}/users/profile`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        credentials: 'include',
+        headers,
         body: JSON.stringify(profileData)
       });
 
       if (response.ok) {
+        // Refresh AuthContext so navbar/header shows updated name
+        await refreshUser();
         setSuccessMessage('Profile updated successfully!');
         setIsEditing(false);
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
-        alert('Failed to update profile');
+        const data = await response.json();
+        setErrorMessage(data.message || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error updating profile');
+      setErrorMessage('Network error — could not update profile');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset to original data
+    setErrorMessage('');
     if (user) {
       setProfileData({
         firstName: user.firstName || '',
@@ -80,6 +137,31 @@ const HostProfile = () => {
         phone: user.phone || '',
         company: user.company || ''
       });
+    }
+  };
+
+  const verificationBadge = () => {
+    switch (verificationStatus) {
+      case 'verified':
+        return (
+          <div className="mt-4 p-3 bg-green-50 rounded-lg">
+            <p className="text-sm font-medium text-green-800">✓ Verified Host</p>
+          </div>
+        );
+      case 'pending':
+        return (
+          <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
+            <p className="text-sm font-medium text-yellow-800">⏳ Verification Pending</p>
+          </div>
+        );
+      case 'not_submitted':
+        return (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium text-gray-600">⚠ Not Yet Verified</p>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
@@ -116,6 +198,14 @@ const HostProfile = () => {
           <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center space-x-2">
             <CheckIcon className="w-5 h-5" />
             <span>{successMessage}</span>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center space-x-2">
+            <XMarkIcon className="w-5 h-5" />
+            <span>{errorMessage}</span>
           </div>
         )}
 
@@ -222,13 +312,15 @@ const HostProfile = () => {
                   <div className="flex space-x-3 pt-6 border-t border-gray-200">
                     <button
                       onClick={handleProfileUpdate}
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                      disabled={saving}
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <CheckIcon className="w-5 h-5" />
-                      <span>Save Changes</span>
+                      <span>{saving ? 'Saving...' : 'Save Changes'}</span>
                     </button>
                     <button
                       onClick={handleCancel}
+                      disabled={saving}
                       className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                     >
                       <XMarkIcon className="w-5 h-5" />
@@ -254,19 +346,18 @@ const HostProfile = () => {
                   {profileData.firstName} {profileData.lastName}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">{profileData.email}</p>
-                <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm font-medium text-green-800">✓ Verified Host</p>
-                </div>
+                {/* Real verification badge from DB */}
+                {verificationBadge()}
               </div>
             </div>
 
-            {/* Account Status */}
+            {/* Account Status — all values from DB */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="font-semibold text-gray-900 mb-4">Account Status</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2">
                   <span className="text-gray-600">Member Since</span>
-                  <span className="text-gray-900 font-medium">Jan 2024</span>
+                  <span className="text-gray-900 font-medium">{memberSince || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-t border-gray-200">
                   <span className="text-gray-600">Account Status</span>
@@ -276,7 +367,17 @@ const HostProfile = () => {
                 </div>
                 <div className="flex justify-between items-center py-2 border-t border-gray-200">
                   <span className="text-gray-600">Role</span>
-                  <span className="text-gray-900 font-medium">Host</span>
+                  <span className="text-gray-900 font-medium capitalize">{user?.role || 'Host'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-t border-gray-200">
+                  <span className="text-gray-600">Verification</span>
+                  <span className={`text-xs font-semibold capitalize ${
+                    verificationStatus === 'verified' ? 'text-green-700' :
+                    verificationStatus === 'pending' ? 'text-yellow-700' :
+                    'text-gray-500'
+                  }`}>
+                    {verificationStatus?.replace('_', ' ') || '—'}
+                  </span>
                 </div>
               </div>
             </div>

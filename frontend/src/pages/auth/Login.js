@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -11,19 +12,34 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+  const apiBaseUrl = API_CONFIG.BASE_URL;
 
   // Auto-login on component mount
   useEffect(() => {
     const checkExistingSession = () => {
-      const user = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
+      if (user?.role) {
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (user.role === 'communication_admin') {
+          navigate('/comm-admin/dashboard');
+        } else if (user.role === 'host') {
+          navigate('/host/dashboard');
+        } else if (user.role === 'guest') {
+          navigate('/guest/dashboard');
+        }
+        return;
+      }
+
+      const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
       // If user already has a session, redirect to their dashboard
-      if (user && token) {
+      if (storedUser && token) {
         try {
-          const userData = JSON.parse(user);
+          const userData = JSON.parse(storedUser);
           const role = userData.role;
 
           if (role === 'admin') {
@@ -44,7 +60,7 @@ const Login = () => {
     };
 
     checkExistingSession();
-  }, [navigate, login]);
+  }, [navigate, login, user]);
 
   const handleChange = (e) => {
     setFormData({
@@ -54,206 +70,25 @@ const Login = () => {
     setError(''); // Clear error when user types
   };
 
-  const handleGuestTrial = () => {
-    setLoading(true);
-    
-    // Create a trial guest user
-    const trialGuestUser = {
-      id: 5, // Match backend guest ID
-      firstName: 'Jane',
-      lastName: 'Guest',
-      email: 'guest@smartstay.com',
-      role: 'guest',
-      isTrial: true
-    };
-    
-    const trialToken = 'token_5_' + Date.now();
-    
-    // Use the login function from AuthContext
-    login(trialGuestUser, trialToken);
-    
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/guest/dashboard');
-    }, 1000);
-  };
-
-  const handleHostLogin = () => {
-    setLoading(true);
-    
-    // Create host user
-    const hostUser = {
-      id: 3, // Changed to match backend data
-      firstName: 'John',
-      lastName: 'Host',
-      email: 'host@smartstay.com',
-      role: 'host',
-      isHost: true
-    };
-    
-    const hostToken = 'token_3_' + Date.now(); // Changed to match backend token format
-    
-    // Use the login function from AuthContext
-    login(hostUser, hostToken);
-    
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/host/dashboard');
-    }, 1000);
-  };
-
-  const handleAdminLogin = () => {
-    setLoading(true);
-    
-    // Create admin user
-    const adminUser = {
-      id: 1, // Match backend admin ID
-      firstName: 'Admin',
-      lastName: 'User',
-      email: 'admin@smartstay.com',
-      role: 'admin',
-      isAdmin: true
-    };
-    
-    const adminToken = 'token_1_' + Date.now();
-    
-    // Use the login function from AuthContext
-    login(adminUser, adminToken);
-    
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/admin/dashboard');
-    }, 1000);
-  };
-
-  const handleCommAdminLogin = () => {
-    setLoading(true);
-    
-    // Create communication admin user
-    const commAdminUser = {
-      id: 2, // Match backend comm admin ID
-      firstName: 'Communication',
-      lastName: 'Admin',
-      email: 'comadmin@smartstay.com',
-      role: 'communication_admin',
-      isCommAdmin: true
-    };
-    
-    const commAdminToken = 'token_2_' + Date.now();
-    
-    // Use the login function from AuthContext
-    login(commAdminUser, commAdminToken);
-    
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/comm-admin/dashboard');
-    }, 1000);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const loginWithBackend = async (email, password, shouldRememberMe) => {
     setLoading(true);
     setError('');
 
-    // Host backdoor credentials
-    if (formData.email === 'host@smartstay.com' && formData.password === 'host123') {
-      const hostUser = {
-        id: 3, // Changed to match backend data
-        firstName: 'John',
-        lastName: 'Host',
-        email: 'host@smartstay.com',
-        role: 'host',
-        isHost: true
-      };
-      
-      const hostToken = 'token_3_' + Date.now(); // Changed to match backend token format
-      login(hostUser, hostToken);
-      
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/host/dashboard');
-      }, 1000);
-      return;
-    }
-
-    // Communication Admin backdoor credentials
-    if (formData.email === 'comadmin@smartstay.com' && formData.password === 'comadmin123') {
-      const commAdminUser = {
-        id: 2,
-        firstName: 'Communication',
-        lastName: 'Admin',
-        email: 'comadmin@smartstay.com',
-        role: 'communication_admin',
-        isCommAdmin: true
-      };
-      
-      const commAdminToken = 'token_2_' + Date.now();
-      login(commAdminUser, commAdminToken);
-      
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/comm-admin/dashboard');
-      }, 1000);
-      return;
-    }
-
-    // Admin backdoor credentials
-    if (formData.email === 'admin@smartstay.com' && formData.password === 'admin123') {
-      const adminUser = {
-        id: 1,
-        firstName: 'Admin',
-        lastName: 'User',
-        email: 'admin@smartstay.com',
-        role: 'admin',
-        isAdmin: true
-      };
-      
-      const adminToken = 'token_1_' + Date.now();
-      login(adminUser, adminToken);
-      
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/admin/dashboard');
-      }, 1000);
-      return;
-    }
-
-    // Guest credentials
-    if (formData.email === 'guest@smartstay.com' && formData.password === 'guest123') {
-      const guestUser = {
-        id: 5,
-        firstName: 'Jane',
-        lastName: 'Guest',
-        email: 'guest@smartstay.com',
-        role: 'guest'
-      };
-      
-      const guestToken = 'token_5_' + Date.now();
-      login(guestUser, guestToken);
-      
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/guest/dashboard');
-      }, 1000);
-      return;
-    }
-
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(`${apiBaseUrl}/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Use the login function from AuthContext
-        login(data.user, data.token);
-        
-        // Redirect based on user role
+        login(data.user, data.token, shouldRememberMe);
+
         if (data.user.role === 'admin') {
           navigate('/admin/dashboard');
         } else if (data.user.role === 'communication_admin') {
@@ -263,14 +98,23 @@ const Login = () => {
         } else {
           navigate('/guest/dashboard');
         }
-      } else {
-        setError(data.message || 'Login failed');
+
+        return true;
       }
+
+      setError(data.message || 'Login failed');
+      return false;
     } catch (err) {
       setError('Network error. Please try again.');
+      return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await loginWithBackend(formData.email, formData.password, rememberMe);
   };
 
   return (
@@ -279,7 +123,7 @@ const Login = () => {
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
          style={{
-          backgroundImage: "url('/images/register-background.png')", // You can use the same image or a different one
+          backgroundImage: "url('/images/image.png')",
         }}
       ></div>
 
@@ -306,10 +150,6 @@ const Login = () => {
               <label htmlFor="email" className="block text-sm font-medium text-white/90 mb-2">
                 Email address
               </label>
-              <p className="text-xs text-yellow-300 mb-3 flex items-center space-x-1">
-                <span>⚠️</span>
-                <span>Your email is your username - please don't forget it!</span>
-              </p>
               <input
                 id="email"
                 name="email"
@@ -359,6 +199,8 @@ const Login = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 rounded border-white/40 bg-transparent focus:ring-white/50 focus:ring-offset-0"
                   style={{accentColor: 'white'}}
                 />
@@ -389,54 +231,6 @@ const Login = () => {
               </button>
             </div>
 
-            {/* Guest Trial Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleGuestTrial}
-                disabled={loading}
-                className="w-full flex justify-center py-3.5 px-4 border-2 border-white/60 rounded-lg text-lg font-semibold text-white bg-transparent hover:bg-white/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Setting up trial...' : 'Try as Guest (No Registration)'}
-              </button>
-            </div>
-
-            {/* Admin Backdoor Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleAdminLogin}
-                disabled={loading}
-                className="w-full flex justify-center py-3.5 px-4 border-2 border-red-400/60 rounded-lg text-lg font-semibold text-red-200 bg-transparent hover:bg-red-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Accessing admin...' : '🛡️ Admin Access (Demo)'}
-              </button>
-            </div>
-
-            {/* Communication Admin Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleCommAdminLogin}
-                disabled={loading}
-                className="w-full flex justify-center py-3.5 px-4 border-2 border-blue-400/60 rounded-lg text-lg font-semibold text-blue-200 bg-transparent hover:bg-blue-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Accessing comm admin...' : '💬 Communication Admin (Demo)'}
-              </button>
-            </div>
-
-            {/* Host Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleHostLogin}
-                disabled={loading}
-                className="w-full flex justify-center py-3.5 px-4 border-2 border-green-400/60 rounded-lg text-lg font-semibold text-green-200 bg-transparent hover:bg-green-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Accessing host panel...' : '🏠 Host Access (Demo)'}
-              </button>
-            </div>
-
             <div className="text-center pt-2">
               <p className="text-white/90 text-sm">
                 Don't have an account?{' '}
@@ -446,16 +240,6 @@ const Login = () => {
               </p>
             </div>
 
-            {/* Demo Credentials Info */}
-            <div className="mt-6 p-4 bg-black/20 rounded-lg border border-white/20">
-              <h3 className="text-white font-semibold text-sm mb-2">🎯 Demo Credentials:</h3>
-              <div className="space-y-1 text-xs text-white/80">
-                <p><strong>Admin:</strong> admin@smartstay.com / admin123</p>
-                <p><strong>Comm Admin:</strong> comadmin@smartstay.com / comadmin123</p>
-                <p><strong>Host:</strong> host@smartstay.com / host123</p>
-                <p><strong>Guest:</strong> guest@smartstay.com / guest123</p>
-              </div>
-            </div>
           </form>
         </div>
       </div>
