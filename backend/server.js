@@ -247,6 +247,27 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// SMTP test endpoint (temporary debug)
+app.get('/api/debug/smtp', async (req, res) => {
+  const nodemailer = require('nodemailer');
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+
+  if (!user || !pass) {
+    return res.json({ configured: false, user: user || 'NOT SET' });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({ host, port, secure: false, auth: { user, pass } });
+    await transporter.verify();
+    return res.json({ configured: true, verified: true, user });
+  } catch (err) {
+    return res.json({ configured: true, verified: false, user, error: err.message });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

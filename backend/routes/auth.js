@@ -658,6 +658,8 @@ router.post('/resend-verification', async (req, res) => {
       console.error('Failed to send verification email:', emailResult.error || emailResult.message);
       console.error('SMTP_USER:', process.env.SMTP_USER || process.env.EMAIL_USER || 'NOT SET');
       console.error('FRONTEND_URL:', process.env.FRONTEND_URL || 'NOT SET');
+    } else {
+      console.log('Resend verification email sent successfully to:', email);
     }
 
     res.json({ message: 'Verification email sent. Please check your inbox.' });
