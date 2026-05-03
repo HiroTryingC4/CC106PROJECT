@@ -1,16 +1,11 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
-// Check if Resend is configured (preferred for production)
+// Check which email provider is configured
+const isBrevoConfigured = () => !!process.env.BREVO_API_KEY;
 const isResendConfigured = () => !!process.env.RESEND_API_KEY;
-
-// Check if SMTP is configured (fallback for local dev)
-const isSmtpConfigured = () => {
-  return !!((process.env.SMTP_USER || process.env.EMAIL_USER) && (process.env.SMTP_PASS || process.env.EMAIL_PASS));
-};
-
-// Check if email is configured
-const isEmailConfigured = () => isResendConfigured() || isSmtpConfigured();
+const isSmtpConfigured = () => !!((process.env.SMTP_USER || process.env.EMAIL_USER) && (process.env.SMTP_PASS || process.env.EMAIL_PASS));
+const isEmailConfigured = () => isBrevoConfigured() || isResendConfigured() || isSmtpConfigured();
 
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -142,6 +137,22 @@ const sendVerificationEmail = async (email, firstName, verificationToken) => {
     `;
     
   try {
+    // Use Brevo if configured (works on Render free tier)
+    if (isBrevoConfigured()) {
+      const brevo = require('@getbrevo/brevo');
+      const apiInstance = new brevo.TransactionalEmailsApi();
+      apiInstance.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY;
+      const sendSmtpEmail = new brevo.SendSmtpEmail();
+      sendSmtpEmail.to = [{ email }];
+      sendSmtpEmail.sender = { name: 'SmartStay', email: process.env.BREVO_FROM || 'smartstaynotification@gmail.com' };
+      sendSmtpEmail.subject = 'Verify Your Email - SmartStay';
+      sendSmtpEmail.htmlContent = emailHtml;
+      const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+      console.log('Verification email sent via Brevo:', data.messageId);
+      return { success: true, messageId: data.messageId, message: 'Email sent successfully' };
+    }
+
+    // Use Resend if configured
     if (isResendConfigured()) {
       const { Resend } = require('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
