@@ -280,14 +280,16 @@ router.post('/register', async (req, res) => {
       
       console.log('Token update result:', tokenUpdate.rowCount, 'rows updated for user', newUser.id);
 
-      // Send verification email
-      const emailResult = await sendVerificationEmail(email, firstName, verificationToken);
-      
-      if (!emailResult.success) {
-        console.error('Failed to send verification email:', emailResult.error);
-      } else {
-        console.log('Verification email sent successfully to:', email);
-      }
+      // Send verification email in background (don't block registration)
+      sendVerificationEmail(email, firstName, verificationToken).then(emailResult => {
+        if (!emailResult.success) {
+          console.error('Failed to send verification email:', emailResult.error);
+        } else {
+          console.log('Verification email sent successfully to:', email);
+        }
+      }).catch(err => {
+        console.error('Email send error:', err.message);
+      });
     } else {
       // Auto-verify admin and comm-admin accounts
       await db.query(
@@ -312,7 +314,7 @@ router.post('/register', async (req, res) => {
       message: responseMessage,
       user: toSafeUser(newUser),
       token: token,
-      emailSent: (role !== 'admin' && role !== 'comm-admin') ? emailResult?.success : false
+      emailSent: (role !== 'admin' && role !== 'comm-admin')
     });
   } catch (error) {
     console.error('Registration error:', error);

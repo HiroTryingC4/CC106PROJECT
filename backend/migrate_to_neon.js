@@ -34,6 +34,132 @@ const schemaFiles = [
   'communication_settings.sql',
 ];
 
+// Extra tables not in schema files - created inline
+const extraTables = `
+  CREATE TABLE IF NOT EXISTS faqs (
+    id SERIAL PRIMARY KEY,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    category VARCHAR(100) DEFAULT 'general',
+    is_published BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS contact_messages (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    subject VARCHAR(255),
+    message TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'unread',
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS admin_activity_logs (
+    id SERIAL PRIMARY KEY,
+    admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    action VARCHAR(255) NOT NULL,
+    details JSONB DEFAULT '{}',
+    ip_address VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS admin_notifications (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'info',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS favorites (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, property_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS promo_codes (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    discount_type VARCHAR(20) DEFAULT 'percentage',
+    discount_value NUMERIC(10,2) NOT NULL,
+    max_uses INTEGER,
+    used_count INTEGER DEFAULT 0,
+    expires_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS promo_code_properties (
+    id SERIAL PRIMARY KEY,
+    promo_code_id INTEGER REFERENCES promo_codes(id) ON DELETE CASCADE,
+    property_id INTEGER REFERENCES properties(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS disputes (
+    id SERIAL PRIMARY KEY,
+    booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+    raised_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'open',
+    resolution TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS host_expenses (
+    id SERIAL PRIMARY KEY,
+    host_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+    description TEXT NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    category VARCHAR(100),
+    expense_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS payouts (
+    id SERIAL PRIMARY KEY,
+    host_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    amount NUMERIC(10,2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    payout_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS pending_bookings (
+    id SERIAL PRIMARY KEY,
+    guest_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    property_id INTEGER REFERENCES properties(id) ON DELETE CASCADE,
+    check_in DATE NOT NULL,
+    check_out DATE NOT NULL,
+    guests INTEGER DEFAULT 1,
+    total_price NUMERIC(10,2),
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS system_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    settings JSONB DEFAULT '{}',
+    updated_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS host_reviews (
+    id SERIAL PRIMARY KEY,
+    host_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    guest_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+    rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`;
+
 async function runMigration() {
   console.log('🚀 Starting migration to Neon...\n');
 
@@ -57,6 +183,14 @@ async function runMigration() {
       } catch (err) {
         console.error(`❌ ${file}: ${err.message}`);
       }
+    }
+
+    // Create extra tables
+    try {
+      await pool.query(extraTables);
+      console.log('✅ Created extra tables (faqs, favorites, promo_codes, etc.)');
+    } catch (err) {
+      console.log(`⚠️  Extra tables: ${err.message}`);
     }
 
     // Create chat_sessions and chat_messages tables
