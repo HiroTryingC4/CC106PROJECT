@@ -141,7 +141,7 @@ const sendVerificationEmail = async (email, firstName, verificationToken) => {
     if (isBrevoConfigured()) {
       const { BrevoClient } = require('@getbrevo/brevo');
       const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
-      const data = await client.sendTransacEmail({
+      const data = await client.transactionalEmails.sendTransacEmail({
         to: [{ email }],
         sender: { name: 'SmartStay', email: process.env.BREVO_FROM || 'smartstaynotification@gmail.com' },
         subject: 'Verify Your Email - SmartStay',
