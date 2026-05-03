@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const path = require('path');
@@ -134,13 +135,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Session middleware
 app.use(session({
+  store: resolvedEnv.NODE_ENV === 'production' ? new pgSession({ pool, createTableIfMissing: true }) : undefined,
   secret: resolvedEnv.SESSION_SECRET || 'smartstay_dev_session_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
+    sameSite: resolvedEnv.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: resolvedEnv.NODE_ENV === 'production',
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
@@ -151,13 +153,20 @@ app.use(morgan('combined', {
 }));
 
 // Database connection
-const pool = new Pool({
-  host: resolvedEnv.DB_HOST || 'localhost',
-  user: resolvedEnv.DB_USER || 'postgres',
-  password: resolvedEnv.DB_PASSWORD || 'postgres',
-  database: resolvedEnv.DB_NAME || 'smartstay',
-  port: parseInt(resolvedEnv.DB_PORT || '5432', 10)
-});
+const pool = new Pool(
+  resolvedEnv.DATABASE_URL
+    ? {
+        connectionString: resolvedEnv.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        host: resolvedEnv.DB_HOST || 'localhost',
+        user: resolvedEnv.DB_USER || 'postgres',
+        password: resolvedEnv.DB_PASSWORD || 'postgres',
+        database: resolvedEnv.DB_NAME || 'smartstay',
+        port: parseInt(resolvedEnv.DB_PORT || '5432', 10)
+      }
+);
 
 app.locals.db = pool;
 
@@ -282,6 +291,7 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('Server startup failed:', error.message);
+    console.error('Full error:', error);
     process.exit(1);
   }
 };
