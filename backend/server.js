@@ -16,17 +16,17 @@ const websocketService = require('./websocket');
 const { runMigrations } = require('./migrate');
 
 const envPath = path.resolve(__dirname, '.env');
-const envConfig = fs.existsSync(envPath)
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RENDER;
+const envConfig = (!isProduction && fs.existsSync(envPath))
   ? dotenv.parse(fs.readFileSync(envPath))
   : {};
 
-// Ensure modules that read process.env (e.g., Cloudinary utility) see values from backend/.env.
-Object.assign(process.env, envConfig);
+// Only load .env file in development — in production, use platform env vars directly
+if (!isProduction) {
+  Object.assign(process.env, envConfig);
+}
 
-const resolvedEnv = {
-  ...process.env,
-  ...envConfig
-};
+const resolvedEnv = isProduction ? process.env : { ...process.env, ...envConfig };
 
 const app = express();
 
@@ -286,6 +286,8 @@ const startServer = async () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
       console.log(`WebSocket server ready`);
+      console.log(`FRONTEND_URL: ${process.env.FRONTEND_URL || 'NOT SET'}`);
+      console.log(`SMTP configured: ${!!(process.env.SMTP_USER || process.env.EMAIL_USER)}`);
     });
   } catch (error) {
     console.error('Server startup failed:', error.message);
