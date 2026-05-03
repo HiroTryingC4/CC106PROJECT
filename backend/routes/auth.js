@@ -655,7 +655,9 @@ router.post('/resend-verification', async (req, res) => {
     const emailResult = await sendVerificationEmail(email, user.first_name, verificationToken);
 
     if (!emailResult.success) {
-      return res.status(500).json({ message: 'Failed to send verification email' });
+      console.error('Failed to send verification email:', emailResult.error || emailResult.message);
+      console.error('SMTP_USER:', process.env.SMTP_USER || process.env.EMAIL_USER || 'NOT SET');
+      console.error('FRONTEND_URL:', process.env.FRONTEND_URL || 'NOT SET');
     }
 
     res.json({ message: 'Verification email sent. Please check your inbox.' });
