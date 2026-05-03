@@ -4,7 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const path = require('path');
@@ -135,7 +134,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Session middleware
 app.use(session({
-  store: resolvedEnv.NODE_ENV === 'production' ? new pgSession({ pool, createTableIfMissing: true }) : undefined,
   secret: resolvedEnv.SESSION_SECRET || 'smartstay_dev_session_secret',
   resave: false,
   saveUninitialized: false,
