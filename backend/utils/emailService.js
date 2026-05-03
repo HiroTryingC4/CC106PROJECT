@@ -1,9 +1,19 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
-// Create reusable transporter (same as email.js)
+// Check if Resend is configured (preferred for production)
+const isResendConfigured = () => !!process.env.RESEND_API_KEY;
+
+// Check if SMTP is configured (fallback for local dev)
+const isSmtpConfigured = () => {
+  return !!((process.env.SMTP_USER || process.env.EMAIL_USER) && (process.env.SMTP_PASS || process.env.EMAIL_PASS));
+};
+
+// Check if email is configured
+const isEmailConfigured = () => isResendConfigured() || isSmtpConfigured();
+
 const createTransporter = () => {
-  const config = {
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10),
     secure: (process.env.SMTP_SECURE || process.env.EMAIL_SECURE) === 'true',
@@ -14,14 +24,7 @@ const createTransporter = () => {
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 10000
-  };
-
-  return nodemailer.createTransport(config);
-};
-
-// Check if email is configured
-const isEmailConfigured = () => {
-  return !!((process.env.SMTP_USER || process.env.EMAIL_USER) && (process.env.SMTP_PASS || process.env.EMAIL_PASS));
+  });
 };
 
 // Generate verification token
@@ -36,12 +39,9 @@ const sendVerificationEmail = async (email, firstName, verificationToken) => {
     return { success: false, message: 'Email not configured' };
   }
 
-  try {
-    const transporter = createTransporter();
-    
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
-    
-    const emailHtml = `
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+
+  const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -141,46 +141,35 @@ const sendVerificationEmail = async (email, firstName, verificationToken) => {
 </html>
     `;
     
+  try {
+    if (isResendConfigured()) {
+      const { Resend } = require('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM || 'SmartStay <onboarding@resend.dev>',
+        to: email,
+        subject: 'Verify Your Email - SmartStay',
+        html: emailHtml
+      });
+      if (error) throw new Error(error.message);
+      console.log('Verification email sent via Resend:', data.id);
+      return { success: true, messageId: data.id, message: 'Email sent successfully' };
+    }
+
+    // Fallback to SMTP
+    const transporter = createTransporter();
     const mailOptions = {
-      from: `"SmartStay" <${process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER}>`,
+      from: `"SmartStay" <${process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Verify Your Email - SmartStay',
-      html: emailHtml,
-      text: `
-Welcome to SmartStay!
-
-Hi ${firstName},
-
-Thank you for registering with SmartStay!
-
-Please verify your email address by clicking this link:
-${verificationUrl}
-
-This link will expire in 24 hours.
-
-If you didn't create an account with SmartStay, please ignore this email.
-
----
-SmartStay
-${process.env.FRONTEND_URL || 'http://localhost:3000'}
-      `
+      html: emailHtml
     };
-
     const info = await transporter.sendMail(mailOptions);
-    console.log('Verification email sent:', info.messageId);
-    
-    return { 
-      success: true, 
-      messageId: info.messageId,
-      message: 'Email sent successfully'
-    };
+    console.log('Verification email sent via SMTP:', info.messageId);
+    return { success: true, messageId: info.messageId, message: 'Email sent successfully' };
   } catch (error) {
     console.error('Error sending verification email:', error);
-    return { 
-      success: false, 
-      error: error.message,
-      message: 'Failed to send email'
-    };
+    return { success: false, error: error.message, message: 'Failed to send email' };
   }
 };
 
