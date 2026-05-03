@@ -139,15 +139,14 @@ const sendVerificationEmail = async (email, firstName, verificationToken) => {
   try {
     // Use Brevo if configured (works on Render free tier)
     if (isBrevoConfigured()) {
-      const brevo = require('@getbrevo/brevo');
-      const apiInstance = new brevo.TransactionalEmailsApi();
-      apiInstance.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY;
-      const sendSmtpEmail = new brevo.SendSmtpEmail();
-      sendSmtpEmail.to = [{ email }];
-      sendSmtpEmail.sender = { name: 'SmartStay', email: process.env.BREVO_FROM || 'smartstaynotification@gmail.com' };
-      sendSmtpEmail.subject = 'Verify Your Email - SmartStay';
-      sendSmtpEmail.htmlContent = emailHtml;
-      const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+      const { BrevoClient } = require('@getbrevo/brevo');
+      const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
+      const data = await client.sendTransacEmail({
+        to: [{ email }],
+        sender: { name: 'SmartStay', email: process.env.BREVO_FROM || 'smartstaynotification@gmail.com' },
+        subject: 'Verify Your Email - SmartStay',
+        htmlContent: emailHtml
+      });
       console.log('Verification email sent via Brevo:', data.messageId);
       return { success: true, messageId: data.messageId, message: 'Email sent successfully' };
     }
