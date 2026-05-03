@@ -105,27 +105,27 @@ const HostDashboard = () => {
     if (!hostProfile) return null;
 
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">
+      <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-sm border border-green-100 p-4 sm:p-6 mb-6">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+          <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+              <span className="text-white text-lg sm:text-2xl font-bold">
                 {hostProfile.firstName?.charAt(0)}{hostProfile.lastName?.charAt(0)}
               </span>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">{hostProfile.fullName}</h2>
-              <p className="text-gray-600 mt-1">{hostProfile.email}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{hostProfile.fullName}</h2>
+              <p className="text-gray-600 mt-1 text-sm sm:text-base truncate">{hostProfile.email}</p>
               {hostProfile.company && (
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 mt-1 text-sm sm:text-base truncate">
                   <span className="font-semibold">Business:</span> {hostProfile.company}
                 </p>
               )}
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-medium text-gray-500">Account Status</p>
-            <p className="text-lg font-semibold text-green-600 mt-1">Active</p>
+          <div className="text-left sm:text-right w-full sm:w-auto">
+            <p className="text-xs sm:text-sm font-medium text-gray-500">Account Status</p>
+            <p className="text-base sm:text-lg font-semibold text-green-700 mt-1">Active Host</p>
           </div>
         </div>
       </div>
@@ -190,16 +190,16 @@ const HostDashboard = () => {
     const Icon = config.icon;
 
     return (
-      <div className={`${config.bgColor} ${config.borderColor} border rounded-lg p-4 mb-6`}>
-        <div className="flex items-start space-x-3">
+      <div className={`${config.bgColor} ${config.borderColor} border-l-4 rounded-2xl p-4 mb-6 shadow-sm`}>
+        <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-3">
           <Icon className={`w-6 h-6 ${config.iconColor} flex-shrink-0 mt-0.5`} />
-          <div className="flex-1">
-            <h3 className={`font-semibold ${config.textColor} mb-1`}>{config.title}</h3>
-            <p className={`text-sm ${config.textColor} opacity-90 mb-3`}>{config.message}</p>
+          <div className="flex-1 w-full">
+            <h3 className={`font-semibold ${config.textColor} mb-1 text-sm sm:text-base`}>{config.title}</h3>
+            <p className={`text-xs sm:text-sm ${config.textColor} opacity-90 mb-3`}>{config.message}</p>
             {config.actionText && config.actionLink && (
               <Link
                 to={config.actionLink}
-                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`inline-flex items-center px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors w-full sm:w-auto justify-center sm:justify-start ${
                   status === 'not_submitted' 
                     ? 'bg-yellow-600 text-white hover:bg-yellow-700'
                     : status === 'pending'
@@ -228,7 +228,7 @@ const HostDashboard = () => {
     // If status is pending or verified but no form data yet, show loading state
     if (!verificationFormData) {
       return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Your Verification Application</h2>
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
@@ -252,10 +252,10 @@ const HostDashboard = () => {
     }
 
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Your Verification Application</h2>
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Your Verification Application</h2>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${
             verificationStatus.status === 'verified' 
               ? 'bg-green-100 text-green-800'
               : verificationStatus.status === 'pending'
@@ -269,7 +269,7 @@ const HostDashboard = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {/* Business Information */}
           <div className="space-y-4">
             <div>
@@ -459,12 +459,12 @@ const HostDashboard = () => {
     <HostLayout>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Overview</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Overview</h1>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
               <span>📅</span>
               <span>Oct 24, 2023</span>
             </div>
@@ -481,19 +481,19 @@ const HostDashboard = () => {
         {!loading && getVerificationFormDisplay()}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
           {statsCards.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <div key={index} className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-500 mb-2">{stat.title}</p>
-                    <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
-                    <p className="text-sm text-gray-600">{stat.subtitle}</p>
+              <div key={index} className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-all duration-200">
+                <div className="flex flex-col sm:flex-row items-start justify-between">
+                  <div className="flex-1 w-full">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">{stat.title}</p>
+                    <p className="text-xl sm:text-3xl font-bold text-gray-900 mb-1 truncate">{stat.value}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">{stat.subtitle}</p>
                   </div>
-                  <div className={`w-10 h-10 ${stat.iconBg} rounded-lg flex items-center justify-center ml-4`}>
-                    <Icon className={`w-5 h-5 ${stat.iconColor}`} />
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 ${stat.iconBg} rounded-xl flex items-center justify-center mt-2 sm:mt-0 sm:ml-4 self-end sm:self-start shadow-sm`}>
+                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.iconColor}`} />
                   </div>
                 </div>
               </div>
@@ -505,18 +505,18 @@ const HostDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* AI Insights & Recommendations */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-              <div className="flex items-center space-x-2 mb-6">
+            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-200">
+              <div className="flex items-center space-x-2 mb-4 sm:mb-6">
                 <ChartBarIcon className="w-5 h-5 text-green-600" />
-                <h2 className="text-lg font-semibold text-gray-900">AI Insights & Recommendations</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">AI Insights & Recommendations</h2>
               </div>
               
               {isVerified && insights.length > 0 ? (
                 <div className="space-y-4">
                   {insights.map((insight, index) => (
-                    <div key={index} className="p-4 rounded-lg bg-blue-50 border-l-4 border-l-blue-500">
-                      <h3 className="font-semibold text-blue-800 mb-1">{insight.title}</h3>
-                      <p className="text-sm text-blue-800 opacity-90">{insight.description}</p>
+                    <div key={index} className="p-3 sm:p-4 rounded-xl bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow duration-200">
+                      <h3 className="font-semibold text-blue-800 mb-1 text-sm sm:text-base">{insight.title}</h3>
+                      <p className="text-xs sm:text-sm text-blue-800 opacity-90">{insight.description}</p>
                       {insight.estimatedRevenue && (
                         <p className="text-xs text-blue-600 mt-2">Potential revenue: ₱{insight.estimatedRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       )}
@@ -528,14 +528,14 @@ const HostDashboard = () => {
                   <div className="text-gray-400 mb-4">
                     <ChartBarIcon className="w-16 h-16 mx-auto" />
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No AI insights available</h3>
-                  <p className="text-gray-600 mb-4">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No AI insights available</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4">
                     {isVerified ? 'Insights will appear as you get more bookings.' : 'Verify your account to unlock personalized recommendations.'}
                   </p>
                   {!isVerified && (
                     <Link
                       to="/host/verification"
-                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 transition-colors shadow-lg shadow-green-600/20"
                     >
                       Complete Verification
                     </Link>
@@ -547,17 +547,17 @@ const HostDashboard = () => {
 
           {/* Recent Activity */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-              <div className="flex items-center space-x-2 mb-6">
+            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-200">
+              <div className="flex items-center space-x-2 mb-4 sm:mb-6">
                 <InformationCircleIcon className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">Recent Activity</h2>
               </div>
               
               {isVerified && activity.length > 0 ? (
                 <div className="space-y-4">
                   {activity.map((activityItem, index) => (
                     <div key={index} className="flex items-start space-x-3">
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(activityItem.status)} mt-2 flex-shrink-0`}></div>
+                      <div className={`w-2 h-2 rounded-full ${getStatusColor(activityItem.status)} mt-2 flex-shrink-0 shadow-sm`}></div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">{activityItem.property}</p>
                         <p className="text-sm text-gray-600">{activityItem.guest} • {activityItem.action}</p>
@@ -571,8 +571,8 @@ const HostDashboard = () => {
                   <div className="text-gray-400 mb-4">
                     <InformationCircleIcon className="w-16 h-16 mx-auto" />
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Activity unavailable</h3>
-                  <p className="text-gray-600">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Activity unavailable</h3>
+                  <p className="text-sm sm:text-base text-gray-600">
                     {isVerified ? 'Recent activity will appear here.' : 'Recent activity will appear once your account is verified.'}
                   </p>
                 </div>

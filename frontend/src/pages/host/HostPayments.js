@@ -20,6 +20,10 @@ const HostPayments = () => {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [actionPaymentId, setActionPaymentId] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const normalizeVerificationStatus = (verificationData) => {
     const rawStatus = verificationData?.status
@@ -100,7 +104,8 @@ const HostPayments = () => {
     };
 
     fetchVerificationStatus();
-  }, [apiBaseUrl, token, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBaseUrl, token]);
 
   useEffect(() => {
     if (loadingVerification) {
@@ -113,6 +118,7 @@ const HostPayments = () => {
     }
 
     fetchPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingVerification, isVerified]);
 
   const updatePaymentStatus = async (paymentId, status) => {
@@ -145,9 +151,14 @@ const HostPayments = () => {
       }
 
       await fetchPayments();
+      
+      const actionText = status === 'completed' ? 'approved' : 'declined';
+      setSuccessMessage(`Payment has been successfully ${actionText}.`);
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Error reviewing payment:', error);
-      alert(error.message || 'Unable to update payment status');
+      setErrorMessage(error.message || 'Unable to update payment status');
+      setShowErrorModal(true);
     } finally {
       setActionPaymentId(null);
     }
@@ -182,7 +193,6 @@ const HostPayments = () => {
   );
 
   const getStatusColor = (status) => {
-    const normalized = String(status || '').toLowerCase();
     switch (status) {
       case 'Completed':
       case 'completed':
@@ -442,6 +452,52 @@ const HostPayments = () => {
             </div>
           ) : null}
         </div>
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center shadow-2xl ring-1 ring-black/5">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 shadow-inner">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Success!</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                {successMessage}
+              </p>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="mt-6 w-full rounded-2xl bg-green-600 px-4 py-3 font-medium text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Modal */}
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center shadow-2xl ring-1 ring-black/5">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600 shadow-inner">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Error</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                {errorMessage}
+              </p>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="mt-6 w-full rounded-2xl bg-red-600 px-4 py-3 font-medium text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </HostLayout>
   );

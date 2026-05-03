@@ -84,11 +84,36 @@ const createUserRepository = (pool) => {
     return passwordMatches ? user : null;
   };
 
+  const verifyPassword = async (email, password) => {
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return false;
+    }
+    return await bcrypt.compare(password, user.passwordHash);
+  };
+
+  const updatePassword = async (userId, newPassword) => {
+    const passwordHash = await bcrypt.hash(newPassword, DEFAULT_SALT_ROUNDS);
+    
+    await pool.query(
+      `
+        UPDATE users
+        SET password_hash = $1, updated_at = NOW()
+        WHERE id = $2
+      `,
+      [passwordHash, userId]
+    );
+    
+    return true;
+  };
+
   return {
     findUserByEmail,
     findUserById,
     createUser,
-    authenticateUser
+    authenticateUser,
+    verifyPassword,
+    updatePassword
   };
 };
 

@@ -13,20 +13,22 @@ const PropertyReviewsPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPropertyInfo();
-  }, [id]);
+    const fetchPropertyInfo = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_CONFIG.BASE_URL}/properties/${id}`);
+        setProperty(response.data);
+      } catch (err) {
+        console.error('Error fetching property:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchPropertyInfo = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/properties/${id}`);
-      setProperty(response.data);
-    } catch (err) {
-      console.error('Error fetching property:', err);
-    } finally {
-      setLoading(false);
+    if (id) {
+      fetchPropertyInfo();
     }
-  };
+  }, [id]);
 
   return (
     <GuestLayout>

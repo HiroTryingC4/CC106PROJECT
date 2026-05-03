@@ -35,6 +35,8 @@ const PaymentPage = () => {
   const [promoResult, setPromoResult] = useState(null); // { id, code, discountAmount, finalAmount, description }
   const [promoError, setPromoError] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
+  const [propertyPaymentMethods, setPropertyPaymentMethods] = useState(null);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true);
 
   const booking = useMemo(() => {
     if (!bookingData) {
@@ -109,6 +111,28 @@ const PaymentPage = () => {
 
     fetchRemainingBalance();
   }, [booking]);
+
+  useEffect(() => {
+    const fetchPropertyPaymentMethods = async () => {
+      if (!bookingData?.propertyId) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/properties/${bookingData.propertyId}`, {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (response.ok) {
+          const property = await response.json();
+          setPropertyPaymentMethods(property.paymentMethods || { cash: true, gcash: false, paymaya: false, bankTransfer: false });
+        }
+      } catch (error) {
+        console.error('Error fetching property payment methods:', error);
+        setPropertyPaymentMethods({ cash: true, gcash: true, paymaya: true, bankTransfer: true });
+      } finally {
+        setLoadingPaymentMethods(false);
+      }
+    };
+    fetchPropertyPaymentMethods();
+  }, [bookingData?.propertyId, apiBaseUrl, token]);
 
   if (!booking) {
     return (
@@ -1313,109 +1337,128 @@ Thank you for choosing Smart Stay Bookings!
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Payment Method</h3>
               
-              <div className="space-y-3">
-                {/* PayMongo GCash Option */}
-                <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  paymentMethod === 'paymongo-gcash' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
-                }`}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="paymongo-gcash"
-                    checked={paymentMethod === 'paymongo-gcash'}
-                    onChange={(e) => {
-                      setPaymentMethod(e.target.value);
-                      setShowPayMongoReview(false);
-                    }}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold">G</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-900">PayMongo GCash</span>
-                      <p className="text-sm text-gray-600">Fast & secure mobile wallet payment</p>
-                    </div>
-                  </div>
-                </label>
+              {loadingPaymentMethods ? (
+                <div className="text-center py-8 text-gray-500">Loading payment methods...</div>
+              ) : (
+                <div className="space-y-3">
+                  {/* GCash Option */}
+                  {propertyPaymentMethods?.gcash && (
+                    <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      paymentMethod === 'paymongo-gcash' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="paymongo-gcash"
+                        checked={paymentMethod === 'paymongo-gcash'}
+                        onChange={(e) => {
+                          setPaymentMethod(e.target.value);
+                          setShowPayMongoReview(false);
+                        }}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold">G</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-900">GCash</span>
+                          <p className="text-sm text-gray-600">Fast & secure mobile wallet payment</p>
+                        </div>
+                      </div>
+                    </label>
+                  )}
 
-                                    {/* PayMongo Maya (GrabPay) Option */}
-                                    <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                                      paymentMethod === 'paymongo-paymaya' ? 'border-green-600 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
-                                    }`}>
-                                      <input
-                                        type="radio"
-                                        name="paymentMethod"
-                                        value="paymongo-paymaya"
-                                        checked={paymentMethod === 'paymongo-paymaya'}
-                                        onChange={(e) => {
-                                          setPaymentMethod(e.target.value);
-                                          setShowPayMongoReview(false);
-                                        }}
-                                        className="text-green-600 focus:ring-green-500"
-                                      />
-                                      <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                                          <span className="text-white font-bold text-xs">M</span>
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold text-gray-900">PayMongo Maya</span>
-                                          <p className="text-sm text-gray-600">Digital wallet payment</p>
-                                        </div>
-                                      </div>
-                                    </label>
+                  {/* Maya Option */}
+                  {propertyPaymentMethods?.paymaya && (
+                    <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      paymentMethod === 'paymongo-paymaya' ? 'border-green-600 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="paymongo-paymaya"
+                        checked={paymentMethod === 'paymongo-paymaya'}
+                        onChange={(e) => {
+                          setPaymentMethod(e.target.value);
+                          setShowPayMongoReview(false);
+                        }}
+                        className="text-green-600 focus:ring-green-500"
+                      />
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">M</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-900">Maya</span>
+                          <p className="text-sm text-gray-600">Digital wallet payment</p>
+                        </div>
+                      </div>
+                    </label>
+                  )}
 
-                {/* PayMongo Card Option */}
-                <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  paymentMethod === 'paymongo-card' ? 'border-purple-600 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'
-                }`}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="paymongo-card"
-                    checked={paymentMethod === 'paymongo-card'}
-                    onChange={(e) => {
-                      setPaymentMethod(e.target.value);
-                      setShowPayMongoReview(false);
-                    }}
-                    className="text-purple-600 focus:ring-purple-500"
-                  />
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-xs">CC</span>
+                  {/* Card Option */}
+                  {propertyPaymentMethods?.bankTransfer && (
+                    <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      paymentMethod === 'paymongo-card' ? 'border-purple-600 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="paymongo-card"
+                        checked={paymentMethod === 'paymongo-card'}
+                        onChange={(e) => {
+                          setPaymentMethod(e.target.value);
+                          setShowPayMongoReview(false);
+                        }}
+                        className="text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">CC</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-900">Card</span>
+                          <p className="text-sm text-gray-600">Visa, Mastercard, and more</p>
+                        </div>
+                      </div>
+                    </label>
+                  )}
+                  
+                  {/* Physical Payment Option */}
+                  {propertyPaymentMethods?.cash && (
+                    <label className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="gcash-manual"
+                        checked={paymentMethod === 'gcash-manual'}
+                        onChange={(e) => {
+                          setPaymentMethod(e.target.value);
+                          setShowPayMongoReview(false);
+                        }}
+                        className="text-gray-600 focus:ring-gray-500"
+                      />
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gray-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold">₱</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-900">Physical Payment</span>
+                          <p className="text-sm text-gray-600">Pay via QR code & upload proof</p>
+                        </div>
+                      </div>
+                    </label>
+                  )}
+
+                  {!propertyPaymentMethods?.gcash && !propertyPaymentMethods?.paymaya && !propertyPaymentMethods?.bankTransfer && !propertyPaymentMethods?.cash && (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No payment methods available for this property.</p>
+                      <p className="text-sm mt-2">Please contact the host.</p>
                     </div>
-                    <div>
-                      <span className="font-semibold text-gray-900">PayMongo Credit / Debit Card</span>
-                      <p className="text-sm text-gray-600">Visa, Mastercard, and more</p>
-                    </div>
-                  </div>
-                </label>
-                
-                {/* Manual GCash Option */}
-                <label className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="gcash-manual"
-                    checked={paymentMethod === 'gcash-manual'}
-                    onChange={(e) => {
-                      setPaymentMethod(e.target.value);
-                      setShowPayMongoReview(false);
-                    }}
-                    className="text-green-600 focus:ring-green-500"
-                  />
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-600 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold">G</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-900">GCash (Manual - QR Code)</span>
-                      <p className="text-sm text-gray-600">Scan QR code & upload proof</p>
-                    </div>
-                  </div>
-                </label>
-              </div>
+                  )}
+                </div>
+              )}
               {isPayMongoMethod && !showPayMongoReview && (
                 <div className="mt-4 space-y-4">
                   {paymentMethod === 'paymongo-card' && (

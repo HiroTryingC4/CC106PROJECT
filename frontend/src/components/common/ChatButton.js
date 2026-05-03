@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import ChatBot from './ChatBot';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ChatButton = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <>
@@ -21,7 +23,7 @@ const ChatButton = () => {
       </div>
 
       {/* ChatBot Modal */}
-      <ChatBot isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <ChatBot isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} userRole={user?.role || 'guest'} />
     </>
   );
 };

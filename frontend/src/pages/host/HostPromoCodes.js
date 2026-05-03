@@ -18,13 +18,15 @@ const HostPromoCodes = () => {
   const { token, user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [promoCodes, setPromoCodes] = useState([]);
-  const [error, setError] = useState(null);
   const [assignModal, setAssignModal] = useState(null); // { promoId, promoCode }
   const [hostUnits, setHostUnits] = useState([]);
   const [selectedUnitIds, setSelectedUnitIds] = useState([]);
   const [assignLoading, setAssignLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,7 +42,7 @@ const HostPromoCodes = () => {
           
           if (['verified', 'approved'].includes(data.status) || data.verified === true) {
             const [promoResponse, unitsResponse] = await Promise.all([
-              fetch(`${API_CONFIG.ROOT}/api/promo-codes`, { headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' }),
+              fetch(`${API_CONFIG.BASE_URL}/promo-codes`, { headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' }),
               fetch(`${API_CONFIG.BASE_URL}/properties?hostId=${user?.id}`, { headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' })
             ]);
             if (promoResponse.ok) {
@@ -55,17 +57,17 @@ const HostPromoCodes = () => {
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        setError(error.message);
         setVerificationStatus({
           status: 'not_submitted',
           message: 'Complete your verification to unlock all host features.'
         });
       } finally {
-        setLoading(false);
+        // Loading complete
       }
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // Check if user is verified
@@ -100,7 +102,7 @@ const HostPromoCodes = () => {
   const openAssignModal = async (promo) => {
     setAssignModal({ promoId: promo.id, promoCode: promo.code });
     try {
-      const res = await fetch(`${API_CONFIG.ROOT}/api/promo-codes/${promo.id}/properties`, {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/promo-codes/${promo.id}/properties`, {
         headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include'
       });
       if (res.ok) {
@@ -113,7 +115,7 @@ const HostPromoCodes = () => {
   const handleAssignUnits = async () => {
     setAssignLoading(true);
     try {
-      const res = await fetch(`${API_CONFIG.ROOT}/api/promo-codes/${assignModal.promoId}/properties`, {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/promo-codes/${assignModal.promoId}/properties`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -136,9 +138,12 @@ const HostPromoCodes = () => {
   const handleCreatePromo = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_CONFIG.ROOT}/api/promo-codes`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/promo-codes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${token}` 
+        },
         credentials: 'include',
         body: JSON.stringify({
           code: newPromo.code,
@@ -167,20 +172,27 @@ const HostPromoCodes = () => {
           usageLimit: '',
           minBookingAmount: ''
         });
+        // Show success modal
+        setSuccessMessage(`Promo code "${newCode.code}" has been created successfully!`);
+        setShowSuccessModal(true);
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to create promo code');
+        setShowCreateModal(false);
+        setErrorMessage(error.message || 'Failed to create promo code. Please try again.');
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error('Error creating promo code:', error);
-      alert('Failed to create promo code');
+      setShowCreateModal(false);
+      setErrorMessage('Failed to create promo code. Please check your connection and try again.');
+      setShowErrorModal(true);
     }
   };
 
   const handleDeletePromo = async (id) => {
     if (!window.confirm('Are you sure you want to delete this promo code?')) return;
     try {
-      const response = await fetch(`${API_CONFIG.ROOT}/api/promo-codes/${id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/promo-codes/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
         credentials: 'include'
@@ -200,79 +212,125 @@ const HostPromoCodes = () => {
   return (
     <HostLayout>
       <div className="space-y-8">
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Success!</h3>
+                <p className="text-gray-600 mb-6">{successMessage}</p>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                >
+                  Got it!
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Modal */}
+        {showErrorModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Error</h3>
+                <p className="text-gray-600 mb-6">{errorMessage}</p>
+                <button
+                  onClick={() => setShowErrorModal(false)}
+                  className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Promo Codes</h1>
-            <p className="text-gray-500 mt-1">Create and manage discount codes for your properties</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Promo Codes</h1>
+            <p className="text-gray-500 mt-1 text-sm sm:text-base">Create and manage discount codes for your properties</p>
           </div>
           {/* Create Promo Codes Button */}
           {isVerified ? (
             <button 
               onClick={() => setShowCreateModal(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium"
+              className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 font-medium"
             >
               <PlusIcon className="w-4 h-4" />
-              <span>Create Promo Codes</span>
+              <span>Create Promo Code</span>
             </button>
           ) : (
             <a
               href="/host/verification"
-              className="bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed flex items-center space-x-2 font-medium"
+              className="w-full sm:w-auto bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed flex items-center justify-center space-x-2 font-medium"
               title="Complete verification to create promo codes"
             >
               <PlusIcon className="w-4 h-4" />
-              <span>Create Promo Codes</span>
+              <span>Create Promo Code</span>
             </a>
           )}
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Codes</p>
-                <p className="text-3xl font-bold text-gray-900">{isVerified ? totalCodes : 0}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Codes</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{isVerified ? totalCodes : 0}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <TagIcon className="w-6 h-6 text-blue-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <TagIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
           </div>
           
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Active Codes</p>
-                <p className="text-3xl font-bold text-gray-900">{isVerified ? activeCodes : 0}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Active Codes</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{isVerified ? activeCodes : 0}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckIcon className="w-6 h-6 text-green-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
               </div>
             </div>
           </div>
           
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Usage</p>
-                <p className="text-3xl font-bold text-gray-900">{isVerified ? totalUsage : 0}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Usage</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{isVerified ? totalUsage : 0}</p>
               </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <ChartBarIcon className="w-6 h-6 text-yellow-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
               </div>
             </div>
           </div>
           
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Savings</p>
-                <p className="text-3xl font-bold text-gray-900">₱{isVerified ? totalSavings.toLocaleString() : '0'}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Savings</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900">₱{isVerified ? totalSavings.toLocaleString() : '0'}</p>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <ClockIcon className="w-6 h-6 text-red-600" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               </div>
             </div>
           </div>
@@ -281,15 +339,15 @@ const HostPromoCodes = () => {
         {/* Promo Codes Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Code</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Discount</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Usage</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Expires</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Actions</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-medium text-gray-600">Code</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-medium text-gray-600">Discount</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-medium text-gray-600">Usage</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-medium text-gray-600">Expires</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-medium text-gray-600">Status</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -321,28 +379,28 @@ const HostPromoCodes = () => {
                 ) : (
                   promoCodes.map((promo) => (
                     <tr key={promo.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div>
-                          <p className="font-semibold text-gray-900">{promo.code}</p>
-                          <p className="text-sm text-gray-500">{promo.description}</p>
+                          <p className="font-semibold text-gray-900 text-sm sm:text-base">{promo.code}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">{promo.description}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center">
                           {promo.type === 'percentage' ? (
                             <>
                               <PercentBadgeIcon className="w-4 h-4 text-green-500 mr-1" />
-                              <span className="font-semibold text-green-600">{promo.value}%</span>
+                              <span className="font-semibold text-green-600 text-sm sm:text-base">{promo.value}%</span>
                             </>
                           ) : (
-                            <span className="font-semibold text-green-600">₱{promo.value}</span>
+                            <span className="font-semibold text-green-600 text-sm sm:text-base">₱{promo.value}</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div>
-                          <p className="font-semibold text-gray-900">{promo.usedCount || 0} / {promo.usageLimit}</p>
-                          <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
+                          <p className="font-semibold text-gray-900 text-sm">{promo.usedCount || 0} / {promo.usageLimit}</p>
+                          <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-2 mt-1">
                             <div 
                               className="bg-blue-600 h-2 rounded-full" 
                               style={{ width: `${((promo.usedCount || 0) / promo.usageLimit) * 100}%` }}
@@ -350,15 +408,15 @@ const HostPromoCodes = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{new Date(promo.endDate).toLocaleDateString()}</p>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        <p className="text-xs sm:text-sm text-gray-600">{new Date(promo.endDate).toLocaleDateString()}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(promo.status)}`}>
                           {promo.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => openAssignModal(promo)}

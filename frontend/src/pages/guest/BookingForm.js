@@ -4,6 +4,7 @@ import GuestLayout from '../../components/common/GuestLayout';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import API_CONFIG from '../../config/api';
+import { handleImageFileSelect, uploadImageToCloudinary } from '../../utils/fileUpload';
 import { 
   ArrowLeftIcon,
   ChevronLeftIcon,
@@ -68,9 +69,11 @@ const BookingForm = () => {
     email: user?.email || '',
     phone: '',
     photo: null,
+    photoUrl: null,
     specialRequests: '',
     hasMinors: false
   });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Fetch property details and existing bookings for date blocking
   useEffect(() => {
@@ -272,14 +275,34 @@ const BookingForm = () => {
     }));
   };
 
-  const handlePhotoUpload = (file) => {
-    if (file && (file.type === 'image/jpeg' || file.type === 'image/png') && file.size <= 5 * 1024 * 1024) {
-      setGuestInfo(prev => ({
-        ...prev,
-        photo: file
-      }));
-    } else {
-      alert('Please upload a valid image file (JPG/PNG, max 5MB)');
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
+
+    try {
+      const didStart = handleImageFileSelect({ target: { files: [file] } }, async (fileData) => {
+        try {
+          setUploadingPhoto(true);
+          const imageUrl = await uploadImageToCloudinary(fileData.file);
+          
+          setGuestInfo(prev => ({
+            ...prev,
+            photo: file,
+            photoUrl: imageUrl
+          }));
+        } catch (error) {
+          console.error('Error uploading photo:', error);
+          alert('Failed to upload photo. Please try again.');
+        } finally {
+          setUploadingPhoto(false);
+        }
+      });
+
+      if (!didStart) {
+        alert('Please upload a valid image file (JPG/PNG, max 5MB)');
+      }
+    } catch (error) {
+      console.error('Error selecting photo:', error);
+      alert('Failed to process photo. Please try again.');
     }
   };
 
@@ -357,6 +380,7 @@ const BookingForm = () => {
         lastName: guestInfo.lastName,
         email: guestInfo.email,
         phone: guestInfo.phone,
+        photoUrl: guestInfo.photoUrl,
         minors: guestInfo.hasMinors
       },
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes expiration
@@ -778,13 +802,20 @@ const BookingForm = () => {
                       />
                       <label
                         htmlFor="photo-upload"
-                        className="cursor-pointer flex items-center space-x-2 px-4 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                        className="cursor-pointer flex items-center space-x-2 px-4 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="text-lg">📷</span>
-                        <span className="font-medium">Choose Photo</span>
+                        <span className="font-medium">{uploadingPhoto ? 'Uploading...' : 'Choose Photo'}</span>
                       </label>
-                      {guestInfo.photo && (
-                        <span className="text-sm text-green-600">✓ Photo uploaded</span>
+                      {guestInfo.photoUrl && (
+                        <div className="flex items-center space-x-2">
+                          <img 
+                            src={guestInfo.photoUrl} 
+                            alt="Profile preview" 
+                            className="w-12 h-12 rounded-full object-cover border-2 border-green-500"
+                          />
+                          <span className="text-sm text-green-600">✓ Photo uploaded</span>
+                        </div>
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">

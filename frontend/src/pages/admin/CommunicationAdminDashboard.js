@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import CommunicationAdminLayout from '../../components/common/CommunicationAdminLayout';
 import { 
   ChatBubbleLeftRightIcon,
@@ -9,73 +9,120 @@ import {
   ChartBarIcon
 } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
+import API_CONFIG from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CommunicationAdminDashboard = () => {
-  const stats = [
+  const { token } = useAuth();
+  const [stats, setStats] = useState([
     {
       name: 'Total Messages',
-      value: '12,847',
-      change: '+12%',
+      value: '0',
+      change: '+0%',
       changeType: 'increase',
       icon: ChatBubbleLeftRightIcon,
       color: 'blue'
     },
     {
       name: 'Chatbot Conversations',
-      value: '156',
-      change: '+8%',
+      value: '0',
+      change: '+0%',
       changeType: 'increase',
       icon: UserGroupIcon,
       color: 'green'
     },
     {
       name: 'Response Time',
-      value: '2.4h',
-      change: '-15%',
+      value: '0h',
+      change: '0%',
       changeType: 'decrease',
       icon: ClockIcon,
       color: 'yellow'
     },
     {
       name: 'Success Rate',
-      value: '90.18%',
-      change: '+3%',
+      value: '0%',
+      change: '+0%',
       changeType: 'increase',
       icon: CheckCircleIcon,
       color: 'purple'
     }
-  ];
+  ]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentActivity = [
-    {
-      id: 1,
-      type: 'message',
-      description: 'New message from john.doe@example.com',
-      time: '5 minutes ago',
-      status: 'unread'
-    },
-    {
-      id: 2,
-      type: 'chatbot',
-      description: 'Chatbot handled 15 new conversations',
-      time: '10 minutes ago',
-      status: 'success'
-    },
-    {
-      id: 3,
-      type: 'alert',
-      description: 'High volume of support requests detected',
-      time: '1 hour ago',
-      status: 'warning'
-    },
-    {
-      id: 4,
-      type: 'message',
-      description: 'Flagged message requires review',
-      time: '2 hours ago',
-      status: 'urgent'
+  useEffect(() => {
+    fetchDashboardData();
+  }, [token]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      // Fetch stats
+      const statsResponse = await fetch(`${API_CONFIG.BASE_URL}/comm-admin/dashboard/stats`, {
+        credentials: 'include',
+        headers
+      });
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats([
+          {
+            name: 'Total Messages',
+            value: statsData.totalMessages.toLocaleString(),
+            change: '+12%',
+            changeType: 'increase',
+            icon: ChatBubbleLeftRightIcon,
+            color: 'blue'
+          },
+          {
+            name: 'Chatbot Conversations',
+            value: statsData.chatbotConversations.toLocaleString(),
+            change: '+8%',
+            changeType: 'increase',
+            icon: UserGroupIcon,
+            color: 'green'
+          },
+          {
+            name: 'Response Time',
+            value: `${statsData.avgResponseTime}h`,
+            change: '-15%',
+            changeType: 'decrease',
+            icon: ClockIcon,
+            color: 'yellow'
+          },
+          {
+            name: 'Success Rate',
+            value: `${statsData.successRate}%`,
+            change: '+3%',
+            changeType: 'increase',
+            icon: CheckCircleIcon,
+            color: 'purple'
+          }
+        ]);
+      }
+
+      // Fetch recent activity
+      const activityResponse = await fetch(`${API_CONFIG.BASE_URL}/comm-admin/dashboard/activity`, {
+        credentials: 'include',
+        headers
+      });
+
+      if (activityResponse.ok) {
+        const activityData = await activityResponse.json();
+        setRecentActivity(activityData);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getStatColor = (color) => {
     const colors = {
@@ -93,6 +140,24 @@ const CommunicationAdminDashboard = () => {
       case 'chatbot': return UserGroupIcon;
       case 'alert': return ExclamationTriangleIcon;
       default: return CheckCircleIcon;
+    }
+  };
+
+  const getActivityIconBg = (type) => {
+    switch (type) {
+      case 'message': return 'bg-blue-100';
+      case 'chatbot': return 'bg-green-100';
+      case 'alert': return 'bg-yellow-100';
+      default: return 'bg-gray-100';
+    }
+  };
+
+  const getActivityIconColor = (type) => {
+    switch (type) {
+      case 'message': return 'text-blue-600';
+      case 'chatbot': return 'text-green-600';
+      case 'alert': return 'text-yellow-600';
+      default: return 'text-gray-600';
     }
   };
 
@@ -164,26 +229,58 @@ const CommunicationAdminDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-            <div className="space-y-3">
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+              <span className="px-3 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">
+                {recentActivity.length} Updates
+              </span>
+            </div>
+            <div className="space-y-4">
               {recentActivity.map((activity) => {
                 const Icon = getActivityIcon(activity.type);
                 return (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    <Icon className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{activity.description}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-xs text-gray-500">{activity.time}</span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getActivityColor(activity.status)}`}>
-                          {activity.status}
-                        </span>
+                  <div 
+                    key={activity.id} 
+                    className="group relative rounded-xl border border-gray-200 p-4 transition-all hover:border-green-300 hover:shadow-md"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`flex-shrink-0 p-3 rounded-xl ${getActivityIconBg(activity.type)}`}>
+                        <Icon className={`w-5 h-5 ${getActivityIconColor(activity.type)}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-sm font-semibold text-gray-900">{activity.title}</h4>
+                          <span className={`flex-shrink-0 px-2.5 py-1 text-xs font-medium rounded-full ${getActivityColor(activity.status)}`}>
+                            {activity.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-600">{activity.description}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <ClockIcon className="w-4 h-4 text-gray-400" />
+                          <span className="text-xs text-gray-500">{activity.time}</span>
+                        </div>
                       </div>
                     </div>
+                    {activity.priority === 'urgent' && (
+                      <div className="absolute top-2 right-2">
+                        <span className="flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-6">
+              <Link
+                to="/comm-admin/messages"
+                className="block w-full text-center px-4 py-2.5 text-sm font-medium text-green-700 bg-green-50 rounded-xl hover:bg-green-100 transition-colors"
+              >
+                View All Activity
+              </Link>
             </div>
           </div>
         </div>

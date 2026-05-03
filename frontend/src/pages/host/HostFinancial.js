@@ -23,9 +23,13 @@ const HostFinancial = () => {
   const apiBaseUrl = API_CONFIG.BASE_URL;
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [financialStats, setFinancialStats] = useState({
     totalRevenue: 0,
     totalExpenses: 0,
@@ -75,6 +79,7 @@ const HostFinancial = () => {
     const fetchFinancialData = async () => {
       if (!user || !isVerified) {
         setExpenses([]);
+        setProperties([]);
         setFinancialStats({
           totalRevenue: 0,
           totalExpenses: 0,
@@ -85,16 +90,22 @@ const HostFinancial = () => {
       }
 
       try {
-        const response = await fetch(`${apiBaseUrl}/host/financial`, {
-          credentials: 'include',
-          headers: getAuthHeaders()
-        });
+        const [financialResponse, propertiesResponse] = await Promise.all([
+          fetch(`${apiBaseUrl}/host/financial`, {
+            credentials: 'include',
+            headers: getAuthHeaders()
+          }),
+          fetch(`${apiBaseUrl}/properties/host`, {
+            credentials: 'include',
+            headers: getAuthHeaders()
+          })
+        ]);
 
-        if (!response.ok) {
+        if (!financialResponse.ok) {
           throw new Error('Failed to load financial data');
         }
 
-        const payload = await response.json();
+        const payload = await financialResponse.json();
         const stats = payload?.data?.stats || {};
         const loadedExpenses = payload?.data?.expenses || [];
 
@@ -105,8 +116,17 @@ const HostFinancial = () => {
           profitMargin: String(stats.profitMargin || '0.0')
         });
         setExpenses(loadedExpenses);
+
+        if (propertiesResponse.ok) {
+          const propertiesData = await propertiesResponse.json();
+          const propertyTitles = (propertiesData.data || []).map(p => p.title);
+          setProperties(['General', ...propertyTitles]);
+        } else {
+          setProperties(['General']);
+        }
       } catch (error) {
         console.error('Error fetching financial data:', error);
+        setProperties(['General']);
       }
     };
 
@@ -158,33 +178,6 @@ const HostFinancial = () => {
 
   const expenseCategories = calculateExpensesByCategory();
 
-  const securityDeposits = isVerified ? [
-    {
-      bookingId: '#17',
-      unit: 'Trial#1',
-      guests: 2,
-      amount: '2,000',
-      status: 'Held',
-      checkOut: '2/24/2026'
-    },
-    {
-      bookingId: '#18',
-      unit: 'Trial#2',
-      guests: 2,
-      amount: '2,000',
-      status: 'Held',
-      checkOut: '2/24/2026'
-    },
-    {
-      bookingId: '#19',
-      unit: 'Trial#3',
-      guests: 2,
-      amount: '2,000',
-      status: 'Held',
-      checkOut: '2/24/2026'
-    }
-  ] : []; // Empty array for unverified hosts
-
   // Add Expense Form State
   const [expenseForm, setExpenseForm] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -221,7 +214,14 @@ const HostFinancial = () => {
     e.preventDefault();
     
     if (!expenseForm.category || !expenseForm.description || !expenseForm.amount) {
-      alert('Please fill in all required fields');
+      setErrorMessage('Please fill in all required fields');
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (parseFloat(expenseForm.amount) <= 0) {
+      setErrorMessage('Amount must be greater than zero');
+      setShowErrorModal(true);
       return;
     }
 
@@ -266,12 +266,14 @@ const HostFinancial = () => {
       }
 
       handleCloseModal();
+      setShowSuccessModal(true);
     } catch (error) {
-      alert(error.message || 'Failed to add expense');
+      setErrorMessage(error.message || 'Failed to add expense');
+      setShowErrorModal(true);
     }
   };
 
-  const properties = ['Trial#1', 'Trial#2', 'Trial#3', 'General'];
+
 
   const handleEditExpense = (expenseId) => {
     console.log(`Editing expense ${expenseId}`);
@@ -441,77 +443,6 @@ const HostFinancial = () => {
                 </div>
               </>
             )}
-
-            {/* Security Deposits */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-gray-900">Security Deposits</h3>
-                  {isVerified ? (
-                    <div className="flex items-center space-x-4 text-sm">
-                      <span className="text-gray-500">Total: ₱6,000</span>
-                      <span className="text-green-600">Returned: ₱0</span>
-                      <span className="text-yellow-600">Held: ₱6,000</span>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-              
-              {isVerified && securityDeposits.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-out</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {securityDeposits.map((deposit) => (
-                        <tr key={deposit.bookingId} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {deposit.bookingId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {deposit.unit}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {deposit.guests}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {deposit.amount}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                              {deposit.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {deposit.checkOut}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No security deposits available</h3>
-                  <p className="text-gray-600 mb-6">Complete verification to view and manage security deposits.</p>
-                  <a
-                    href="/host/verification"
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-flex items-center space-x-2 font-medium"
-                  >
-                    <span>Complete Verification</span>
-                  </a>
-                </div>
-              )}
-            </div>
           </div>
         )}
 
@@ -836,6 +767,52 @@ const HostFinancial = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center shadow-2xl ring-1 ring-black/5">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 shadow-inner">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Expense Added!</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Your expense has been successfully recorded and added to your financial tracking.
+              </p>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="mt-6 w-full rounded-2xl bg-green-600 px-4 py-3 font-medium text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Modal */}
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center shadow-2xl ring-1 ring-black/5">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600 shadow-inner">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Error</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                {errorMessage}
+              </p>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="mt-6 w-full rounded-2xl bg-red-600 px-4 py-3 font-medium text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700"
+              >
+                OK
+              </button>
             </div>
           </div>
         )}

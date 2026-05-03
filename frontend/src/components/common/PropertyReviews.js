@@ -4,11 +4,14 @@ import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import API_CONFIG from '../../config/api';
 
-const PropertyReviews = ({ propertyId }) => {
+const PropertyReviews = ({ propertyId, isHost = false, hostId = null }) => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     averageRating: 0,
@@ -89,6 +92,45 @@ const PropertyReviews = ({ propertyId }) => {
       month: 'long', 
       day: 'numeric' 
     });
+  };
+
+  const handleSubmitReply = async (reviewId) => {
+    if (!replyText.trim()) return;
+
+    setSubmittingReply(true);
+    try {
+      // Try both localStorage and sessionStorage for token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (!token) {
+        alert('You must be logged in to reply to reviews');
+        setSubmittingReply(false);
+        return;
+      }
+      
+      const response = await axios.post(
+        `${API_CONFIG.BASE_URL}/reviews/${reviewId}/reply`,
+        { reply: replyText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update the review in state
+      setReviews(reviews.map(review => 
+        review.id === reviewId 
+          ? { ...review, hostReply: response.data.hostReply, hostReplyDate: response.data.hostReplyDate }
+          : review
+      ));
+
+      setReplyingTo(null);
+      setReplyText('');
+      alert('Reply submitted successfully!');
+    } catch (err) {
+      console.error('Error submitting reply:', err);
+      const errorMsg = err.response?.data?.message || 'Failed to submit reply';
+      alert(errorMsg);
+    } finally {
+      setSubmittingReply(false);
+    }
   };
 
   if (loading) {
@@ -258,6 +300,60 @@ const PropertyReviews = ({ propertyId }) => {
                         <span className="text-gray-600">Value: </span>
                         <span className="font-medium text-gray-900">{review.value}/5</span>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Host Reply */}
+                {review.hostReply && (
+                  <div className="mt-4 ml-8 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm font-semibold text-blue-900">Host Response</span>
+                      <span className="text-xs text-blue-600">{formatDate(review.hostReplyDate)}</span>
+                    </div>
+                    <p className="text-sm text-gray-700">{review.hostReply}</p>
+                  </div>
+                )}
+
+                {/* Reply Button/Form for Host */}
+                {isHost && hostId === review.hostId && !review.hostReply && (
+                  <div className="mt-4">
+                    {replyingTo === review.id ? (
+                      <div className="ml-8">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Write your response..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                          rows="3"
+                        />
+                        <div className="flex space-x-2 mt-2">
+                          <button
+                            onClick={() => handleSubmitReply(review.id)}
+                            disabled={submittingReply || !replyText.trim()}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
+                          >
+                            {submittingReply ? 'Submitting...' : 'Submit Reply'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReplyingTo(null);
+                              setReplyText('');
+                            }}
+                            disabled={submittingReply}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setReplyingTo(review.id)}
+                        className="ml-8 text-sm text-green-600 hover:text-green-700 font-medium"
+                      >
+                        Reply to review
+                      </button>
                     )}
                   </div>
                 )}

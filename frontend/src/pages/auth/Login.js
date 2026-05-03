@@ -13,6 +13,10 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const navigate = useNavigate();
   const { login, user } = useAuth();
   const apiBaseUrl = API_CONFIG.BASE_URL;
@@ -102,6 +106,12 @@ const Login = () => {
         return true;
       }
 
+      // Check if email not verified
+      if (response.status === 403 && data.emailNotVerified) {
+        setShowResendVerification(true);
+        setResendEmail(data.email || email);
+      }
+
       setError(data.message || 'Login failed');
       return false;
     } catch (err) {
@@ -117,18 +127,49 @@ const Login = () => {
     await loginWithBackend(formData.email, formData.password, rememberMe);
   };
 
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    setResendSuccess(false);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resendEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResendSuccess(true);
+        setError('');
+      } else {
+        setError(data.message || 'Failed to resend verification email');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex overflow-hidden relative">
+    <div className="min-h-screen flex overflow-hidden relative bg-gray-900">
       {/* Full Background Image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-no-repeat"
          style={{
           backgroundImage: "url('/images/image.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center center',
+          backgroundAttachment: 'fixed'
         }}
       ></div>
 
       {/* Optional overlay for better text readability */}
-      <div className="absolute inset-0 bg-black/10"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-black/20"></div>
 
       {/* Left Side - Form */}
       <div className="relative z-10 flex-1 flex items-center justify-start px-8 sm:px-12 lg:px-16">
@@ -139,9 +180,15 @@ const Login = () => {
             </h2>
           </div>
 
-          {error && (
+          {error && !showResendVerification && (
             <div className="bg-red-500/20 border border-red-500/50 text-white px-4 py-3 rounded-lg text-sm">
               {error}
+            </div>
+          )}
+
+          {resendSuccess && (
+            <div className="bg-green-500/20 border border-green-500/50 text-white px-4 py-3 rounded-lg text-sm">
+              Verification email sent! Please check your inbox.
             </div>
           )}
 
@@ -254,6 +301,55 @@ const Login = () => {
           </h1>
         </div>
       </div>
+
+      {/* Email Verification Modal */}
+      {showResendVerification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 mb-4">
+                <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Email Not Verified</h3>
+              <p className="text-gray-600 mb-6">
+                Please verify your email address before logging in. We sent a verification link to <strong>{resendEmail}</strong>
+              </p>
+              
+              {resendSuccess ? (
+                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm mb-4">
+                  ✓ Verification email sent! Please check your inbox.
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg text-sm mb-4">
+                  Didn't receive the email? Check your spam folder or click below to resend.
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendLoading || resendSuccess}
+                  className="w-full rounded-lg bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendLoading ? 'Sending...' : resendSuccess ? 'Email Sent!' : 'Resend Verification Email'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowResendVerification(false);
+                    setResendSuccess(false);
+                    setError('');
+                  }}
+                  className="w-full rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

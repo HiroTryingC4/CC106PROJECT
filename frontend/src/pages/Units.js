@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   MagnifyingGlassIcon,
   MapPinIcon,
   UserGroupIcon,
   HomeIcon,
-  CalendarDaysIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
+import API_CONFIG from '../config/api';
 
 const Units = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,189 +15,67 @@ const Units = () => {
   const [selectedGuests, setSelectedGuests] = useState('');
   const [selectedBedrooms, setSelectedBedrooms] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState('');
   const [priceRange, setPriceRange] = useState('');
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [locations, setLocations] = useState([]);
+  const [propertyTypes, setPropertyTypes] = useState([]);
 
-  // Sample properties data
-  const properties = [
-    {
-      id: 1,
-      title: 'Modern Downtown Apartment',
-      type: 'Apartment',
-      location: 'Downtown',
-      price: 2500,
-      guests: 4,
-      bedrooms: 2,
-      bathrooms: 2,
-      image: '/images/property1.jpg',
-      rating: 4.8,
-      reviews: 124,
-      amenities: ['WiFi', 'Kitchen', 'AC', 'Parking'],
-      description: 'Beautiful modern apartment in the heart of downtown with stunning city views.'
-    },
-    {
-      id: 2,
-      title: 'Cozy Beach House',
-      type: 'House',
-      location: 'Beachfront',
-      price: 3500,
-      guests: 6,
-      bedrooms: 3,
-      bathrooms: 2,
-      image: '/images/property2.jpg',
-      rating: 4.9,
-      reviews: 89,
-      amenities: ['WiFi', 'Kitchen', 'Beach Access', 'BBQ'],
-      description: 'Relaxing beach house with direct access to pristine sandy beaches.'
-    },
-    {
-      id: 3,
-      title: 'Luxury City Condo',
-      type: 'Condo',
-      location: 'City Center',
-      price: 4000,
-      guests: 2,
-      bedrooms: 1,
-      bathrooms: 1,
-      image: '/images/property3.jpg',
-      rating: 4.7,
-      reviews: 156,
-      amenities: ['WiFi', 'Gym', 'Pool', 'Concierge'],
-      description: 'Elegant luxury condo with premium amenities and city skyline views.'
-    },
-    {
-      id: 4,
-      title: 'Family Suburban Home',
-      type: 'House',
-      location: 'Suburbs',
-      price: 2800,
-      guests: 8,
-      bedrooms: 4,
-      bathrooms: 3,
-      image: '/images/property4.jpg',
-      rating: 4.6,
-      reviews: 73,
-      amenities: ['WiFi', 'Kitchen', 'Garden', 'Parking'],
-      description: 'Spacious family home perfect for large groups and extended stays.'
-    },
-    {
-      id: 5,
-      title: 'Studio Near University',
-      type: 'Studio',
-      location: 'University Area',
-      price: 1500,
-      guests: 2,
-      bedrooms: 1,
-      bathrooms: 1,
-      image: '/images/property5.jpg',
-      rating: 4.4,
-      reviews: 92,
-      amenities: ['WiFi', 'Kitchen', 'Study Area'],
-      description: 'Compact studio apartment ideal for students and short-term stays.'
-    },
-    {
-      id: 6,
-      title: 'Mountain Cabin Retreat',
-      type: 'Cabin',
-      location: 'Mountains',
-      price: 3200,
-      guests: 6,
-      bedrooms: 3,
-      bathrooms: 2,
-      image: '/images/property6.jpg',
-      rating: 4.9,
-      reviews: 67,
-      amenities: ['WiFi', 'Fireplace', 'Hot Tub', 'Hiking'],
-      description: 'Peaceful mountain cabin surrounded by nature and hiking trails.'
-    },
-    {
-      id: 7,
-      title: 'Historic Townhouse',
-      type: 'Townhouse',
-      location: 'Historic District',
-      price: 2900,
-      guests: 5,
-      bedrooms: 3,
-      bathrooms: 2,
-      image: '/images/property7.jpg',
-      rating: 4.5,
-      reviews: 108,
-      amenities: ['WiFi', 'Kitchen', 'Historic Charm', 'Parking'],
-      description: 'Charming historic townhouse with original architecture and modern comforts.'
-    },
-    {
-      id: 8,
-      title: 'Penthouse Suite',
-      type: 'Penthouse',
-      location: 'Downtown',
-      price: 5500,
-      guests: 4,
-      bedrooms: 2,
-      bathrooms: 2,
-      image: '/images/property8.jpg',
-      rating: 4.8,
-      reviews: 45,
-      amenities: ['WiFi', 'Terrace', 'City Views', 'Luxury'],
-      description: 'Exclusive penthouse with panoramic city views and luxury amenities.'
-    },
-    {
-      id: 9,
-      title: 'Garden Villa',
-      type: 'Villa',
-      location: 'Residential',
-      price: 4200,
-      guests: 8,
-      bedrooms: 4,
-      bathrooms: 3,
-      image: '/images/property9.jpg',
-      rating: 4.7,
-      reviews: 81,
-      amenities: ['WiFi', 'Garden', 'Pool', 'BBQ'],
-      description: 'Beautiful villa with private garden and swimming pool.'
-    },
-    {
-      id: 10,
-      title: 'Waterfront Loft',
-      type: 'Loft',
-      location: 'Waterfront',
-      price: 3800,
-      guests: 4,
-      bedrooms: 2,
-      bathrooms: 2,
-      image: '/images/property10.jpg',
-      rating: 4.6,
-      reviews: 94,
-      amenities: ['WiFi', 'Water Views', 'Modern', 'Balcony'],
-      description: 'Contemporary loft with stunning waterfront views and modern design.'
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_CONFIG.BASE_URL}/properties?availability=true`, {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const props = data.properties || data || [];
+        setProperties(props);
+        // Extract unique locations and types for filters
+        setLocations([...new Set(props.map(p => {
+          const addr = p.address || '';
+          return typeof addr === 'object' ? addr.city || addr.fullAddress || '' : addr;
+        }).filter(Boolean))]);
+        setPropertyTypes([...new Set(props.map(p => p.type).filter(Boolean))]);
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  // Filter properties based on search criteria
   const filteredProperties = useMemo(() => {
     return properties.filter(property => {
-      const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           property.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           property.type.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesType = !selectedType || property.type === selectedType;
-      const matchesGuests = !selectedGuests || property.guests >= parseInt(selectedGuests);
-      const matchesBedrooms = !selectedBedrooms || property.bedrooms >= parseInt(selectedBedrooms);
-      const matchesLocation = !selectedLocation || property.location === selectedLocation;
-      
+      const title = property.title || '';
+      const addrRaw = property.address || '';
+      const location = typeof addrRaw === 'object'
+        ? addrRaw.city || addrRaw.fullAddress || ''
+        : addrRaw;
+      const type = property.type || '';
+
+      const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            type.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = !selectedType || type === selectedType;
+      const matchesGuests = !selectedGuests || (property.maxGuests || property.max_guests || 0) >= parseInt(selectedGuests);
+      const matchesBedrooms = !selectedBedrooms || (property.bedrooms || 0) >= parseInt(selectedBedrooms);
+      const matchesLocation = !selectedLocation || location === selectedLocation;
+
       let matchesPrice = true;
       if (priceRange) {
+        const price = parseFloat(property.pricePerNight || property.price_per_night || 0);
         const [min, max] = priceRange.split('-').map(p => parseInt(p));
-        if (max) {
-          matchesPrice = property.price >= min && property.price <= max;
-        } else {
-          matchesPrice = property.price >= min;
-        }
+        matchesPrice = max ? (price >= min && price <= max) : price >= min;
       }
 
-      return matchesSearch && matchesType && matchesGuests && matchesBedrooms && 
-             matchesLocation && matchesPrice;
+      return matchesSearch && matchesType && matchesGuests && matchesBedrooms && matchesLocation && matchesPrice;
     });
-  }, [searchTerm, selectedType, selectedGuests, selectedBedrooms, selectedLocation, priceRange]);
+  }, [properties, searchTerm, selectedType, selectedGuests, selectedBedrooms, selectedLocation, priceRange]);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -205,7 +83,6 @@ const Units = () => {
     setSelectedGuests('');
     setSelectedBedrooms('');
     setSelectedLocation('');
-    setSelectedDuration('');
     setPriceRange('');
   };
 
@@ -242,15 +119,9 @@ const Units = () => {
                 className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
                 <option value="">All Types</option>
-                <option value="Apartment">Apartment</option>
-                <option value="House">House</option>
-                <option value="Condo">Condo</option>
-                <option value="Studio">Studio</option>
-                <option value="Villa">Villa</option>
-                <option value="Cabin">Cabin</option>
-                <option value="Loft">Loft</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Townhouse">Townhouse</option>
+                {propertyTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
               </select>
 
               {/* Guests */}
@@ -287,15 +158,9 @@ const Units = () => {
                 className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
                 <option value="">All Locations</option>
-                <option value="Downtown">Downtown</option>
-                <option value="Beachfront">Beachfront</option>
-                <option value="City Center">City Center</option>
-                <option value="Suburbs">Suburbs</option>
-                <option value="University Area">University Area</option>
-                <option value="Mountains">Mountains</option>
-                <option value="Historic District">Historic District</option>
-                <option value="Residential">Residential</option>
-                <option value="Waterfront">Waterfront</option>
+                {locations.map(loc => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
               </select>
 
               {/* Price Range */}
@@ -324,85 +189,98 @@ const Units = () => {
         </div>
       </div>
 
-      {/* Results */}
+        {/* Results */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Results Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">
-            {filteredProperties.length} Properties Found
+            {loading ? 'Loading...' : `${filteredProperties.length} Properties Found`}
           </h2>
-          <div className="text-sm text-gray-600">
-            Showing results for your search criteria
-          </div>
+          <div className="text-sm text-gray-600">Showing results for your search criteria</div>
         </div>
 
-        {/* Properties Grid */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredProperties.map((property) => (
+          {filteredProperties.map((property) => {
+            const title = property.title || 'Unnamed Property';
+            const addrRaw = property.address || '';
+            const location = typeof addrRaw === 'object'
+              ? addrRaw.city || addrRaw.fullAddress || 'Unknown Location'
+              : addrRaw || 'Unknown Location';
+            const type = property.type || 'Property';
+            const price = parseFloat(property.pricePerNight || property.price_per_night || 0);
+            const guests = property.maxGuests || property.max_guests || 0;
+            const bedrooms = property.bedrooms || 0;
+            const bathrooms = property.bathrooms || 0;
+            const rating = parseFloat(property.rating || 0);
+            const reviewCount = property.reviewCount || property.review_count || 0;
+            const description = property.description || '';
+            const amenities = Array.isArray(property.amenities) ? property.amenities : [];
+            const image = Array.isArray(property.images) && property.images.length > 0
+              ? property.images[0]
+              : null;
+
+            return (
             <div key={property.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-              {/* Property Image */}
               <div className="relative h-48 bg-gray-200">
-                <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-blue-500 opacity-75"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <HomeIcon className="w-16 h-16 text-white" />
-                </div>
+                {image ? (
+                  <img src={image} alt={title} className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-blue-500 opacity-75"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <HomeIcon className="w-16 h-16 text-white" />
+                    </div>
+                  </>
+                )}
                 <div className="absolute top-4 right-4 bg-white px-2 py-1 rounded-lg text-sm font-semibold text-gray-900">
-                  ₱{property.price}/night
+                  ₱{price.toLocaleString()}/night
                 </div>
               </div>
 
-              {/* Property Details */}
               <div className="p-6">
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
-                    {property.title}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{title}</h3>
                   <div className="flex items-center space-x-1 text-sm">
                     <span className="text-yellow-400">★</span>
-                    <span className="font-medium">{property.rating}</span>
-                    <span className="text-gray-500">({property.reviews})</span>
+                    <span className="font-medium">{rating > 0 ? rating.toFixed(1) : 'New'}</span>
+                    {reviewCount > 0 && <span className="text-gray-500">({reviewCount})</span>}
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-1 text-gray-600 mb-3">
                   <MapPinIcon className="w-4 h-4" />
-                  <span className="text-sm">{property.location}</span>
+                  <span className="text-sm">{location}</span>
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {property.description}
-                </p>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{description}</p>
 
-                {/* Property Stats */}
                 <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
                   <div className="flex items-center space-x-1">
                     <UserGroupIcon className="w-4 h-4" />
-                    <span>{property.guests} guests</span>
+                    <span>{guests} guests</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <HomeIcon className="w-4 h-4" />
-                    <span>{property.bedrooms} bed</span>
+                    <span>{bedrooms} bed</span>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <span>{property.bathrooms} bath</span>
-                  </div>
+                  <span>{bathrooms} bath</span>
                 </div>
 
-                {/* Amenities */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {property.amenities.slice(0, 3).map((amenity, index) => (
-                    <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                      {amenity}
-                    </span>
-                  ))}
-                  {property.amenities.length > 3 && (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                      +{property.amenities.length - 3} more
-                    </span>
-                  )}
-                </div>
+                {amenities.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {amenities.slice(0, 3).map((amenity, index) => (
+                      <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{amenity}</span>
+                    ))}
+                    {amenities.length > 3 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">+{amenities.length - 3} more</span>
+                    )}
+                  </div>
+                )}
 
-                {/* Book Button */}
                 <div className="flex space-x-2">
                   <Link
                     to={`/guest/units/${property.id}/reviews`}
@@ -419,26 +297,69 @@ const Units = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
+        )}
 
-        {/* Empty State */}
-        {filteredProperties.length === 0 && (
+        {!loading && filteredProperties.length === 0 && (
           <div className="text-center py-12">
             <HomeIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">No properties found</h3>
-            <p className="text-gray-600 mb-4">
-              Try adjusting your search criteria or clearing some filters.
-            </p>
-            <button
-              onClick={clearFilters}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
+            <p className="text-gray-600 mb-4">Try adjusting your search criteria or clearing some filters.</p>
+            <button onClick={clearFilters} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium">
               Clear All Filters
             </button>
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="text-white py-12 mt-16" style={{backgroundColor: '#0C1805'}}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="sm:col-span-2 lg:col-span-1">
+              <h3 className="text-2xl font-bold mb-4" style={{color: '#4E7B22'}}>Smart Stay</h3>
+              <p className="text-gray-400 text-base leading-relaxed">
+                Your trusted platform for booking amazing properties with ease and confidence.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4 text-lg">Quick Links</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/" className="hover:text-white transition-colors">Home</a></li>
+                <li><a href="/units" className="hover:text-white transition-colors">Browse Units</a></li>
+                <li><a href="/recommendations" className="hover:text-white transition-colors">Recommendations</a></li>
+                <li><a href="/faqs" className="hover:text-white transition-colors">FAQs</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4 text-lg">Support</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/help" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">Contact Us</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4 text-lg">Contact</h4>
+              <div className="space-y-3 text-gray-400">
+                <p>Email: info@smartstay.com</p>
+                <p>Phone: +1 (234) 567-8900</p>
+                <p>Address: 123 Main St, City, State</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2024 Smart Stay. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

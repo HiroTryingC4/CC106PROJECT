@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { StarIcon, ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { StarIcon, ChatBubbleLeftRightIcon, XMarkIcon, HomeIcon } from '@heroicons/react/24/outline';
+import API_CONFIG from '../config/api';
 
 const Recommendations = () => {
   const [showReportModal, setShowReportModal] = useState(false);
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -13,6 +17,29 @@ const Recommendations = () => {
     }
   ]);
   const [newMessage, setNewMessage] = useState('');
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoading(true);
+      // Fetch top-rated available properties
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/properties?availability=true&sort=rating&limit=8`,
+        { credentials: 'include' }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setProperties(data.properties || data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -77,7 +104,7 @@ const Recommendations = () => {
         {/* Header */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center">
-            Trending Now 
+            Trending Now
             <span className="ml-3 text-purple-500">✨</span>
           </h1>
           <p className="text-xl text-gray-600">
@@ -85,122 +112,85 @@ const Recommendations = () => {
           </p>
         </div>
 
-        {/* Properties Grid */}
+        {/* Loading */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : properties.length === 0 ? (
+          <div className="text-center py-20 text-gray-500">
+            <HomeIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p className="text-lg">No properties available at the moment.</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
-          {/* Luxury Beachfront Condo */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Luxury Beachfront Condo"
-                className="w-full h-64 object-cover"
-              />
-              <div className="absolute top-4 left-4">
-                <span className="px-3 py-1.5 bg-[#4E7B22] text-white text-sm font-medium rounded-full flex items-center">
-                  🏢 CONDO
-                </span>
-              </div>
-              <div className="absolute top-4 right-4 flex items-center bg-white bg-opacity-95 px-3 py-1.5 rounded-full shadow-sm">
-                <StarIcon className="w-5 h-5 text-yellow-400 fill-current" />
-                <span className="text-lg font-bold ml-1">4.9</span>
-                <span className="text-gray-500 ml-1">(98)</span>
-              </div>
-            </div>
-            <div className="p-6">
-              <h3 className="text-2xl font-bold text-gray-900 mb-3 border-b-2 border-[#4E7B22] pb-2 inline-block">
-                Luxury Beachfront Condo
-              </h3>
-              <p className="text-gray-600 text-base mb-6 leading-relaxed">
-                Stunning 2-bedroom condo with ocean views, modern amenities, and direct beach access.
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <span className="text-3xl font-bold text-[#4E7B22]">₱150</span>
-                  <span className="text-gray-500 text-lg ml-1">/night</span>
-                </div>
-                <div className="text-gray-500 text-base">
-                  2 bed • 2 bath • 4 guests
-                </div>
-              </div>
-            </div>
-          </div>
+          {properties.map((property) => {
+            const title = property.title || 'Unnamed Property';
+            const type = (property.type || 'Property').toUpperCase();
+            const price = parseFloat(property.pricePerNight || property.price_per_night || 0);
+            const rating = parseFloat(property.rating || 0);
+            const reviewCount = property.reviewCount || property.review_count || 0;
+            const description = property.description || '';
+            const bedrooms = property.bedrooms || 0;
+            const bathrooms = property.bathrooms || 0;
+            const guests = property.maxGuests || property.max_guests || 0;
+            const addrRaw = property.address || '';
+            const location = typeof addrRaw === 'object'
+              ? addrRaw.city || addrRaw.fullAddress || ''
+              : addrRaw;
+            const image = Array.isArray(property.images) && property.images.length > 0
+              ? property.images[0]
+              : null;
 
-          {/* Modern Downtown Studio */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Modern Downtown Studio"
-                className="w-full h-64 object-cover"
-              />
-              <div className="absolute top-4 left-4">
-                <span className="px-3 py-1.5 bg-[#4E7B22] text-white text-sm font-medium rounded-full flex items-center">
-                  🏢 STUDIO
-                </span>
-              </div>
-              <div className="absolute top-4 right-4 flex items-center bg-white bg-opacity-95 px-3 py-1.5 rounded-full shadow-sm">
-                <StarIcon className="w-5 h-5 text-yellow-400 fill-current" />
-                <span className="text-lg font-bold ml-1">4.5</span>
-                <span className="text-gray-500 ml-1">(28)</span>
-              </div>
-            </div>
-            <div className="p-6">
-              <h3 className="text-2xl font-bold text-gray-900 mb-3 border-b-2 border-[#4E7B22] pb-2 inline-block">
-                Modern Downtown Studio
-              </h3>
-              <p className="text-gray-600 text-base mb-6 leading-relaxed">
-                Cozy studio apartment in the heart of downtown, perfect for business travelers.
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <span className="text-3xl font-bold text-[#4E7B22]">₱85</span>
-                  <span className="text-gray-500 text-lg ml-1">/night</span>
+            return (
+              <div key={property.id} className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="relative">
+                  {image ? (
+                    <img src={image} alt={title} className="w-full h-64 object-cover" />
+                  ) : (
+                    <div className="w-full h-64 bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+                      <HomeIcon className="w-16 h-16 text-white" />
+                    </div>
+                  )}
+                  <div className="absolute top-4 left-4">
+                    <span className="px-3 py-1.5 bg-[#4E7B22] text-white text-sm font-medium rounded-full">
+                      🏢 {type}
+                    </span>
+                  </div>
+                  <div className="absolute top-4 right-4 flex items-center bg-white bg-opacity-95 px-3 py-1.5 rounded-full shadow-sm">
+                    <StarIcon className="w-5 h-5 text-yellow-400 fill-current" />
+                    <span className="text-lg font-bold ml-1">{rating > 0 ? rating.toFixed(1) : 'New'}</span>
+                    {reviewCount > 0 && <span className="text-gray-500 ml-1">({reviewCount})</span>}
+                  </div>
                 </div>
-                <div className="text-gray-500 text-base">
-                  1 bed • 1 bath • 2 guests
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Family-Friendly Villa */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                alt="Family-Friendly Villa"
-                className="w-full h-64 object-cover"
-              />
-              <div className="absolute top-4 left-4">
-                <span className="px-3 py-1.5 bg-[#4E7B22] text-white text-sm font-medium rounded-full flex items-center">
-                  🏡 VILLA
-                </span>
-              </div>
-              <div className="absolute top-4 right-4 flex items-center bg-white bg-opacity-95 px-3 py-1.5 rounded-full shadow-sm">
-                <StarIcon className="w-5 h-5 text-yellow-400 fill-current" />
-                <span className="text-lg font-bold ml-1">4.5</span>
-                <span className="text-gray-500 ml-1">(65)</span>
-              </div>
-            </div>
-            <div className="p-6">
-              <h3 className="text-2xl font-bold text-gray-900 mb-3 border-b-2 border-[#4E7B22] pb-2 inline-block">
-                Family-Friendly Villa
-              </h3>
-              <p className="text-gray-600 text-base mb-6 leading-relaxed">
-                Spacious 3-bedroom villa with private pool, perfect for families.
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <span className="text-3xl font-bold text-[#4E7B22]">₱220</span>
-                  <span className="text-gray-500 text-lg ml-1">/night</span>
-                </div>
-                <div className="text-gray-500 text-base">
-                  3 bed • 3 bath • 6 guests
+                <div className="p-6">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3 border-b-2 border-[#4E7B22] pb-2 inline-block">
+                    {title}
+                  </h3>
+                  <p className="text-gray-600 text-base mb-6 leading-relaxed line-clamp-2">
+                    {description}
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <span className="text-3xl font-bold text-[#4E7B22]">₱{price.toLocaleString()}</span>
+                      <span className="text-gray-500 text-lg ml-1">/night</span>
+                    </div>
+                    <div className="text-gray-500 text-base">
+                      {bedrooms} bed • {bathrooms} bath • {guests} guests
+                    </div>
+                  </div>
+                  <Link
+                    to={`/guest/units/${property.id}`}
+                    className="mt-4 block w-full text-center bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    View Details
+                  </Link>
                 </div>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
+        )}
       </div>
 
       {/* Footer */}

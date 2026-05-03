@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CommunicationAdminLayout from '../../components/common/CommunicationAdminLayout';
 import { 
   ChatBubbleLeftRightIcon,
@@ -10,15 +10,18 @@ import {
   EyeIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline';
+import API_CONFIG from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CommunicationAdminChatbotAnalytics = () => {
+  const { token } = useAuth();
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
   const [showAllConversations, setShowAllConversations] = useState(false);
-
-  const stats = [
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState([
     {
       name: 'Total Conversations',
-      value: '2,847',
+      value: '0',
       change: '+12%',
       changeType: 'increase',
       icon: ChatBubbleLeftRightIcon,
@@ -26,7 +29,7 @@ const CommunicationAdminChatbotAnalytics = () => {
     },
     {
       name: 'Active Users',
-      value: '1,234',
+      value: '0',
       change: '+8%',
       changeType: 'increase',
       icon: UserGroupIcon,
@@ -34,7 +37,7 @@ const CommunicationAdminChatbotAnalytics = () => {
     },
     {
       name: 'Avg Response Time',
-      value: '1.2s',
+      value: '0s',
       change: '-15%',
       changeType: 'decrease',
       icon: ClockIcon,
@@ -42,121 +45,133 @@ const CommunicationAdminChatbotAnalytics = () => {
     },
     {
       name: 'Success Rate',
-      value: '94.5%',
+      value: '0%',
       change: '+3%',
       changeType: 'increase',
       icon: CheckCircleIcon,
       color: 'bg-purple-500'
     }
-  ];
+  ]);
+  const [performance, setPerformance] = useState({
+    resolutionRate: 0,
+    userSatisfaction: 0,
+    escalationRate: 0,
+    peakHours: 'N/A',
+    busiestDay: 'N/A',
+    avgSessionLength: '0m 0s',
+    returnUsers: 0
+  });
+  const [recentConversations, setRecentConversations] = useState([]);
+  const [topQuestions, setTopQuestions] = useState([]);
+  const [unansweredQuestions, setUnansweredQuestions] = useState([]);
 
-  const topQuestions = [
-    { question: 'How do I book a unit?', count: 234, percentage: 18.5 },
-    { question: 'What payment methods do you accept?', count: 189, percentage: 14.9 },
-    { question: 'How do I cancel my booking?', count: 156, percentage: 12.3 },
-    { question: 'What is your cancellation policy?', count: 134, percentage: 10.6 },
-    { question: 'How do I contact my host?', count: 98, percentage: 7.7 }
-  ];
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [token, selectedTimeRange]);
 
-  const unansweredQuestions = [
-    { question: 'Can I bring my emotional support peacock?', count: 12, timestamp: '2 hours ago' },
-    { question: 'Do you accept payment in cryptocurrency?', count: 8, timestamp: '4 hours ago' },
-    { question: 'Is there a discount for time travelers?', count: 6, timestamp: '6 hours ago' },
-    { question: 'Can I book a unit on Mars?', count: 4, timestamp: '1 day ago' }
-  ];
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-  const recentConversations = [
-    {
-      id: 1,
-      user: 'john.doe@example.com',
-      messages: 5,
-      duration: '3m 24s',
-      status: 'resolved',
-      timestamp: '5 minutes ago',
-      satisfaction: 'positive'
-    },
-    {
-      id: 2,
-      user: 'jane.smith@example.com',
-      messages: 8,
-      duration: '7m 12s',
-      status: 'escalated',
-      timestamp: '12 minutes ago',
-      satisfaction: 'neutral'
-    },
-    {
-      id: 3,
-      user: 'mike.johnson@example.com',
-      messages: 3,
-      duration: '1m 45s',
-      status: 'resolved',
-      timestamp: '18 minutes ago',
-      satisfaction: 'positive'
-    },
-    {
-      id: 4,
-      user: 'sarah.wilson@example.com',
-      messages: 12,
-      duration: '15m 33s',
-      status: 'ongoing',
-      timestamp: '25 minutes ago',
-      satisfaction: 'negative'
-    },
-    {
-      id: 5,
-      user: 'alex.brown@example.com',
-      messages: 6,
-      duration: '4m 18s',
-      status: 'resolved',
-      timestamp: '32 minutes ago',
-      satisfaction: 'positive'
-    },
-    {
-      id: 6,
-      user: 'emma.davis@example.com',
-      messages: 9,
-      duration: '8m 45s',
-      status: 'escalated',
-      timestamp: '45 minutes ago',
-      satisfaction: 'negative'
-    },
-    {
-      id: 7,
-      user: 'david.miller@example.com',
-      messages: 4,
-      duration: '2m 33s',
-      status: 'resolved',
-      timestamp: '1 hour ago',
-      satisfaction: 'positive'
-    },
-    {
-      id: 8,
-      user: 'lisa.garcia@example.com',
-      messages: 7,
-      duration: '5m 12s',
-      status: 'ongoing',
-      timestamp: '1 hour ago',
-      satisfaction: 'neutral'
-    },
-    {
-      id: 9,
-      user: 'robert.taylor@example.com',
-      messages: 11,
-      duration: '12m 28s',
-      status: 'resolved',
-      timestamp: '2 hours ago',
-      satisfaction: 'positive'
-    },
-    {
-      id: 10,
-      user: 'maria.rodriguez@example.com',
-      messages: 15,
-      duration: '18m 45s',
-      status: 'escalated',
-      timestamp: '2 hours ago',
-      satisfaction: 'negative'
+      // Fetch stats
+      const statsResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/comm-admin/chatbot/analytics/stats?timeRange=${selectedTimeRange}`,
+        { credentials: 'include', headers }
+      );
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats([
+          {
+            name: 'Total Conversations',
+            value: statsData.totalConversations.toLocaleString(),
+            change: '+12%',
+            changeType: 'increase',
+            icon: ChatBubbleLeftRightIcon,
+            color: 'bg-green-500'
+          },
+          {
+            name: 'Active Users',
+            value: statsData.activeUsers.toLocaleString(),
+            change: '+8%',
+            changeType: 'increase',
+            icon: UserGroupIcon,
+            color: 'bg-blue-500'
+          },
+          {
+            name: 'Avg Response Time',
+            value: `${statsData.avgResponseTime}s`,
+            change: '-15%',
+            changeType: 'decrease',
+            icon: ClockIcon,
+            color: 'bg-yellow-500'
+          },
+          {
+            name: 'Success Rate',
+            value: `${statsData.successRate}%`,
+            change: '+3%',
+            changeType: 'increase',
+            icon: CheckCircleIcon,
+            color: 'bg-purple-500'
+          }
+        ]);
+      }
+
+      // Fetch performance metrics
+      const performanceResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/comm-admin/chatbot/analytics/performance?timeRange=${selectedTimeRange}`,
+        { credentials: 'include', headers }
+      );
+
+      if (performanceResponse.ok) {
+        const performanceData = await performanceResponse.json();
+        setPerformance(performanceData);
+      }
+
+      // Fetch conversations
+      const conversationsResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/comm-admin/chatbot/analytics/conversations?limit=10`,
+        { credentials: 'include', headers }
+      );
+
+      if (conversationsResponse.ok) {
+        const conversationsData = await conversationsResponse.json();
+        setRecentConversations(conversationsData);
+      }
+
+      // Fetch top questions
+      const topQuestionsResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/comm-admin/chatbot/analytics/top-questions?timeRange=${selectedTimeRange}&limit=5`,
+        { credentials: 'include', headers }
+      );
+
+      if (topQuestionsResponse.ok) {
+        const topQuestionsData = await topQuestionsResponse.json();
+        setTopQuestions(topQuestionsData);
+      }
+
+      // Fetch unanswered questions
+      const unansweredResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/comm-admin/chatbot/analytics/unanswered-questions?timeRange=${selectedTimeRange}&limit=4`,
+        { credentials: 'include', headers }
+      );
+
+      if (unansweredResponse.ok) {
+        const unansweredData = await unansweredResponse.json();
+        setUnansweredQuestions(unansweredData);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -256,26 +271,26 @@ const CommunicationAdminChatbotAnalytics = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Resolution Rate</span>
-                <span className="text-sm font-medium text-gray-900">94.5%</span>
+                <span className="text-sm font-medium text-gray-900">{performance.resolutionRate}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-600 h-2 rounded-full" style={{width: '94.5%'}}></div>
+                <div className="bg-green-600 h-2 rounded-full" style={{width: `${performance.resolutionRate}%`}}></div>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">User Satisfaction</span>
-                <span className="text-sm font-medium text-gray-900">87.2%</span>
+                <span className="text-sm font-medium text-gray-900">{performance.userSatisfaction}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{width: '87.2%'}}></div>
+                <div className="bg-blue-600 h-2 rounded-full" style={{width: `${performance.userSatisfaction}%`}}></div>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Escalation Rate</span>
-                <span className="text-sm font-medium text-gray-900">5.8%</span>
+                <span className="text-sm font-medium text-gray-900">{performance.escalationRate}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-yellow-600 h-2 rounded-full" style={{width: '5.8%'}}></div>
+                <div className="bg-yellow-600 h-2 rounded-full" style={{width: `${performance.escalationRate}%`}}></div>
               </div>
             </div>
           </div>
@@ -289,22 +304,22 @@ const CommunicationAdminChatbotAnalytics = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Peak Hours</span>
-                <span className="text-sm font-medium text-gray-900">2PM - 4PM</span>
+                <span className="text-sm font-medium text-gray-900">{performance.peakHours}</span>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Busiest Day</span>
-                <span className="text-sm font-medium text-gray-900">Monday</span>
+                <span className="text-sm font-medium text-gray-900">{performance.busiestDay}</span>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Avg Session Length</span>
-                <span className="text-sm font-medium text-gray-900">4m 32s</span>
+                <span className="text-sm font-medium text-gray-900">{performance.avgSessionLength}</span>
               </div>
               
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Return Users</span>
-                <span className="text-sm font-medium text-gray-900">23.4%</span>
+                <span className="text-sm font-medium text-gray-900">{performance.returnUsers}%</span>
               </div>
             </div>
           </div>
@@ -314,43 +329,55 @@ const CommunicationAdminChatbotAnalytics = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Top Questions</h3>
-            <div className="space-y-4">
-              {topQuestions.map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{item.question}</p>
-                    <div className="flex items-center mt-1">
-                      <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
-                        <div 
-                          className="bg-green-600 h-2 rounded-full" 
-                          style={{width: `${item.percentage}%`}}
-                        ></div>
+            {topQuestions.length > 0 ? (
+              <div className="space-y-4">
+                {topQuestions.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{item.question}</p>
+                      <div className="flex items-center mt-1">
+                        <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
+                          <div 
+                            className="bg-green-600 h-2 rounded-full" 
+                            style={{width: `${item.percentage}%`}}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">{item.count} asks</span>
                       </div>
-                      <span className="text-xs text-gray-500 whitespace-nowrap">{item.count} asks</span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No questions data available</p>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Unanswered Questions</h3>
-            <div className="space-y-4">
-              {unansweredQuestions.map((item, index) => (
-                <div key={index} className="flex items-start justify-between p-3 bg-red-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{item.question}</p>
-                    <div className="flex items-center mt-1 space-x-2">
-                      <span className="text-xs text-red-600">{item.count} times</span>
-                      <span className="text-xs text-gray-500">•</span>
-                      <span className="text-xs text-gray-500">{item.timestamp}</span>
+            {unansweredQuestions.length > 0 ? (
+              <div className="space-y-4">
+                {unansweredQuestions.map((item, index) => (
+                  <div key={index} className="flex items-start justify-between p-3 bg-red-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{item.question}</p>
+                      <div className="flex items-center mt-1 space-x-2">
+                        <span className="text-xs text-red-600">{item.count} times</span>
+                        <span className="text-xs text-gray-500">•</span>
+                        <span className="text-xs text-gray-500">{item.timestamp}</span>
+                      </div>
                     </div>
+                    <ExclamationTriangleIcon className="w-4 h-4 text-red-500 mt-0.5" />
                   </div>
-                  <ExclamationTriangleIcon className="w-4 h-4 text-red-500 mt-0.5" />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No unanswered questions</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -373,58 +400,64 @@ const CommunicationAdminChatbotAnalytics = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Messages</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Satisfaction</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {getDisplayedConversations().map((conversation) => (
-                  <tr key={conversation.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-gray-600">
-                            {conversation.user.charAt(0).toUpperCase()}
+            {recentConversations.length > 0 ? (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Messages</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Satisfaction</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {getDisplayedConversations().map((conversation) => (
+                    <tr key={conversation.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-600">
+                              {conversation.user.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-medium text-gray-900">{conversation.user}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {conversation.messages}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {conversation.duration}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(conversation.status)}`}>
+                          {conversation.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <span className="text-lg mr-2">{getSatisfactionIcon(conversation.satisfaction)}</span>
+                          <span className={`text-sm font-medium ${getSatisfactionColor(conversation.satisfaction)}`}>
+                            {conversation.satisfaction}
                           </span>
                         </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">{conversation.user}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conversation.messages}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conversation.duration}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(conversation.status)}`}>
-                        {conversation.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className="text-lg mr-2">{getSatisfactionIcon(conversation.satisfaction)}</span>
-                        <span className={`text-sm font-medium ${getSatisfactionColor(conversation.satisfaction)}`}>
-                          {conversation.satisfaction}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {conversation.timestamp}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {conversation.timestamp}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <p>No conversations available</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

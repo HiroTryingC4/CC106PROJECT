@@ -17,6 +17,7 @@ import HelpCenter from './pages/HelpCenter';
 import Contact from './pages/Contact';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import VerifyEmail from './pages/auth/VerifyEmail';
 import MessagingDemo from './pages/MessagingDemo';
 
 // Guest components
@@ -37,6 +38,7 @@ import CheckoutAndReview from './pages/guest/CheckoutAndReview';
 import GuestMessages from './pages/guest/GuestMessages';
 import GuestProfile from './pages/guest/GuestProfile';
 import GuestSettings from './pages/guest/GuestSettings';
+import GuestFavorites from './pages/guest/GuestFavorites';
 import GuestNotifications from './pages/guest/GuestNotifications';
 import GuestWebSocketNotifications from './pages/guest/GuestWebSocketNotifications';
 
@@ -70,7 +72,6 @@ import AdminReports from './pages/admin/AdminReports';
 import AdminUnits from './pages/admin/AdminUnits';
 import AdminReviews from './pages/admin/AdminReviews';
 import ActivityLogs from './pages/admin/ActivityLogs';
-import Security from './pages/admin/Security';
 import AdminMessages from './pages/admin/AdminMessages';
 import Financial from './pages/admin/Financial';
 import HostVerification from './pages/admin/HostVerification';
@@ -83,6 +84,7 @@ import CommunicationAdminManagement from './pages/admin/CommunicationAdminManage
 import CommunicationAdminDashboard from './pages/admin/CommunicationAdminDashboard';
 import CommunicationAdminMessages from './pages/admin/CommunicationAdminMessages';
 import CommunicationAdminChatbotAnalytics from './pages/admin/CommunicationAdminChatbotAnalytics';
+import CommunicationAdminLiveChat from './pages/admin/CommunicationAdminLiveChat';
 import CommunicationAdminSettings from './pages/admin/CommunicationAdminSettings';
 import CommunicationAdminProfile from './pages/admin/CommunicationAdminProfile';
 import CommunicationAdminNotifications from './pages/admin/CommunicationAdminNotifications';
@@ -171,6 +173,9 @@ function App() {
                 <Route path="/register" element={<Register />} />
               </Route>
               
+              {/* Email verification (public) */}
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              
               {/* Guest routes */}
               <Route element={<RequireAuth allowedRoles={['guest']} />}>
                 <Route path="/guest/dashboard" element={<GuestDashboard />} />
@@ -189,6 +194,7 @@ function App() {
                 <Route path="/guest/bookings/:bookingId/review" element={<GuestReview />} />
                 <Route path="/guest/bookings/:bookingId/checkout-review" element={<CheckoutAndReview />} />
                 <Route path="/guest/messages" element={<GuestMessages />} />
+                <Route path="/guest/favorites" element={<GuestFavorites />} />
                 <Route path="/guest/profile" element={<GuestProfile />} />
                 <Route path="/guest/settings" element={<GuestSettings />} />
                 <Route path="/guest/notifications" element={<GuestWebSocketNotifications />} />
@@ -222,7 +228,6 @@ function App() {
                 <Route path="/admin/units" element={<AdminUnits />} />
                 <Route path="/admin/reviews" element={<AdminReviews />} />
                 <Route path="/admin/activity-logs" element={<ActivityLogs />} />
-                <Route path="/admin/security" element={<Security />} />
                 <Route path="/admin/messages" element={<AdminMessages />} />
                 <Route path="/admin/chatbot-analytics" element={<ChatbotAnalytics />} />
                 <Route path="/admin/financial" element={<Financial />} />
@@ -238,6 +243,7 @@ function App() {
                 <Route path="/comm-admin/dashboard" element={<CommunicationAdminDashboard />} />
                 <Route path="/comm-admin/messages" element={<CommunicationAdminMessages />} />
                 <Route path="/comm-admin/chatbot-analytics" element={<CommunicationAdminChatbotAnalytics />} />
+                <Route path="/comm-admin/live-chat" element={<CommunicationAdminLiveChat />} />
                 <Route path="/comm-admin/settings" element={<CommunicationAdminSettings />} />
                 <Route path="/comm-admin/profile" element={<CommunicationAdminProfile />} />
                 <Route path="/comm-admin/notifications" element={<CommunicationAdminNotifications />} />

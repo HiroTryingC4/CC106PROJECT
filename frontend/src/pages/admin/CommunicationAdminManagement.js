@@ -203,20 +203,20 @@ const CommunicationAdminManagement = () => {
   // Main management interface (unlocked)
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 flex items-center">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-3xl">
+            <h2 className="flex items-center text-2xl font-bold text-gray-900 sm:text-3xl">
               <UsersIcon className="w-8 h-8 mr-3 text-green-600" />
               Communication Admin Management
             </h2>
-            <p className="text-gray-600 mt-2">Manage communication administrators and their access</p>
+            <p className="mt-2 text-gray-600">Manage communication administrators and their access</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
               onClick={() => setShowAddForm(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+              className="inline-flex w-full items-center justify-center space-x-2 rounded-xl bg-green-600 px-4 py-3 text-white hover:bg-green-700 sm:w-auto sm:py-2"
             >
               <UserPlusIcon className="w-5 h-5" />
               <span>Add New Admin</span>
@@ -226,7 +226,7 @@ const CommunicationAdminManagement = () => {
                 setIsUnlocked(false);
                 setPassword('');
               }}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center space-x-2"
+              className="inline-flex w-full items-center justify-center space-x-2 rounded-xl bg-red-600 px-4 py-3 text-white hover:bg-red-700 sm:w-auto sm:py-2"
             >
               <LockClosedIcon className="w-5 h-5" />
               <span>Lock Page</span>
@@ -235,22 +235,22 @@ const CommunicationAdminManagement = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Total Comm Admins</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-2">{commAdmins.length}</p>
+            <p className="mt-2 text-3xl font-bold text-gray-900">{commAdmins.length}</p>
             <p className="text-sm text-green-600 mt-1">Active accounts</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Active Admins</h3>
-            <p className="text-3xl font-bold text-green-600 mt-2">
+            <p className="mt-2 text-3xl font-bold text-green-600">
               {commAdmins.filter(a => a.status === 'active').length}
             </p>
             <p className="text-sm text-green-600 mt-1">Currently active</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Inactive Admins</h3>
-            <p className="text-3xl font-bold text-red-600 mt-2">
+            <p className="mt-2 text-3xl font-bold text-red-600">
               {commAdmins.filter(a => a.status === 'inactive').length}
             </p>
             <p className="text-sm text-red-600 mt-1">Disabled accounts</p>
@@ -258,7 +258,66 @@ const CommunicationAdminManagement = () => {
         </div>
 
         {/* Communication Admins List */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="space-y-3 sm:hidden">
+          {commAdmins.map((admin) => (
+            <div key={admin.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600">
+                    <span className="text-sm font-medium text-white">
+                      {admin.firstName[0]}{admin.lastName[0]}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-gray-900">
+                      {admin.firstName} {admin.lastName}
+                    </div>
+                    <div className="truncate text-sm text-gray-500">{admin.email}</div>
+                  </div>
+                </div>
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                  admin.status === 'active'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {admin.status}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Admin Number</p>
+                  <p className="font-medium text-gray-900">{admin.adminNumber}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Last Login</p>
+                  <p className="font-medium text-gray-900">{admin.lastLogin}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleToggleStatus(admin.id)}
+                  className={`rounded-xl px-3 py-2 text-xs font-medium ${
+                    admin.status === 'active'
+                      ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                      : 'bg-green-100 text-green-800 hover:bg-green-200'
+                  }`}
+                >
+                  {admin.status === 'active' ? 'Disable' : 'Enable'}
+                </button>
+                <button
+                  onClick={() => handleDeleteAdmin(admin.id)}
+                  className="rounded-xl p-2 text-red-600 hover:bg-red-50 hover:text-red-800"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden bg-white rounded-2xl shadow-sm overflow-hidden sm:block">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Communication Administrators</h3>
           </div>

@@ -179,6 +179,7 @@ const faqsRouter = require('./routes/faqs');
 const contactRouter = require('./routes/contact');
 const pendingBookingsRouter = require('./routes/pendingBookings');
 const checkoutPhotosRouter = require('./routes/checkoutPhotos');
+const commAdminRouter = require('./routes/commAdmin');
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
@@ -197,6 +198,7 @@ app.use('/api/faqs', faqsRouter);
 app.use('/api/contact', contactRouter);
 app.use('/api/pending-bookings', pendingBookingsRouter);
 app.use('/api/bookings/:id/checkout-photos', checkoutPhotosRouter);
+app.use('/api/comm-admin', commAdminRouter);
 
 // Set admin router reference in host router
 if (hostRouter.setAdminRouter) {
@@ -257,10 +259,10 @@ const startServer = async () => {
     await pool.query('SELECT 1');
     console.log('PostgreSQL connected successfully');
 
-    const migratedFiles = await runMigrations(pool);
-    if (migratedFiles.length > 0) {
-      console.log(`Database migrations ready: ${migratedFiles.join(', ')}`);
-    }
+    // Migrations disabled - run manually with: node migrate.js
+    // This prevents duplicate data on server restart
+    console.log('Note: Database migrations are disabled on startup.');
+    console.log('To run migrations manually, use: node migrate.js');
 
     const PORT = process.env.PORT || 5000;
     

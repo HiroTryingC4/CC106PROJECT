@@ -32,6 +32,9 @@ const HostBookings = () => {
   const [cancellationInfo, setCancellationInfo] = useState(null);
   const [bookingToCancel, setBookingToCancel] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [cancellationResult, setCancellationResult] = useState(null);
 
   const formatCurrency = (amount) => `PHP ${Number(amount || 0).toLocaleString('en-PH')}`;
@@ -204,11 +207,48 @@ const HostBookings = () => {
     }
   };
 
-  const handleApprove = (bookingId) => updateBookingStatus(bookingId, 'confirmed');
+  const handleApprove = async (bookingId) => {
+    try {
+      setActionBookingId(bookingId);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${apiBaseUrl}/bookings/${bookingId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'confirmed' })
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        throw new Error(errorPayload.message || 'Failed to approve booking');
+      }
+
+      const payload = await response.json();
+      const updatedBooking = payload.booking;
+
+      setBookings((prev) => prev.map((booking) => (
+        booking.id === bookingId ? { ...booking, ...updatedBooking } : booking
+      )));
+
+      if (selectedBooking?.id === bookingId) {
+        setSelectedBooking((prev) => ({ ...prev, ...updatedBooking }));
+      }
+
+      setSuccessMessage('Booking has been successfully approved!');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error approving booking:', error);
+      setErrorMessage(error.message || 'Unable to approve booking');
+      setShowErrorModal(true);
+    } finally {
+      setActionBookingId(null);
+    }
+  };
   
   const handleReject = async (bookingId) => {
-    if (!window.confirm('Reject this booking request?')) return;
-    
     try {
       setActionBookingId(bookingId);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -237,9 +277,13 @@ const HostBookings = () => {
       if (selectedBooking?.id === bookingId) {
         setSelectedBooking((prev) => ({ ...prev, ...updatedBooking }));
       }
+
+      setSuccessMessage('Booking has been successfully rejected.');
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Error rejecting booking:', error);
-      alert(error.message || 'Unable to reject booking');
+      setErrorMessage(error.message || 'Unable to reject booking');
+      setShowErrorModal(true);
     } finally {
       setActionBookingId(null);
     }
@@ -262,7 +306,8 @@ const HostBookings = () => {
       const policyData = await response.json();
 
       if (!policyData.canCancel) {
-        alert(policyData.reason || 'Cannot cancel this booking');
+        setErrorMessage(policyData.reason || 'Cannot cancel this booking');
+        setShowErrorModal(true);
         return;
       }
 
@@ -271,7 +316,8 @@ const HostBookings = () => {
       setShowCancelModal(true);
     } catch (err) {
       console.error('Error fetching cancellation policy:', err);
-      alert('Unable to fetch cancellation policy');
+      setErrorMessage('Unable to fetch cancellation policy');
+      setShowErrorModal(true);
     }
   };
 
@@ -300,7 +346,8 @@ const HostBookings = () => {
       setShowSuccessModal(true);
     } catch (err) {
       console.error('Error cancelling booking:', err);
-      alert(err.message || 'Unable to cancel booking');
+      setErrorMessage(err.message || 'Unable to cancel booking');
+      setShowErrorModal(true);
     } finally {
       setActionBookingId(null);
       setBookingToCancel(null);
@@ -392,9 +439,55 @@ const HostBookings = () => {
     <HostLayout>
       <div className="space-y-6">
         {/* Success Modal */}
+        {showSuccessModal && !cancellationResult && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center shadow-2xl ring-1 ring-black/5">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 shadow-inner">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Success!</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                {successMessage}
+              </p>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="mt-6 w-full rounded-2xl bg-green-600 px-4 py-3 font-medium text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Modal */}
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center shadow-2xl ring-1 ring-black/5">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600 shadow-inner">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Error</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                {errorMessage}
+              </p>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="mt-6 w-full rounded-2xl bg-red-600 px-4 py-3 font-medium text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Cancellation Success Modal */}
         {showSuccessModal && cancellationResult && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
+            <div className="bg-white rounded-[28px] shadow-2xl max-w-md w-full p-8">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 24 24">
@@ -445,7 +538,7 @@ const HostBookings = () => {
                   setShowSuccessModal(false);
                   setCancellationResult(null);
                 }}
-                className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                className="w-full bg-green-600 text-white py-3 rounded-2xl font-semibold hover:bg-green-700 transition-colors shadow-lg shadow-green-600/20"
               >
                 Close
               </button>
@@ -456,8 +549,16 @@ const HostBookings = () => {
         {/* Cancellation Confirmation Modal */}
         {showCancelModal && cancellationInfo && bookingToCancel && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Cancel Booking?</h3>
+            <div className="bg-white rounded-[28px] shadow-2xl max-w-md w-full p-8">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Cancel Booking?</h3>
+                <p className="text-gray-600">Review the cancellation details below</p>
+              </div>
               
               <div className="space-y-4 mb-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -500,14 +601,14 @@ const HostBookings = () => {
                     setBookingToCancel(null);
                     setCancellationInfo(null);
                   }}
-                  className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                  className="flex-1 bg-gray-100 text-gray-800 py-3 rounded-2xl font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Keep Booking
                 </button>
                 <button
                   onClick={confirmCancellation}
                   disabled={actionBookingId === bookingToCancel?.id}
-                  className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-red-600 text-white py-3 rounded-2xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 shadow-lg shadow-red-600/20"
                 >
                   {actionBookingId === bookingToCancel?.id ? 'Cancelling...' : 'Confirm Cancel'}
                 </button>
@@ -544,25 +645,27 @@ const HostBookings = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {['All', 'Pending', 'Confirmed', 'Cancelled'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                activeTab === tab ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-wrap justify-center items-center gap-2">
+            {['All', 'Pending', 'Confirmed', 'Cancelled'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  activeTab === tab ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
 
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by booking #, guest, or property"
-            className="ml-auto min-w-[280px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
           />
         </div>
 

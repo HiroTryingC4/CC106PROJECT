@@ -182,9 +182,10 @@ router.get('/availability/:propertyId', async (req, res) => {
       const checkIn = new Date(booking.check_in);
       const checkOut = new Date(booking.check_out);
       
-      // Mark all dates between check-in and check-out as unavailable
+      // Mark all dates from check-in to check-out (excluding checkout day) as unavailable
+      // Checkout day is available for new check-ins
       let currentDate = new Date(checkIn);
-      while (currentDate <= checkOut) {
+      while (currentDate < checkOut) {
         const dateKey = currentDate.toISOString().split('T')[0];
         unavailableDates[dateKey] = true;
         currentDate.setDate(currentDate.getDate() + 1);

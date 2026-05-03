@@ -66,19 +66,19 @@ const CommunicationAdminProfile = () => {
 
   return (
     <CommunicationAdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 sm:space-y-8">
         {/* Header */}
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Communication Admin Profile</h2>
-          <p className="text-gray-600 mt-2">Manage your communication admin account settings</p>
+          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">Communication Admin Profile</h2>
+          <p className="mt-2 text-gray-600">Manage your communication admin account settings</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Profile Information */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
                 <button
                   onClick={() => setIsEditing(!isEditing)}
@@ -89,7 +89,7 @@ const CommunicationAdminProfile = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                   {isEditing ? (
@@ -158,7 +158,7 @@ const CommunicationAdminProfile = () => {
               </div>
 
               {isEditing && (
-                <div className="flex space-x-3 mt-6 pt-6 border-t">
+                <div className="mt-6 flex flex-col gap-3 border-t pt-6 sm:flex-row">
                   <button
                     onClick={handleProfileUpdate}
                     className="flex items-center space-x-2 px-4 py-2 bg-[#4E7B22] text-white rounded-lg hover:bg-green-700"
@@ -178,8 +178,8 @@ const CommunicationAdminProfile = () => {
             </div>
 
             {/* Security Settings */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Security Settings</h3>
                 <button
                   onClick={() => setShowPasswordForm(!showPasswordForm)}
@@ -191,7 +191,7 @@ const CommunicationAdminProfile = () => {
               </div>
 
               {showPasswordForm && (
-                <div className="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="mb-6 space-y-4 rounded-xl bg-gray-50 p-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
                     <input
@@ -219,7 +219,7 @@ const CommunicationAdminProfile = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     />
                   </div>
-                  <div className="flex space-x-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       onClick={handlePasswordChange}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -250,8 +250,8 @@ const CommunicationAdminProfile = () => {
             </div>
 
             {/* Notification Preferences */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Notification Preferences</h3>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <h3 className="mb-6 text-lg font-semibold text-gray-900">Notification Preferences</h3>
               
               <div className="space-y-4">
                 {Object.entries(notifications).map(([key, value]) => (
@@ -288,8 +288,8 @@ const CommunicationAdminProfile = () => {
           {/* Profile Summary */}
           <div className="space-y-6">
             {/* Profile Picture */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h3>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">Profile Picture</h3>
               <div className="flex flex-col items-center">
                 <div className="w-32 h-32 bg-[#4E7B22] rounded-full flex items-center justify-center mb-4">
                   <ChatBubbleLeftRightIcon className="w-20 h-20 text-white" />
@@ -302,8 +302,8 @@ const CommunicationAdminProfile = () => {
             </div>
 
             {/* Account Info */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">Account Information</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500">Join Date</label>
@@ -323,8 +323,8 @@ const CommunicationAdminProfile = () => {
             </div>
 
             {/* Permissions */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Permissions</h3>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">Permissions</h3>
               <div className="space-y-2">
                 {profileData.permissions.map((permission, index) => (
                   <div key={index} className="flex items-center space-x-2">

@@ -58,7 +58,7 @@ router.get('/dashboard', async (req, res) => {
     }
 
     const db = req.app.locals.db;
-    const [statsResult, activityResult, notificationsResult] = await Promise.all([
+    const [statsResult, prevStatsResult, activityResult, notificationsResult, revenueResult, bookingsResult] = await Promise.all([
       db.query(
         `
           SELECT
@@ -70,6 +70,16 @@ router.get('/dashboard', async (req, res) => {
             COALESCE((SELECT COUNT(*) FROM host_verifications WHERE status = 'pending'), 0)::int AS pending_verifications,
             COALESCE((SELECT COUNT(*) FROM property_reviews WHERE rating <= 2), 0)::int AS flagged_reviews,
             COALESCE((SELECT COUNT(*) FROM admin_notifications WHERE is_read = false), 0)::int AS system_alerts
+        `
+      ),
+      // Previous week stats for comparison
+      db.query(
+        `
+          SELECT
+            COALESCE((SELECT COUNT(*) FROM users WHERE created_at < NOW() - INTERVAL '7 days'), 0)::int AS total_users,
+            COALESCE((SELECT COUNT(*) FROM users WHERE role = 'host' AND created_at < NOW() - INTERVAL '7 days'), 0)::int AS total_hosts,
+            COALESCE((SELECT COUNT(*) FROM properties WHERE created_at < NOW() - INTERVAL '7 days'), 0)::int AS total_properties,
+            COALESCE((SELECT COUNT(*) FROM bookings WHERE status IN ('pending', 'confirmed') AND created_at < NOW() - INTERVAL '7 days'), 0)::int AS active_bookings
         `
       ),
       db.query(
@@ -105,10 +115,54 @@ router.get('/dashboard', async (req, res) => {
           ORDER BY created_at DESC
           LIMIT 5
         `
+      ),
+      // Revenue trend for last 7 days
+      db.query(
+        `
+          SELECT
+            DATE(p.created_at) as date,
+            COALESCE(SUM(p.amount), 0)::numeric as value
+          FROM payments p
+          WHERE p.created_at >= NOW() - INTERVAL '30 days'
+            AND p.status = 'completed'
+          GROUP BY DATE(p.created_at)
+          ORDER BY date ASC
+        `
+      ),
+      // Bookings trend for last 7 days
+      db.query(
+        `
+          SELECT
+            DATE(b.created_at) as date,
+            COUNT(*)::int as value
+          FROM bookings b
+          WHERE b.created_at >= NOW() - INTERVAL '30 days'
+          GROUP BY DATE(b.created_at)
+          ORDER BY date ASC
+        `
       )
     ]);
 
     const stats = statsResult.rows[0] || {};
+    const prevStats = prevStatsResult.rows[0] || {};
+
+    // Calculate percentage changes
+    const calculateChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? '+100%' : '0%';
+      const change = ((current - previous) / previous) * 100;
+      return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+    };
+
+    // Format chart data
+    const revenueData = revenueResult.rows.map(row => ({
+      date: new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      value: parseFloat(row.value || 0)
+    }));
+
+    const bookingsData = bookingsResult.rows.map(row => ({
+      date: new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      value: row.value || 0
+    }));
 
     return res.json({
       stats: {
@@ -119,10 +173,18 @@ router.get('/dashboard', async (req, res) => {
         activeBookings: stats.active_bookings || 0,
         pendingVerifications: stats.pending_verifications || 0,
         flaggedReviews: stats.flagged_reviews || 0,
-        systemAlerts: stats.system_alerts || 0
+        systemAlerts: stats.system_alerts || 0,
+        changes: {
+          users: calculateChange(stats.total_users || 0, prevStats.total_users || 0),
+          hosts: calculateChange(stats.total_hosts || 0, prevStats.total_hosts || 0),
+          properties: calculateChange(stats.total_properties || 0, prevStats.total_properties || 0),
+          bookings: calculateChange(stats.active_bookings || 0, prevStats.active_bookings || 0)
+        }
       },
       recentActivity: activityResult.rows,
       notifications: notificationsResult.rows,
+      revenueData,
+      bookingsData,
       systemHealth: {
         serverStatus: 'healthy',
         databaseStatus: 'healthy',
@@ -292,7 +354,7 @@ router.get('/activity-logs', async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const { action, userId: filterUserId, limit = 50 } = req.query;
+    const { action, userId: filterUserId, startDate, endDate, limit = 50 } = req.query;
     const db = req.app.locals.db;
 
     const where = [];
@@ -306,6 +368,16 @@ router.get('/activity-logs', async (req, res) => {
     if (filterUserId) {
       where.push(`actor_user_id = $${params.length + 1}`);
       params.push(parseInt(filterUserId, 10));
+    }
+
+    if (startDate) {
+      where.push(`created_at >= $${params.length + 1}`);
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      where.push(`created_at <= $${params.length + 1}::date + INTERVAL '1 day'`);
+      params.push(endDate);
     }
 
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
@@ -693,6 +765,302 @@ router.put('/host-verifications/:id/reject', async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: 'Error rejecting verification', error: error.message });
+  }
+});
+
+// GET /api/admin/reviews - Get all reviews for admin
+router.get('/reviews', async (req, res) => {
+  try {
+    const adminId = getAuthUserId(req);
+    if (!adminId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    if (!(await isAdminLike(req, adminId))) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const db = req.app.locals.db;
+    const result = await db.query(
+      `
+        SELECT
+          pr.id,
+          pr.property_id,
+          pr.booking_id,
+          pr.guest_id,
+          pr.host_id,
+          pr.rating,
+          pr.comment,
+          pr.created_at,
+          CONCAT(guest.first_name, ' ', guest.last_name) AS guest_name,
+          CONCAT(host.first_name, ' ', host.last_name) AS host_name,
+          p.title AS property_title
+        FROM property_reviews pr
+        LEFT JOIN users guest ON pr.guest_id = guest.id
+        LEFT JOIN users host ON pr.host_id = host.id
+        LEFT JOIN properties p ON pr.property_id = p.id
+        ORDER BY pr.created_at DESC
+      `
+    );
+
+    const reviews = result.rows.map(row => ({
+      id: row.id,
+      propertyId: row.property_id,
+      bookingId: row.booking_id,
+      guestId: row.guest_id,
+      hostId: row.host_id,
+      guest: row.guest_name,
+      host: row.host_name,
+      unit: row.property_title,
+      rating: row.rating,
+      comment: row.comment,
+      date: row.created_at,
+      status: row.rating <= 2 ? 'flagged' : 'published',
+      flagged: row.rating <= 2
+    }));
+
+    // Calculate stats
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews > 0 
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+      : 0;
+    const pendingReviews = 0; // No pending status in current schema
+    const flaggedReviews = reviews.filter(r => r.flagged).length;
+
+    return res.json({
+      reviews,
+      stats: {
+        totalReviews,
+        averageRating: parseFloat(averageRating),
+        pendingReviews,
+        flaggedReviews
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load reviews', error: error.message });
+  }
+});
+
+// GET /api/admin/financial - Financial dashboard data
+router.get('/financial', async (req, res) => {
+  try {
+    const adminId = getAuthUserId(req);
+    if (!adminId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    if (!(await isAdminLike(req, adminId))) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { period = 'month' } = req.query;
+    const db = req.app.locals.db;
+
+    // Calculate date range based on period
+    let intervalDays = 30;
+    let prevIntervalStart = 60;
+    let prevIntervalEnd = 30;
+    
+    switch (period) {
+      case 'week':
+        intervalDays = 7;
+        prevIntervalStart = 14;
+        prevIntervalEnd = 7;
+        break;
+      case 'quarter':
+        intervalDays = 90;
+        prevIntervalStart = 180;
+        prevIntervalEnd = 90;
+        break;
+      case 'year':
+        intervalDays = 365;
+        prevIntervalStart = 730;
+        prevIntervalEnd = 365;
+        break;
+      default: // month
+        intervalDays = 30;
+        prevIntervalStart = 60;
+        prevIntervalEnd = 30;
+    }
+
+    // Get financial stats
+    const statsResult = await db.query(
+      `
+        SELECT
+          COALESCE(SUM(p.amount), 0)::numeric AS total_revenue,
+          COALESCE(SUM(p.processing_fee), 0)::numeric AS commission_earned,
+          COALESCE(SUM(CASE WHEN p.status = 'pending' THEN p.host_payout ELSE 0 END), 0)::numeric AS pending_payouts,
+          COUNT(*)::int AS transaction_volume
+        FROM payments p
+        WHERE p.created_at >= NOW() - INTERVAL '1 day' * $1
+      `,
+      [intervalDays]
+    );
+
+    // Get previous period stats for comparison
+    const prevStatsResult = await db.query(
+      `
+        SELECT
+          COALESCE(SUM(p.amount), 0)::numeric AS total_revenue,
+          COALESCE(SUM(p.processing_fee), 0)::numeric AS commission_earned,
+          COUNT(*)::int AS transaction_volume
+        FROM payments p
+        WHERE p.created_at >= NOW() - INTERVAL '1 day' * $1
+          AND p.created_at < NOW() - INTERVAL '1 day' * $2
+      `,
+      [prevIntervalStart, prevIntervalEnd]
+    );
+
+    const stats = statsResult.rows[0];
+    const prevStats = prevStatsResult.rows[0];
+
+    // Calculate percentage changes
+    const calculateChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? '+100%' : '0%';
+      const change = ((current - previous) / previous) * 100;
+      return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+    };
+
+    // Get recent transactions
+    const transactionsResult = await db.query(
+      `
+        SELECT
+          p.id,
+          p.booking_id,
+          p.amount,
+          p.processing_fee AS commission,
+          p.host_payout,
+          p.status,
+          p.created_at AS timestamp,
+          CONCAT(guest.first_name, ' ', guest.last_name) AS guest_name,
+          CONCAT(host.first_name, ' ', host.last_name) AS host_name,
+          prop.title AS property_title,
+          CASE
+            WHEN p.status = 'completed' THEN 'booking_payment'
+            WHEN p.status = 'refunded' THEN 'refund'
+            ELSE 'booking_payment'
+          END AS type
+        FROM payments p
+        LEFT JOIN bookings b ON p.booking_id = b.id
+        LEFT JOIN users guest ON b.guest_id = guest.id
+        LEFT JOIN users host ON p.host_id = host.id
+        LEFT JOIN properties prop ON b.property_id = prop.id
+        WHERE p.created_at >= NOW() - INTERVAL '1 day' * $1
+        ORDER BY p.created_at DESC
+        LIMIT 20
+      `,
+      [intervalDays]
+    );
+
+    // Get top performing properties
+    const topPropertiesResult = await db.query(
+      `
+        SELECT
+          prop.id,
+          prop.title AS name,
+          COALESCE(SUM(p.amount), 0)::numeric AS revenue,
+          COUNT(DISTINCT b.id)::int AS bookings
+        FROM properties prop
+        INNER JOIN bookings b ON prop.id = b.property_id
+        INNER JOIN payments p ON b.id = p.booking_id
+        WHERE p.status = 'completed'
+          AND p.created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY prop.id, prop.title
+        HAVING SUM(p.amount) > 0
+        ORDER BY revenue DESC
+        LIMIT 4
+      `
+    );
+
+    // Get monthly data for charts (last 3 months)
+    const monthlyDataResult = await db.query(
+      `
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', p.created_at), 'Mon') AS month,
+          COALESCE(SUM(p.amount), 0)::numeric AS revenue,
+          COALESCE(SUM(p.processing_fee), 0)::numeric AS commission,
+          COUNT(*)::int AS transactions
+        FROM payments p
+        WHERE p.created_at >= NOW() - INTERVAL '3 months'
+          AND p.status = 'completed'
+        GROUP BY DATE_TRUNC('month', p.created_at)
+        ORDER BY DATE_TRUNC('month', p.created_at) ASC
+      `
+    );
+
+    return res.json({
+      stats: {
+        totalRevenue: parseFloat(stats.total_revenue || 0),
+        commissionEarned: parseFloat(stats.commission_earned || 0),
+        pendingPayouts: parseFloat(stats.pending_payouts || 0),
+        transactionVolume: stats.transaction_volume || 0,
+        changes: {
+          revenue: calculateChange(parseFloat(stats.total_revenue || 0), parseFloat(prevStats.total_revenue || 0)),
+          commission: calculateChange(parseFloat(stats.commission_earned || 0), parseFloat(prevStats.commission_earned || 0)),
+          transactions: calculateChange(stats.transaction_volume || 0, prevStats.transaction_volume || 0)
+        }
+      },
+      transactions: transactionsResult.rows.map(row => ({
+        id: row.id,
+        type: row.type,
+        amount: row.status === 'refunded' ? -parseFloat(row.amount) : parseFloat(row.amount),
+        currency: '₱',
+        description: row.property_title ? `${row.type === 'refund' ? 'Refund for' : 'Booking payment for'} ${row.property_title}` : 'Payment',
+        user: row.guest_name || 'Unknown',
+        status: row.status,
+        timestamp: row.timestamp,
+        commission: parseFloat(row.commission || 0)
+      })),
+      topProperties: topPropertiesResult.rows.map(row => ({
+        name: row.name,
+        revenue: `₱${parseFloat(row.revenue || 0).toLocaleString()}`,
+        bookings: row.bookings
+      })),
+      monthlyData: monthlyDataResult.rows.map(row => ({
+        month: row.month,
+        revenue: parseFloat(row.revenue || 0),
+        commission: parseFloat(row.commission || 0),
+        transactions: row.transactions
+      }))
+    });
+  } catch (error) {
+    console.error('Financial endpoint error:', error);
+    return res.status(500).json({ message: 'Failed to load financial data', error: error.message, stack: error.stack });
+  }
+});
+
+// DELETE /api/admin/reviews/:id - Delete review
+router.delete('/reviews/:id', async (req, res) => {
+  try {
+    const adminId = getAuthUserId(req);
+    if (!adminId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    if (!(await isAdminLike(req, adminId))) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const reviewId = parseInt(req.params.id, 10);
+    const db = req.app.locals.db;
+
+    const result = await db.query('DELETE FROM property_reviews WHERE id = $1 RETURNING id', [reviewId]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    await insertActivityLog(db, {
+      actorUserId: adminId,
+      action: 'review_deleted',
+      description: `Deleted review ID ${reviewId}`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
+
+    return res.json({ message: 'Review deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to delete review', error: error.message });
   }
 });
 

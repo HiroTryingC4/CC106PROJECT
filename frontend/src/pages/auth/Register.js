@@ -409,8 +409,9 @@ const Register = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl text-center">
             <CheckCircleIcon className="h-14 w-14 text-green-600 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Account Created Successfully</h3>
-            <p className="text-gray-600 mb-6">Your account has been created. Redirecting you to the login page...</p>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Account Created Successfully!</h3>
+            <p className="text-gray-600 mb-4">We've sent a verification email to <strong>{formData.email}</strong></p>
+            <p className="text-sm text-amber-600 mb-6">Please check your inbox and click the verification link to activate your account.</p>
             <button
               type="button"
               onClick={() => navigate('/login')}
@@ -418,6 +419,7 @@ const Register = () => {
             >
               Go to Login
             </button>
+            <p className="text-xs text-gray-500 mt-4">Didn't receive the email? Check your spam folder or contact support.</p>
           </div>
         </div>
       )}

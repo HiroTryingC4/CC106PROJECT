@@ -38,6 +38,22 @@ const GuestWebSocketNotifications = () => {
       case 'property':
         navigate('/guest/units');
         break;
+      case 'review_reminder':
+        // Review reminder - go to write review page
+        if (notification.subjectId) {
+          navigate(`/guest/bookings/${notification.subjectId}/review`);
+        } else {
+          navigate('/guest/bookings');
+        }
+        break;
+      case 'review_reply':
+        // Host replied to review - go to booking details to see the reply
+        if (notification.subjectId) {
+          navigate(`/guest/bookings/${notification.subjectId}?scrollTo=review`);
+        } else {
+          navigate('/guest/bookings');
+        }
+        break;
       default:
         break;
     }

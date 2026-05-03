@@ -82,16 +82,16 @@ const AdminReports = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-            <p className="text-gray-600 mt-2">Generate and export system reports</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-2xl">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Reports & Analytics</h1>
+            <p className="mt-2 text-gray-600">Generate and export system reports</p>
           </div>
           <button
             onClick={handleExportReport}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 sm:w-auto sm:py-2"
           >
             <DocumentArrowDownIcon className="w-5 h-5" />
             <span>Export Report</span>
@@ -99,8 +99,8 @@ const AdminReports = () => {
         </div>
 
         {/* Report Controls */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Report Type
@@ -137,8 +137,8 @@ const AdminReports = () => {
         </div>
 
         {/* System Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:gap-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-500">Total Users</h3>
               <UsersIcon className="w-5 h-5 text-blue-600" />
@@ -151,7 +151,7 @@ const AdminReports = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-500">Total Properties</h3>
               <HomeIcon className="w-5 h-5 text-green-600" />
@@ -164,7 +164,7 @@ const AdminReports = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-500">Active Bookings</h3>
               <ChartBarIcon className="w-5 h-5 text-purple-600" />
@@ -177,7 +177,7 @@ const AdminReports = () => {
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-500">System Alerts</h3>
               <CurrencyDollarIcon className="w-5 h-5 text-orange-600" />
@@ -192,8 +192,8 @@ const AdminReports = () => {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
+        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+          <h2 className="mb-6 text-xl font-semibold text-gray-900">Recent Activity</h2>
           <div className="space-y-4">
             {dashboardData?.recentActivity?.length > 0 ? (
               dashboardData.recentActivity.map((activity, index) => (
@@ -221,9 +221,9 @@ const AdminReports = () => {
         </div>
 
         {/* System Health */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">System Health</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+          <h2 className="mb-6 text-xl font-semibold text-gray-900">System Health</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             <div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-gray-600">Server Status</span>

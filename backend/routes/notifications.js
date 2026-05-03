@@ -37,6 +37,7 @@ const mapUserNotification = (row) => ({
   type: row.type,
   title: row.title,
   message: row.message,
+  subjectId: row.subject_id,
   read: row.is_read,
   createdAt: row.created_at
 });
@@ -47,6 +48,7 @@ const mapAdminNotification = (row) => ({
   title: row.title,
   message: row.message,
   userId: row.target_user_id,
+  subjectId: row.subject_id,
   priority: row.priority,
   read: row.is_read,
   createdAt: row.created_at
@@ -102,7 +104,7 @@ router.get('/', async (req, res) => {
       const [notificationsResult, unreadResult] = await Promise.all([
         db.query(
           `
-            SELECT id, user_id, type, title, message, is_read, created_at
+            SELECT id, user_id, type, title, message, subject_id, is_read, created_at
             FROM user_notifications
             WHERE ${where.join(' AND ')}
             ORDER BY created_at DESC
@@ -147,6 +149,7 @@ router.get('/', async (req, res) => {
             title,
             message,
             target_user_id,
+            subject_id,
             priority,
             is_read,
             created_at
@@ -199,18 +202,19 @@ router.post('/', async (req, res) => {
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      const { type, title, message } = req.body || {};
+      const { type, title, message, subjectId } = req.body || {};
       const result = await db.query(
         `
-          INSERT INTO user_notifications (user_id, type, title, message, is_read, created_at)
-          VALUES ($1, $2, $3, $4, false, NOW())
-          RETURNING id, user_id, type, title, message, is_read, created_at
+          INSERT INTO user_notifications (user_id, type, title, message, subject_id, is_read, created_at)
+          VALUES ($1, $2, $3, $4, $5, false, NOW())
+          RETURNING id, user_id, type, title, message, subject_id, is_read, created_at
         `,
         [
           targetUserId,
           type || 'general',
           title || 'Notification',
-          message || ''
+          message || '',
+          subjectId || null
         ]
       );
 
@@ -231,7 +235,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Invalid user id' });
     }
 
-    const { type, title, message, priority } = req.body || {};
+    const { type, title, message, priority, subjectId } = req.body || {};
     const result = await db.query(
       `
         INSERT INTO admin_notifications (
@@ -239,18 +243,20 @@ router.post('/', async (req, res) => {
           title,
           message,
           target_user_id,
+          subject_id,
           priority,
           is_read,
           created_at
         )
-        VALUES ($1, $2, $3, $4, COALESCE($5, 'medium'), false, NOW())
-        RETURNING id, type, title, message, target_user_id, priority, is_read, created_at
+        VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'medium'), false, NOW())
+        RETURNING id, type, title, message, target_user_id, subject_id, priority, is_read, created_at
       `,
       [
         type || 'general',
         title || 'Notification',
         message || '',
         targetUserId,
+        subjectId || null,
         priority || 'medium'
       ]
     );
@@ -358,7 +364,7 @@ router.put('/:id/read', async (req, res) => {
           UPDATE user_notifications
           SET is_read = true
           WHERE id = $1 AND user_id = $2
-          RETURNING id, user_id, type, title, message, is_read, created_at
+          RETURNING id, user_id, type, title, message, subject_id, is_read, created_at
         `,
         [notificationId, userId]
       );
@@ -379,7 +385,7 @@ router.put('/:id/read', async (req, res) => {
         UPDATE admin_notifications
         SET is_read = true
         WHERE id = $1
-        RETURNING id, type, title, message, target_user_id, priority, is_read, created_at
+        RETURNING id, type, title, message, target_user_id, subject_id, priority, is_read, created_at
       `,
       [notificationId]
     );

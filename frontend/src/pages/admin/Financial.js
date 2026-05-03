@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/common/AdminLayout';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   CurrencyDollarIcon, 
   ArrowTrendingUpIcon,
@@ -12,68 +13,146 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Financial = () => {
+  const { token } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [financialData, setFinancialData] = useState({
+    stats: {
+      totalRevenue: 0,
+      commissionEarned: 0,
+      pendingPayouts: 0,
+      transactionVolume: 0,
+      changes: { revenue: '+0%', commission: '+0%', transactions: '+0%' }
+    },
+    transactions: [],
+    topProperties: [],
+    monthlyData: []
+  });
+
+  useEffect(() => {
+    fetchFinancialData();
+  }, [token, selectedPeriod]);
+
+  const fetchFinancialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`http://localhost:5000/api/admin/financial?period=${selectedPeriod}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch financial data');
+      }
+
+      const data = await response.json();
+      setFinancialData(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    // Prepare CSV data
+    const csvRows = [];
+    
+    // Add header
+    csvRows.push('Financial Report - ' + selectedPeriod.toUpperCase());
+    csvRows.push('Generated on: ' + new Date().toLocaleString());
+    csvRows.push('');
+    
+    // Add stats section
+    csvRows.push('FINANCIAL SUMMARY');
+    csvRows.push('Metric,Value,Change');
+    csvRows.push(`Total Revenue,₱${financialData.stats.totalRevenue.toLocaleString()},${financialData.stats.changes.revenue}`);
+    csvRows.push(`Commission Earned,₱${financialData.stats.commissionEarned.toLocaleString()},${financialData.stats.changes.commission}`);
+    csvRows.push(`Pending Payouts,₱${financialData.stats.pendingPayouts.toLocaleString()},-`);
+    csvRows.push(`Transaction Volume,${financialData.stats.transactionVolume.toLocaleString()},${financialData.stats.changes.transactions}`);
+    csvRows.push('');
+    
+    // Add transactions section
+    csvRows.push('TRANSACTIONS');
+    csvRows.push('ID,Type,Description,User,Amount,Commission,Status,Date');
+    financialData.transactions.forEach(transaction => {
+      csvRows.push([
+        transaction.id,
+        transaction.type,
+        `"${transaction.description}"`,
+        transaction.user,
+        `₱${transaction.amount.toLocaleString()}`,
+        `₱${transaction.commission}`,
+        transaction.status,
+        new Date(transaction.timestamp).toLocaleString()
+      ].join(','));
+    });
+    csvRows.push('');
+    
+    // Add top properties section
+    csvRows.push('TOP PERFORMING PROPERTIES');
+    csvRows.push('Property Name,Revenue,Bookings');
+    financialData.topProperties.forEach(property => {
+      csvRows.push([
+        `"${property.name}"`,
+        property.revenue,
+        property.bookings
+      ].join(','));
+    });
+    
+    // Create CSV content
+    const csvContent = csvRows.join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `financial-report-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const financialStats = [
-    { name: 'Total Revenue', value: '₱2,847,392', change: '+12.5%', trend: 'up', icon: CurrencyDollarIcon },
-    { name: 'Commission Earned', value: '₱284,739', change: '+8.3%', trend: 'up', icon: BanknotesIcon },
-    { name: 'Pending Payouts', value: '₱156,420', change: '-5.2%', trend: 'down', icon: CreditCardIcon },
-    { name: 'Transaction Volume', value: '8,547', change: '+15.7%', trend: 'up', icon: ChartBarIcon },
-  ];
-
-  const recentTransactions = [
-    {
-      id: 1,
-      type: 'booking_payment',
-      amount: 2500,
-      currency: '₱',
-      description: 'Booking payment for Luxury Beachfront Condo',
-      user: 'John Doe',
-      status: 'completed',
-      timestamp: '2024-03-15 14:30:25',
-      commission: 250
+    { 
+      name: 'Total Revenue', 
+      value: `₱${financialData.stats.totalRevenue.toLocaleString()}`, 
+      change: financialData.stats.changes.revenue, 
+      trend: financialData.stats.changes.revenue.startsWith('+') ? 'up' : 'down', 
+      icon: CurrencyDollarIcon 
     },
-    {
-      id: 2,
-      type: 'host_payout',
-      amount: -1800,
-      currency: '₱',
-      description: 'Payout to host Jane Smith',
-      user: 'Jane Smith',
-      status: 'completed',
-      timestamp: '2024-03-15 13:45:12',
-      commission: 0
+    { 
+      name: 'Commission Earned', 
+      value: `₱${financialData.stats.commissionEarned.toLocaleString()}`, 
+      change: financialData.stats.changes.commission, 
+      trend: financialData.stats.changes.commission.startsWith('+') ? 'up' : 'down', 
+      icon: BanknotesIcon 
     },
-    {
-      id: 3,
-      type: 'refund',
-      amount: -1200,
-      currency: '₱',
-      description: 'Refund for cancelled booking',
-      user: 'Mike Johnson',
-      status: 'pending',
-      timestamp: '2024-03-15 12:20:33',
-      commission: -120
+    { 
+      name: 'Pending Payouts', 
+      value: `₱${financialData.stats.pendingPayouts.toLocaleString()}`, 
+      change: '-', 
+      trend: 'down', 
+      icon: CreditCardIcon 
     },
-    {
-      id: 4,
-      type: 'booking_payment',
-      amount: 3500,
-      currency: '₱',
-      description: 'Booking payment for Beach House Villa',
-      user: 'Sarah Wilson',
-      status: 'completed',
-      timestamp: '2024-03-15 11:15:45',
-      commission: 350
+    { 
+      name: 'Transaction Volume', 
+      value: financialData.stats.transactionVolume.toLocaleString(), 
+      change: financialData.stats.changes.transactions, 
+      trend: financialData.stats.changes.transactions.startsWith('+') ? 'up' : 'down', 
+      icon: ChartBarIcon 
     },
   ];
 
-  const monthlyData = [
-    { month: 'Jan', revenue: 2100000, commission: 210000, transactions: 6500 },
-    { month: 'Feb', revenue: 2300000, commission: 230000, transactions: 7200 },
-    { month: 'Mar', revenue: 2847392, commission: 284739, transactions: 8547 },
-  ];
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -94,53 +173,90 @@ const Financial = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading financial data...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">Error: {error}</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">Financial Dashboard</h2>
-            <p className="text-gray-600 mt-2">Monitor revenue, transactions, and financial metrics</p>
+        <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold leading-tight text-gray-900 sm:text-3xl">Financial Dashboard</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600 sm:text-base">Monitor revenue, transactions, and financial metrics</p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:items-center lg:gap-3">
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 lg:w-auto lg:py-2"
             >
               <option value="week">This Week</option>
               <option value="month">This Month</option>
               <option value="quarter">This Quarter</option>
               <option value="year">This Year</option>
             </select>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={exportToCSV}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 sm:w-auto lg:py-2"
+            >
               <ArrowDownTrayIcon className="w-4 h-4" />
-              <span>Export</span>
+              <span className="font-medium">Export</span>
             </button>
           </div>
         </div>
 
         {/* Financial Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           {financialStats.map((stat) => {
             const Icon = stat.icon;
             const TrendIcon = stat.trend === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon;
             return (
-              <div key={stat.name} className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center justify-between">
-                  <div>
+              <div key={stat.name} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">{stat.value}</p>
                     <div className="flex items-center mt-2">
-                      <TrendIcon className={`w-4 h-4 mr-1 ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`} />
-                      <span className={`text-sm font-medium ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                        {stat.change}
-                      </span>
-                      <span className="text-sm text-gray-500 ml-1">vs last {selectedPeriod}</span>
+                      {stat.change !== '-' && (
+                        <>
+                          <TrendIcon className={`w-4 h-4 mr-1 ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`} />
+                          <span className={`text-sm font-medium ${
+                            stat.change.startsWith('+') ? 'text-green-600' : 
+                            stat.change.startsWith('-') ? 'text-red-600' : 
+                            'text-gray-600'
+                          }`}>
+                            {stat.change}
+                          </span>
+                          <span className="text-sm text-gray-500 ml-1">vs last {selectedPeriod}</span>
+                        </>
+                      )}
+                      {stat.change === '-' && (
+                        <span className="text-sm text-gray-500">Current pending amount</span>
+                      )}
                     </div>
                   </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100">
                     <Icon className="w-6 h-6 text-blue-600" />
                   </div>
                 </div>
@@ -152,12 +268,12 @@ const Financial = () => {
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
+            <nav className="flex min-w-max space-x-6 overflow-x-auto px-4 sm:space-x-8 sm:px-6">
               {['overview', 'transactions', 'payouts', 'reports'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 text-sm font-medium ${
                     activeTab === tab
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -169,14 +285,14 @@ const Financial = () => {
             </nav>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {activeTab === 'overview' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
                   {/* Revenue Chart Placeholder */}
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Trend</h3>
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                  <div className="rounded-2xl bg-gray-50 p-4 sm:p-6">
+                    <h3 className="mb-4 text-lg font-semibold text-gray-900">Revenue Trend</h3>
+                    <div className="flex h-52 items-center justify-center text-gray-500 sm:h-64">
                       <div className="text-center">
                         <ChartBarIcon className="w-16 h-16 mx-auto mb-4" />
                         <p>Revenue chart would be displayed here</p>
@@ -185,15 +301,10 @@ const Financial = () => {
                   </div>
 
                   {/* Top Performing Units */}
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Units</h3>
+                  <div className="rounded-2xl bg-gray-50 p-4 sm:p-6">
+                    <h3 className="mb-4 text-lg font-semibold text-gray-900">Top Performing Units</h3>
                     <div className="space-y-3">
-                      {[
-                        { name: 'Luxury Beachfront Condo', revenue: '₱125,000', bookings: 45 },
-                        { name: 'Modern City Apartment', revenue: '₱98,500', bookings: 38 },
-                        { name: 'Beach House Villa', revenue: '₱87,200', bookings: 22 },
-                        { name: 'Cozy Mountain Cabin', revenue: '₱76,800', bookings: 41 },
-                      ].map((unit, index) => (
+                      {financialData.topProperties.length > 0 ? financialData.topProperties.map((unit, index) => (
                         <div key={index} className="flex justify-between items-center p-3 bg-white rounded">
                           <div>
                             <p className="font-medium text-gray-900">{unit.name}</p>
@@ -201,7 +312,9 @@ const Financial = () => {
                           </div>
                           <span className="font-semibold text-green-600">{unit.revenue}</span>
                         </div>
-                      ))}
+                      )) : (
+                        <p className="text-gray-500 text-center py-4">No property data available</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -210,12 +323,57 @@ const Financial = () => {
 
             {activeTab === 'transactions' && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between gap-3">
                   <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</button>
+                  <button className="text-sm font-medium text-blue-600 hover:text-blue-800">View All</button>
                 </div>
                 
-                <div className="overflow-x-auto">
+                <div className="space-y-3 sm:hidden">
+                  {financialData.transactions.length > 0 ? financialData.transactions.map((transaction) => (
+                    <div key={transaction.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-gray-900">{transaction.description}</div>
+                          <span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getTransactionTypeColor(transaction.type)}`}>
+                            {transaction.type.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <span className={`text-sm font-semibold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {transaction.amount > 0 ? '+' : ''}₱{Math.abs(transaction.amount).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-500">User</p>
+                          <p className="font-medium text-gray-900">{transaction.user}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Commission</p>
+                          <p className={`font-medium ${transaction.commission > 0 ? 'text-green-600' : transaction.commission < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                            {transaction.commission > 0 ? '+' : ''}{transaction.currency}{transaction.commission}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Status</p>
+                          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(transaction.status)}`}>
+                            {transaction.status}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Date</p>
+                          <p className="font-medium text-gray-900">{new Date(transaction.timestamp).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-gray-500">
+                      No transactions found
+                    </div>
+                  )}
+                </div>
+
+                <div className="hidden overflow-x-auto sm:block">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -228,7 +386,7 @@ const Financial = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {recentTransactions.map((transaction) => (
+                      {financialData.transactions.length > 0 ? financialData.transactions.map((transaction) => (
                         <tr key={transaction.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
@@ -254,9 +412,17 @@ const Financial = () => {
                               {transaction.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{transaction.timestamp}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(transaction.timestamp).toLocaleString()}
+                          </td>
                         </tr>
-                      ))}
+                      )) : (
+                        <tr>
+                          <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                            No transactions found
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

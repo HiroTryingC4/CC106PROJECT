@@ -34,9 +34,9 @@ export const WebSocketProvider = ({ children }) => {
     // Prevent concurrent fetches
     if (fetchingRef.current) return;
     
-    // Rate limit: minimum 2 seconds between fetches
+    // Rate limit: minimum 5 seconds between fetches
     const now = Date.now();
-    if (now - lastFetchRef.current < 2000) return;
+    if (now - lastFetchRef.current < 5000) return;
     
     try {
       fetchingRef.current = true;
@@ -54,7 +54,8 @@ export const WebSocketProvider = ({ children }) => {
         message: n.message,
         read: n.read,
         timestamp: n.createdAt,
-        userId: n.userId
+        userId: n.userId,
+        subjectId: n.subjectId ?? n.subject_id ?? null
       }));
       
       setNotifications(backendNotifications);
@@ -102,13 +103,15 @@ export const WebSocketProvider = ({ children }) => {
     // Create socket connection
     const newSocket = io(wsBase, {
       path: '/socket.io/',
-      transports: ['polling', 'websocket'],
+      transports: ['polling'],
       reconnection: true,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
       autoConnect: true,
       forceNew: false,
-      withCredentials: true
+      withCredentials: true,
+      timeout: 20000
     });
 
     newSocket.on('connect', () => {
@@ -128,8 +131,12 @@ export const WebSocketProvider = ({ children }) => {
     });
 
     newSocket.on('connect_error', (error) => {
+      // Silently handle connection errors - they're often just upgrade attempts
+      // Only log in development if it's not a websocket upgrade issue
       if (process.env.NODE_ENV === 'development') {
-        console.error('WebSocket connection error:', error?.message);
+        if (!error?.message?.includes('websocket') && !error?.message?.includes('closed')) {
+          console.error('WebSocket connection error:', error?.message);
+        }
       }
     });
 

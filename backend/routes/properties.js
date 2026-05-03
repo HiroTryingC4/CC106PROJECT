@@ -85,6 +85,316 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/properties/host - Get properties for authenticated host
+router.get('/host', async (req, res) => {
+  try {
+    const hostId = getAuthUserId(req);
+    if (!hostId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const repo = getPropertiesRepo(req);
+    const properties = await repo.getAllProperties({ hostId });
+
+    res.json({
+      data: properties,
+      total: properties.length
+    });
+  } catch (error) {
+    console.error('Error fetching host properties:', error);
+    res.status(500).json({ message: 'Failed to fetch host properties', error: error.message });
+  }
+});
+
+// GET /api/properties/favorites - Get user's favorite properties
+router.get('/favorites', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const db = req.app.locals.db;
+    const result = await db.query(
+      `
+        SELECT
+          p.id,
+          p.title,
+          p.description,
+          p.type,
+          p.bedrooms,
+          p.bathrooms,
+          p.max_guests,
+          p.price_per_night,
+          p.address,
+          p.amenities,
+          p.images,
+          p.availability,
+          f.created_at as favorited_at,
+          ROUND(COALESCE(AVG(pr.rating), 0)::numeric, 1) AS rating,
+          COUNT(pr.id)::int AS review_count
+        FROM favorites f
+        JOIN properties p ON p.id = f.property_id
+        LEFT JOIN property_reviews pr ON pr.property_id = p.id
+        WHERE f.user_id = $1
+        GROUP BY p.id, f.created_at
+        ORDER BY f.created_at DESC
+      `,
+      [userId]
+    );
+
+    const favorites = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      type: row.type,
+      bedrooms: row.bedrooms,
+      bathrooms: row.bathrooms,
+      maxGuests: row.max_guests,
+      pricePerNight: parseFloat(row.price_per_night || 0),
+      address: row.address,
+      amenities: row.amenities || [],
+      images: row.images || [],
+      availability: row.availability,
+      favoritedAt: row.favorited_at,
+      rating: parseFloat(row.rating || 0),
+      reviewCount: row.review_count || 0
+    }));
+
+    res.json({
+      favorites,
+      total: favorites.length
+    });
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    res.status(500).json({ message: 'Failed to fetch favorites' });
+  }
+});
+
+// POST /api/properties/:id/favorite - Add property to favorites
+router.post('/:id/favorite', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const propertyId = parseInt(req.params.id);
+    const db = req.app.locals.db;
+
+    // Check if property exists
+    const propertyCheck = await db.query(
+      'SELECT id FROM properties WHERE id = $1',
+      [propertyId]
+    );
+
+    if (propertyCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Property not found' });
+    }
+
+    // Check if already favorited
+    const existingFavorite = await db.query(
+      'SELECT id FROM favorites WHERE user_id = $1 AND property_id = $2',
+      [userId, propertyId]
+    );
+
+    if (existingFavorite.rows.length > 0) {
+      return res.status(400).json({ message: 'Property already in favorites' });
+    }
+
+    // Add to favorites
+    await db.query(
+      'INSERT INTO favorites (user_id, property_id, created_at) VALUES ($1, $2, NOW())',
+      [userId, propertyId]
+    );
+
+    res.status(201).json({ message: 'Property added to favorites' });
+  } catch (error) {
+    console.error('Error adding favorite:', error);
+    res.status(500).json({ message: 'Failed to add favorite' });
+  }
+});
+
+// DELETE /api/properties/:id/favorite - Remove property from favorites
+router.delete('/:id/favorite', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: 'No authentication provided' });
+    }
+
+    const propertyId = parseInt(req.params.id);
+    const db = req.app.locals.db;
+
+    const result = await db.query(
+      'DELETE FROM favorites WHERE user_id = $1 AND property_id = $2 RETURNING id',
+      [userId, propertyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Favorite not found' });
+    }
+
+    res.json({ message: 'Property removed from favorites' });
+  } catch (error) {
+    console.error('Error removing favorite:', error);
+    res.status(500).json({ message: 'Failed to remove favorite' });
+  }
+});
+
+/**
+ * @swagger
+ * /properties/recommendations/personalized:
+ *   get:
+ *     summary: Get personalized property recommendations
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Recommended properties
+ *       500:
+ *         description: Server error
+ */
+router.get('/recommendations/personalized', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    const db = req.app.locals.db;
+
+    let recommendedProperties = [];
+    let usedPersonalized = false;
+
+    if (userId) {
+      // Get user's booking history to understand preferences
+      const bookingHistory = await db.query(
+        `
+          SELECT
+            p.type,
+            p.bedrooms,
+            p.bathrooms,
+            p.max_guests,
+            p.price_per_night,
+            b.guests,
+            b.created_at
+          FROM bookings b
+          JOIN properties p ON p.id = b.property_id
+          WHERE b.guest_id = $1
+          ORDER BY b.created_at DESC
+          LIMIT 5
+        `,
+        [userId]
+      );
+
+      if (bookingHistory.rows.length > 0) {
+        // Calculate average preferences
+        const avgGuests = Math.round(
+          bookingHistory.rows.reduce((sum, row) => sum + (row.guests || 0), 0) / bookingHistory.rows.length
+        );
+        const avgPrice = Math.round(
+          bookingHistory.rows.reduce((sum, row) => sum + parseFloat(row.price_per_night || 0), 0) / bookingHistory.rows.length
+        );
+        const preferredTypes = [...new Set(bookingHistory.rows.map(row => row.type))];
+
+        // Get properties matching user preferences
+        const result = await db.query(
+          `
+            SELECT
+              p.id,
+              p.title,
+              p.description,
+              p.type,
+              p.bedrooms,
+              p.bathrooms,
+              p.max_guests,
+              p.price_per_night,
+              p.address,
+              p.amenities,
+              p.images,
+              p.availability,
+              ROUND(COALESCE(AVG(pr.rating), 0)::numeric, 1) AS rating,
+              COUNT(pr.id)::int AS review_count
+            FROM properties p
+            LEFT JOIN property_reviews pr ON pr.property_id = p.id
+            WHERE p.availability = true
+              AND p.max_guests >= $1
+              AND p.price_per_night BETWEEN $2 * 0.7 AND $2 * 1.3
+              AND ($3::text[] IS NULL OR p.type = ANY($3))
+              AND p.id NOT IN (
+                SELECT property_id FROM bookings WHERE guest_id = $4
+              )
+            GROUP BY p.id
+            ORDER BY rating DESC NULLS LAST, review_count DESC, p.created_at DESC
+            LIMIT 20
+          `,
+          [avgGuests, avgPrice, preferredTypes.length > 0 ? preferredTypes : null, userId]
+        );
+
+        recommendedProperties = result.rows;
+        usedPersonalized = result.rows.length > 0;
+      }
+    }
+
+    // If no personalized recommendations, get top-rated properties
+    if (recommendedProperties.length === 0) {
+      const result = await db.query(
+        `
+          SELECT
+            p.id,
+            p.title,
+            p.description,
+            p.type,
+            p.bedrooms,
+            p.bathrooms,
+            p.max_guests,
+            p.price_per_night,
+            p.address,
+            p.amenities,
+            p.images,
+            p.availability,
+            ROUND(COALESCE(AVG(pr.rating), 0)::numeric, 1) AS rating,
+            COUNT(pr.id)::int AS review_count
+          FROM properties p
+          LEFT JOIN property_reviews pr ON pr.property_id = p.id
+          WHERE p.availability = true
+          GROUP BY p.id
+          ORDER BY rating DESC NULLS LAST, review_count DESC, p.created_at DESC
+          LIMIT 20
+        `
+      );
+
+      recommendedProperties = result.rows;
+    }
+
+    // Format the response
+    const formatted = recommendedProperties.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      type: row.type,
+      bedrooms: row.bedrooms,
+      bathrooms: row.bathrooms,
+      maxGuests: row.max_guests,
+      pricePerNight: parseFloat(row.price_per_night || 0),
+      address: row.address,
+      amenities: row.amenities || [],
+      images: row.images || [],
+      availability: row.availability,
+      rating: parseFloat(row.rating || 0),
+      reviewCount: row.review_count || 0
+    }));
+
+    res.json({
+      properties: formatted,
+      total: formatted.length,
+      personalized: usedPersonalized
+    });
+  } catch (error) {
+    console.error('Error fetching recommendations:', error);
+    res.status(500).json({ message: 'Failed to fetch recommendations', error: error.message });
+  }
+});
+
 // POST /api/properties/upload - Upload property image
 router.post('/upload', async (req, res) => {
   try {
@@ -279,7 +589,8 @@ router.post('/', async (req, res) => {
       hourlyRate,
       extraGuestFee,
       houseRules,
-      timeAvailability: req.body.timeAvailability || { checkInTime: '15:00', checkOutTime: '11:00' }
+      timeAvailability: req.body.timeAvailability || { checkInTime: '15:00', checkOutTime: '11:00' },
+      paymentMethods: req.body.paymentMethods || { cash: true, gcash: false, paymaya: false, bankTransfer: false }
     };
 
     const property = await repo.createProperty(propertyData);
@@ -369,6 +680,7 @@ router.put('/:id', async (req, res) => {
       amenities: req.body.amenities,
       images: req.body.images,
       availability: req.body.availability !== false,
+      paymentMethods: req.body.paymentMethods,
       timeAvailability: {
         ...(property.timeAvailability || {}),
         ...(req.body.timeAvailability || {}),

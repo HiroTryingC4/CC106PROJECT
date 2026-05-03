@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, HeartIcon } from '@heroicons/react/24/outline';
+import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import axios from 'axios';
 import API_CONFIG from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GuestUnits = () => {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const apiBaseUrl = API_CONFIG.BASE_URL;
   const [searchTerm, setSearchTerm] = useState('');
   const [units, setUnits] = useState([]);
   const [filteredUnits, setFilteredUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [favorites, setFavorites] = useState(new Set());
   
   const [filters, setFilters] = useState({
     type: 'All types',
@@ -62,8 +66,25 @@ const GuestUnits = () => {
       }
     };
 
+    const fetchFavorites = async () => {
+      if (!token) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/properties/favorites`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setFavorites(new Set(data.favorites.map(f => f.id)));
+        }
+      } catch (err) {
+        console.error('Failed to fetch favorites:', err);
+      }
+    };
+
     fetchProperties();
-  }, []);
+    fetchFavorites();
+  }, [apiBaseUrl, token]);
 
   // Apply filters when filters or search changes
   useEffect(() => {
@@ -197,12 +218,45 @@ const GuestUnits = () => {
     setSearchTerm('');
   };
 
+  const toggleFavorite = async (propertyId, e) => {
+    e.stopPropagation();
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const isFavorited = favorites.has(propertyId);
+    const method = isFavorited ? 'DELETE' : 'POST';
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/properties/${propertyId}/favorite`, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          if (isFavorited) {
+            newFavorites.delete(propertyId);
+          } else {
+            newFavorites.add(propertyId);
+          }
+          return newFavorites;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+    }
+  };
+
   return (
     <GuestLayout>
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-7xl space-y-6">
         {/* Header */}
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded flex items-center justify-center" style={{backgroundColor: '#4E7B22'}}>
+        <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-start sm:text-left sm:gap-4">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#4E7B22'}}>
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
@@ -211,9 +265,9 @@ const GuestUnits = () => {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
           {/* First Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div className="relative">
               <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
               <input
@@ -275,7 +329,7 @@ const GuestUnits = () => {
           </div>
 
           {/* Second Row */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <select 
               value={filters.duration}
               onChange={(e) => setFilters({...filters, duration: e.target.value})}
@@ -330,7 +384,7 @@ const GuestUnits = () => {
 
             <button 
               onClick={clearFilters}
-              className="text-white px-6 py-2 rounded-lg font-medium hover:opacity-90" 
+              className="text-white px-6 py-2 rounded-lg font-medium hover:opacity-90 sm:col-span-2 lg:col-span-1" 
               style={{backgroundColor: '#4E7B22'}}
             >
               Clear Filters
@@ -361,11 +415,11 @@ const GuestUnits = () => {
         )}
 
         {!loading && filteredUnits.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch justify-items-center">
             {filteredUnits.map((unit) => (
             <div 
               key={unit.id} 
-              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                className="w-full bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer flex flex-col h-full"
               onClick={() => navigate(`/guest/units/${unit.id}`)}
             >
               {/* Property Image */}
@@ -380,9 +434,19 @@ const GuestUnits = () => {
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 bg-black bg-opacity-20 rounded-t-lg hidden" style={{zIndex: 1}}></div>
+                <button
+                  onClick={(e) => toggleFavorite(unit.id, e)}
+                  className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors z-10"
+                >
+                  {favorites.has(unit.id) ? (
+                    <HeartIconSolid className="w-5 h-5 text-red-500" />
+                  ) : (
+                    <HeartIcon className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
               </div>
               
-              <div className="p-6">
+              <div className="p-6 flex flex-col flex-1">
                 {/* Property Type Badge and Rating */}
                 <div className="flex justify-between items-start mb-4">
                   <div className={`px-3 py-1 rounded-full text-sm font-medium ${unit.typeBg} ${unit.typeColor} flex items-center space-x-2`}>
@@ -392,26 +456,32 @@ const GuestUnits = () => {
                     <span>{unit.type}</span>
                   </div>
                   
-                  <div className="flex items-center space-x-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/guest/units/${unit.id}/reviews`);
+                    }}
+                    className="flex items-center space-x-1 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+                  >
                     <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    <span className="text-lg font-bold text-gray-900">{unit.rating}</span>
-                    <span className="text-gray-600">({unit.reviews})</span>
-                  </div>
+                    <span className="text-lg font-bold text-gray-900">{unit.rating ? unit.rating.toFixed(1) : '0.0'}</span>
+                    <span className="text-gray-600">({unit.reviews || 0})</span>
+                  </button>
                 </div>
 
                 {/* Property Title with underline */}
                 <div className="mb-4">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{unit.title}</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2 line-clamp-2 min-h-[3.5rem]">{unit.title}</h3>
                   <div className="w-16 h-1 bg-green-500 rounded"></div>
                 </div>
                 
                 {/* Description */}
-                <p className="text-gray-600 text-base mb-6 leading-relaxed">{unit.description}</p>
+                <p className="text-gray-600 text-base mb-6 leading-relaxed flex-1">{unit.description}</p>
                 
                 {/* Price and Details */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-auto">
                   <div className="flex items-baseline space-x-1">
                     <span className="text-2xl font-bold text-green-600">{unit.price}</span>
                     <span className="text-gray-600">{unit.period}</span>

@@ -155,6 +155,53 @@ const FAQs = () => {
           </p>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="text-white py-12 mt-16" style={{backgroundColor: '#0C1805'}}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="sm:col-span-2 lg:col-span-1">
+              <h3 className="text-2xl font-bold mb-4" style={{color: '#4E7B22'}}>Smart Stay</h3>
+              <p className="text-gray-400 text-base leading-relaxed">
+                Your trusted platform for booking amazing properties with ease and confidence.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4 text-lg">Quick Links</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/" className="hover:text-white transition-colors">Home</a></li>
+                <li><a href="/units" className="hover:text-white transition-colors">Browse Units</a></li>
+                <li><a href="/recommendations" className="hover:text-white transition-colors">Recommendations</a></li>
+                <li><a href="/faqs" className="hover:text-white transition-colors">FAQs</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4 text-lg">Support</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><a href="/help" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">Contact Us</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4 text-lg">Contact</h4>
+              <div className="space-y-3 text-gray-400">
+                <p>Email: info@smartstay.com</p>
+                <p>Phone: +1 (234) 567-8900</p>
+                <p>Address: 123 Main St, City, State</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2024 Smart Stay. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

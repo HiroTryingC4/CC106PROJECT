@@ -47,54 +47,54 @@ const ChatbotAnalytics = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 sm:space-y-8">
         {/* Simple Header */}
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
           <button 
             onClick={() => navigate('/admin/messages')}
-            className="text-gray-600 hover:text-gray-800"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-gray-200 hover:text-gray-800"
           >
             <ArrowLeftIcon className="w-6 h-6" />
           </button>
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">Chatbot Analytics and Monitoring</h2>
-            <p className="text-gray-600 mt-2">Track chatbot performance and user interactions</p>
+          <div className="max-w-3xl">
+            <h2 className="text-2xl font-bold leading-tight text-gray-900 sm:text-3xl">Chatbot Analytics and Monitoring</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600 sm:text-base">Track chatbot performance and user interactions</p>
           </div>
         </div>
 
         {/* Simple Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:gap-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Total Conversations</h3>
-            <p className="text-4xl font-bold text-blue-600 mt-2">156</p>
+            <p className="mt-2 text-3xl font-bold text-blue-600 sm:text-4xl">156</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Total Messages</h3>
-            <p className="text-4xl font-bold text-green-600 mt-2">782</p>
+            <p className="mt-2 text-3xl font-bold text-green-600 sm:text-4xl">782</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Active Users</h3>
-            <p className="text-4xl font-bold text-purple-600 mt-2">85</p>
+            <p className="mt-2 text-3xl font-bold text-purple-600 sm:text-4xl">85</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <h3 className="text-sm font-medium text-gray-500">Avg. Response Time</h3>
-            <p className="text-4xl font-bold text-orange-600 mt-2">1.15s</p>
+            <p className="mt-2 text-3xl font-bold text-orange-600 sm:text-4xl">1.15s</p>
           </div>
         </div>
 
         {/* Simple Performance Overview */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Overview</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-green-50 rounded-lg p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+            <div className="rounded-2xl bg-green-50 p-4">
               <div className="text-2xl font-bold text-green-600">782</div>
               <div className="text-sm text-green-700">Successful Responses</div>
             </div>
-            <div className="bg-red-50 rounded-lg p-4">
+            <div className="rounded-2xl bg-red-50 p-4">
               <div className="text-2xl font-bold text-red-600">22</div>
               <div className="text-sm text-red-700">Fallback Triggers</div>
             </div>
-            <div className="bg-blue-50 rounded-lg p-4">
+            <div className="rounded-2xl bg-blue-50 p-4">
               <div className="text-2xl font-bold text-blue-600">90.18%</div>
               <div className="text-sm text-blue-700">Success Rate</div>
             </div>
@@ -102,17 +102,17 @@ const ChatbotAnalytics = () => {
         </div>
 
         {/* Enhanced Top 5 Most Asked Questions */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center space-x-3 mb-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-6 flex items-center space-x-3">
             <div className="p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">
               <ChatBubbleLeftRightIcon className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900">Top 5 Most Asked Questions</h3>
+            <h3 className="text-lg font-semibold text-gray-900 sm:text-xl">Top 5 Most Asked Questions</h3>
           </div>
           <div className="space-y-4">
             {topQuestions.map((item, index) => (
-              <div key={item.id} className="group hover:bg-gray-50 transition-colors duration-200 rounded-lg p-4 border border-gray-100">
-                <div className="flex items-center justify-between">
+              <div key={item.id} className="group rounded-xl border border-gray-100 p-4 transition-colors duration-200 hover:bg-gray-50">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
                   <div className="flex items-center space-x-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
                       index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' :
@@ -126,12 +126,12 @@ const ChatbotAnalytics = () => {
                       {item.question}
                     </span>
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <div className="text-xl font-bold text-blue-600">{item.timesAsked}</div>
                     <div className="text-xs text-gray-500">times asked</div>
                   </div>
                 </div>
-                <div className="mt-3 ml-14">
+                <div className="mt-3 ml-0 sm:ml-14">
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
@@ -145,25 +145,25 @@ const ChatbotAnalytics = () => {
         </div>
 
         {/* Enhanced Unanswered Questions */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
                 <ExclamationTriangleIcon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Unanswered Questions (Fallback Triggers)</h3>
+                <h3 className="text-lg font-semibold text-gray-900 sm:text-xl">Unanswered Questions (Fallback Triggers)</h3>
                 <p className="text-sm text-gray-600">Add these to FAQs to improve chatbot performance</p>
               </div>
             </div>
-            <div className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+            <div className="inline-flex w-fit px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
               Needs Attention
             </div>
           </div>
           <div className="space-y-3">
             {unansweredQuestions.map((item, index) => (
-              <div key={index} className="group hover:shadow-md transition-all duration-200 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-center justify-between">
+              <div key={index} className="group rounded-xl border border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50 p-4 transition-all duration-200 hover:shadow-md">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-yellow-200 rounded-full">
                       <ExclamationTriangleIcon className="w-5 h-5 text-yellow-700" />
@@ -188,22 +188,22 @@ const ChatbotAnalytics = () => {
         </div>
 
         {/* Enhanced Activity Trends */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center space-x-3 mb-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-6 flex items-center space-x-3">
             <div className="p-2 bg-gradient-to-r from-green-500 to-green-600 rounded-lg">
               <ArrowTrendingUpIcon className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900">Activity Trends (Last 7 Days)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 sm:text-xl">Activity Trends (Last 7 Days)</h3>
               <p className="text-sm text-gray-600">Daily message volume and engagement patterns</p>
             </div>
           </div>
           <div className="space-y-4">
             {activityTrends.map((day, index) => (
-              <div key={index} className="group hover:bg-gray-50 transition-colors duration-200 rounded-lg p-3">
+              <div key={index} className="group rounded-xl p-3 transition-colors duration-200 hover:bg-gray-50">
                 <div className="flex items-center space-x-4">
                   <div className="w-16 text-sm font-medium text-gray-700">{day.date}</div>
-                  <div className="flex-1 bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                  <div className="relative h-8 flex-1 overflow-hidden rounded-full bg-gray-200">
                     <div 
                       className="bg-gradient-to-r from-[#4E7B22] to-[#6B9B2F] h-8 rounded-full flex items-center justify-center text-white text-sm font-bold transition-all duration-700 ease-out shadow-sm"
                       style={{ width: `${day.bar}%` }}
@@ -222,22 +222,46 @@ const ChatbotAnalytics = () => {
         </div>
 
         {/* Enhanced Recent Conversations */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg">
                 <EyeIcon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Recent Conversations</h3>
+                <h3 className="text-lg font-semibold text-gray-900 sm:text-xl">Recent Conversations</h3>
                 <p className="text-sm text-gray-600">Latest chatbot interactions and user sessions</p>
               </div>
             </div>
-            <button className="px-4 py-2 bg-[#4E7B22] text-white rounded-lg hover:bg-[#3d6219] transition-colors duration-200 text-sm font-medium">
+            <button className="inline-flex w-fit px-4 py-2 bg-[#4E7B22] text-white rounded-lg hover:bg-[#3d6219] transition-colors duration-200 text-sm font-medium">
               View All
             </button>
           </div>
-          <div className="overflow-x-auto">
+          <div className="space-y-3 sm:hidden">
+            {recentConversations.map((conv, index) => (
+              <div key={index} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{conv.time}</p>
+                    <span className={`mt-2 inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                      conv.userRole === 'guest'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                        : 'bg-green-100 text-green-800 border border-green-200'
+                    }`}>
+                      {conv.userRole}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-[#4E7B22]">{conv.messages}</p>
+                    <p className="text-xs text-gray-500">messages</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-sm text-gray-600">Conversation ID: {conv.conversationId}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto sm:block">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">

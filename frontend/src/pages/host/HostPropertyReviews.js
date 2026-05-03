@@ -5,28 +5,32 @@ import PropertyReviews from '../../components/common/PropertyReviews';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import API_CONFIG from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const HostPropertyReviews = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPropertyInfo();
-  }, [id]);
+    const fetchPropertyInfo = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_CONFIG.BASE_URL}/properties/${id}`);
+        setProperty(response.data);
+      } catch (err) {
+        console.error('Error fetching property:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchPropertyInfo = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/properties/${id}`);
-      setProperty(response.data);
-    } catch (err) {
-      console.error('Error fetching property:', err);
-    } finally {
-      setLoading(false);
+    if (id) {
+      fetchPropertyInfo();
     }
-  };
+  }, [id]);
 
   return (
     <HostLayout>
@@ -49,7 +53,7 @@ const HostPropertyReviews = () => {
         )}
 
         {/* Reviews Component */}
-        <PropertyReviews propertyId={id} />
+        <PropertyReviews propertyId={id} isHost={true} hostId={user?.id} />
       </div>
     </HostLayout>
   );

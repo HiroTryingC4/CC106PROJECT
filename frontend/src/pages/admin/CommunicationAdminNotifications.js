@@ -29,18 +29,42 @@ const CommunicationAdminNotifications = () => {
 
   const readCount = viewModel.filter((notification) => notification.isRead).length;
 
+  const handleNotificationClick = (notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+
+    if (notification.subjectId) {
+      switch (notification.type) {
+        case 'booking':
+        case 'booking_confirmed':
+        case 'booking_reminder':
+          navigate(`/comm-admin/bookings/${notification.subjectId}`);
+          break;
+        case 'property':
+          navigate(`/comm-admin/properties/${notification.subjectId}`);
+          break;
+        case 'message':
+          navigate('/comm-admin/messages');
+          break;
+        default:
+          break;
+      }
+    }
+  };
+
   return (
     <CommunicationAdminLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center space-x-3">
+      <div className="space-y-6 sm:space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start space-x-3">
             <BellIcon className="w-8 h-8 text-green-600" />
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900">Communication Notifications</h1>
-              <p className="text-gray-600 mt-1">You have {unreadCount} unread notifications</p>
+            <div className="max-w-2xl">
+              <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">Communication Notifications</h1>
+              <p className="mt-1 text-gray-600">You have {unreadCount} unread notifications</p>
             </div>
           </div>
-          <button onClick={() => navigate(-1)} className="flex items-center space-x-2 text-gray-600 hover:text-gray-800">
+          <button onClick={() => navigate(-1)} className="inline-flex items-center space-x-2 self-start rounded-full bg-white px-4 py-2 text-gray-600 shadow-sm ring-1 ring-gray-200 hover:text-gray-800">
             <ArrowLeftIcon className="w-5 h-5" />
             <span>Back</span>
           </button>
@@ -86,21 +110,22 @@ const CommunicationAdminNotifications = () => {
         )}
 
         {!loading && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filteredNotifications.map((notification) => {
               const Icon = notification.icon;
               return (
                 <div
                   key={notification.id}
-                  className={`bg-white rounded-lg shadow-sm p-6 border-l-4 ${notification.isRead ? 'border-l-transparent' : notification.borderColor}`}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`cursor-pointer rounded-2xl border-l-4 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-6 ${notification.isRead ? 'border-l-transparent' : notification.borderColor}`}
                 >
-                  <div className="flex items-start space-x-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4 sm:gap-0">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${notification.bgColor}`}>
                       <Icon className={`w-6 h-6 ${notification.color}`} />
                     </div>
 
                     <div className="flex-1">
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">{notification.title}</h3>
                         <span className="text-sm text-gray-500">{notification.dateLabel}</span>
                       </div>
@@ -127,7 +152,7 @@ const CommunicationAdminNotifications = () => {
                       </div>
                     </div>
 
-                    {!notification.isRead && <div className="w-3 h-3 bg-green-500 rounded-full" />}
+                    {!notification.isRead && <div className="h-3 w-3 rounded-full bg-green-500" />}
                   </div>
                 </div>
               );

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import GuestLayout from '../../components/common/GuestLayout';
 import { ArrowLeftIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/outline';
 import API_CONFIG from '../../config/api';
@@ -7,9 +7,12 @@ import API_CONFIG from '../../config/api';
 const BookingDetails = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const reviewSectionRef = useRef(null);
   const apiBaseUrl = API_CONFIG.BASE_URL;
   const [booking, setBooking] = useState(null);
   const [property, setProperty] = useState(null);
+  const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -17,6 +20,7 @@ const BookingDetails = () => {
   const [cancellationInfo, setCancellationInfo] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [cancellationResult, setCancellationResult] = useState(null);
+  const [cancellationNotice, setCancellationNotice] = useState(null);
   const [remainingBalance, setRemainingBalance] = useState(null);
   const [resolvedPaymentStatus, setResolvedPaymentStatus] = useState('pending');
 
@@ -90,6 +94,28 @@ const BookingDetails = () => {
           setRemainingBalance(Number(bookingData.totalAmount || 0));
         }
 
+        // Fetch review for this booking
+        try {
+          const reviewsResponse = await fetch(
+            `${apiBaseUrl}/reviews?bookingId=${bookingData.id}`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              credentials: 'include'
+            }
+          );
+
+          if (reviewsResponse.ok) {
+            const reviewsData = await reviewsResponse.json();
+            const reviews = reviewsData?.reviews || [];
+            if (reviews.length > 0) {
+              setReview(reviews[0]); // Get first review for this booking
+            }
+          }
+        } catch (reviewError) {
+          console.error('Error fetching review:', reviewError);
+          // Don't fail if review fetch fails
+        }
+
         setError('');
       } catch (err) {
         console.error('Error fetching booking details:', err);
@@ -101,6 +127,19 @@ const BookingDetails = () => {
 
     fetchBooking();
   }, [bookingId, apiBaseUrl]);
+
+  // Scroll to review section if requested via URL parameter
+  useEffect(() => {
+    const scrollToReview = searchParams.get('scrollTo') === 'review';
+    
+    if (scrollToReview && reviewSectionRef.current) {
+      // Wait for DOM to be fully rendered
+      const timer = setTimeout(() => {
+        reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [review, searchParams, loading]);
 
   const nights = useMemo(() => {
     if (!booking) return 0;
@@ -135,6 +174,10 @@ const BookingDetails = () => {
   const formatDate = (value) => new Date(value).toLocaleDateString('en-PH');
   const formatAmount = (value) => `₱${Number(value || 0).toLocaleString('en-PH')}`;
 
+  const showCancellationNotice = (title, message) => {
+    setCancellationNotice({ title, message });
+  };
+
   const handleCancelBooking = async () => {
     if (!booking || booking.status === 'cancelled') return;
 
@@ -153,7 +196,7 @@ const BookingDetails = () => {
       const policyData = await response.json();
 
       if (!policyData.canCancel) {
-        alert(policyData.reason || 'Cannot cancel this booking');
+        showCancellationNotice('Cannot Cancel Booking', policyData.reason || 'Cannot cancel this booking');
         return;
       }
 
@@ -161,7 +204,7 @@ const BookingDetails = () => {
       setShowCancelModal(true);
     } catch (err) {
       console.error('Error fetching cancellation policy:', err);
-      alert('Unable to fetch cancellation policy');
+      showCancellationNotice('Unable to Cancel Booking', 'Unable to fetch cancellation policy');
     }
   };
 
@@ -199,7 +242,7 @@ const BookingDetails = () => {
       setShowSuccessModal(true);
     } catch (err) {
       console.error('Error cancelling booking:', err);
-      alert(err.message || 'Unable to cancel booking');
+      showCancellationNotice('Cancellation Failed', err.message || 'Unable to cancel booking');
     } finally {
       setCancelling(false);
     }
@@ -227,6 +270,32 @@ const BookingDetails = () => {
   return (
     <GuestLayout>
       <div className="space-y-6">
+        {/* Notice Modal */}
+        {cancellationNotice && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4">
+            <div className="w-full max-w-sm overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-black/5">
+              <div className="bg-gradient-to-r from-[#4E7B22] to-[#6a962f] px-6 py-5 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/70">Booking Update</p>
+                <h3 className="mt-1 text-2xl font-semibold">{cancellationNotice.title}</h3>
+              </div>
+              <div className="px-6 py-6 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600">
+                  <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86l-7.2 12.44A2 2 0 004.81 19h14.38a2 2 0 001.72-2.7l-7.2-12.44a2 2 0 00-3.44 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm leading-6 text-gray-600">{cancellationNotice.message}</p>
+                <button
+                  onClick={() => setCancellationNotice(null)}
+                  className="mt-6 w-full rounded-2xl bg-[#4E7B22] px-4 py-3 font-medium text-white shadow-lg shadow-[#4E7B22]/20 transition hover:opacity-95"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Success Modal */}
         {showSuccessModal && cancellationResult && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -541,6 +610,50 @@ const BookingDetails = () => {
                 </div>
               )}
             </div>
+
+            {/* Review & Host Reply Section */}
+            {review && (
+              <div ref={reviewSectionRef} className="bg-white rounded-xl shadow-sm p-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Your Review</h3>
+                
+                <div className="space-y-6">
+                  {/* Guest Review */}
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Your review</p>
+                        <div className="flex items-center mt-2">
+                          {[...Array(5)].map((_, i) => (
+                            <span key={i} className={`text-lg ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+                          ))}
+                        </div>
+                      </div>
+                      {review.createdAt && (
+                        <p className="text-sm text-gray-500">{new Date(review.createdAt).toLocaleDateString('en-PH')}</p>
+                      )}
+                    </div>
+                    {review.comment && (
+                      <p className="text-gray-700 mt-4">{review.comment}</p>
+                    )}
+                  </div>
+
+                  {/* Host Reply */}
+                  {review.hostReply && (
+                    <div className="border-2 border-blue-200 bg-blue-50 rounded-lg p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-blue-900">🏠 Host's Response</p>
+                        </div>
+                        {review.hostReplyDate && (
+                          <p className="text-sm text-blue-600">{new Date(review.hostReplyDate).toLocaleDateString('en-PH')}</p>
+                        )}
+                      </div>
+                      <p className="text-gray-700 mt-2">{review.hostReply}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="bg-white rounded-xl shadow-sm p-8">

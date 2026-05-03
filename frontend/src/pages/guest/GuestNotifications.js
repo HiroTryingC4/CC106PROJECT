@@ -42,6 +42,56 @@ const GuestNotifications = () => {
     showToastMessage('Notification marked as read');
   };
 
+  const handleNotificationClick = (notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+
+    const bookingSubjectId = notification.subjectId ?? notification.bookingId ?? notification.booking_id ?? null;
+
+    switch (notification.type) {
+      case 'booking':
+      case 'booking_confirmed':
+      case 'booking_reminder':
+        if (bookingSubjectId) {
+          navigate(`/guest/bookings/${bookingSubjectId}`);
+        } else {
+          navigate('/guest/bookings');
+        }
+        break;
+      case 'property':
+        if (notification.subjectId) {
+          navigate(`/properties/${notification.subjectId}`);
+        }
+        break;
+      case 'message':
+        navigate('/guest/messages');
+        break;
+      case 'payment':
+      case 'payment_received':
+        navigate('/guest/payments');
+        break;
+      case 'review_reminder':
+        // Review reminder - go to write review page
+        if (bookingSubjectId) {
+          navigate(`/guest/review/${bookingSubjectId}`);
+        } else {
+          navigate('/guest/bookings');
+        }
+        break;
+      case 'review_reply':
+        // Host replied to review - go to booking details to see the reply
+        if (bookingSubjectId) {
+          navigate(`/guest/bookings/${bookingSubjectId}?scrollTo=review`);
+        } else {
+          navigate('/guest/bookings');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   const onDeleteNotification = async (notification) => {
     await deleteNotification(notification.id);
     showToastMessage(`"${notification.title}" deleted`);
@@ -123,7 +173,10 @@ const GuestNotifications = () => {
               return (
                 <div
                   key={notification.id}
-                  className={`bg-white rounded-lg shadow-sm p-6 border-l-4 ${notification.isRead ? 'border-l-transparent' : notification.borderColor}`}
+                  onClick={() => {
+                    handleNotificationClick(notification);
+                  }}
+                  className={`bg-white rounded-lg shadow-sm p-6 border-l-4 cursor-pointer hover:shadow-md transition-shadow ${notification.isRead ? 'border-l-transparent' : notification.borderColor}`}
                 >
                   <div className="flex items-start space-x-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${notification.bgColor}`}>
@@ -141,7 +194,10 @@ const GuestNotifications = () => {
                       <div className="flex space-x-4">
                         {!notification.isRead && (
                           <button
-                            onClick={() => onMarkAsRead(notification.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onMarkAsRead(notification.id);
+                            }}
                             className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1 transition-colors"
                           >
                             <CheckIcon className="w-4 h-4" />
@@ -149,7 +205,10 @@ const GuestNotifications = () => {
                           </button>
                         )}
                         <button
-                          onClick={() => onDeleteNotification(notification)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteNotification(notification);
+                          }}
                           className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center space-x-1 transition-colors"
                         >
                           <TrashIcon className="w-4 h-4" />

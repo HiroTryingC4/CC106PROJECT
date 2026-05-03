@@ -197,15 +197,15 @@ const AdminUnits = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {/* Page Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600 mt-2">Manage all system users and disputes</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-2xl">
+            <h1 className="text-3xl font-bold leading-tight text-gray-900 sm:text-4xl">User Management</h1>
+            <p className="mt-2 text-gray-600">Manage all system users and disputes</p>
           </div>
-          <div className="flex space-x-3">
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <select className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:w-auto sm:py-2">
               <option>All Listings</option>
               <option>Approved</option>
               <option>Pending</option>
@@ -215,11 +215,11 @@ const AdminUnits = () => {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-gray-200 overflow-x-auto">
+          <nav className="-mb-px flex min-w-max space-x-8 pr-4 sm:pr-0">
             <button
               onClick={() => setActiveTab('approved')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'approved'
                   ? 'border-green-500 text-green-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -229,7 +229,7 @@ const AdminUnits = () => {
             </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'pending'
                   ? 'border-yellow-500 text-yellow-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -239,7 +239,7 @@ const AdminUnits = () => {
             </button>
             <button
               onClick={() => setActiveTab('rejected')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'rejected'
                   ? 'border-red-500 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -251,7 +251,57 @@ const AdminUnits = () => {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="space-y-3 sm:hidden">
+          {(activeTab === 'approved' ? approvedUnits : 
+            activeTab === 'pending' ? pendingUnits : rejectedUnits).map((unit) => (
+            <div key={unit.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Unit #{unit.id}</p>
+                  <h3 className="mt-1 text-lg font-semibold text-gray-900">{unit.name}</h3>
+                  <p className="mt-1 text-sm text-gray-600">Host: {unit.host}</p>
+                </div>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getModerationColor(unit.moderation)}`}>
+                  {getModerationIcon(unit.moderation)}
+                  {unit.moderation.charAt(0).toUpperCase() + unit.moderation.slice(1)}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Type</p>
+                  <p className="font-medium text-gray-900">{unit.type}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Price/Night</p>
+                  <p className="font-medium text-gray-900">{unit.price}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Rating</p>
+                  <div className="flex items-center font-medium text-gray-900">
+                    <span className="mr-1">{unit.rating}</span>
+                    <StarIcon className="h-4 w-4 fill-current text-yellow-400" />
+                    <span className="ml-1 text-gray-500">({unit.reviews})</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-500">Status</p>
+                  <select className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500">
+                    <option>{unit.status}</option>
+                    <option>Unavailable</option>
+                    <option>Maintenance</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {getActionButtons(unit.moderation)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 sm:block">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50">

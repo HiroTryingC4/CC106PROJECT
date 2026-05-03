@@ -32,6 +32,65 @@ const RealtimeNotifications = () => {
     }
   };
 
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    markNotificationAsRead(notification.id);
+    setShowNotifications(false);
+
+    // Navigate based on notification type and subjectId
+    const rolePrefix = user?.role === 'admin' ? '/admin' : 
+                       user?.role === 'communication_admin' ? '/comm-admin' :
+                       user?.role === 'host' ? '/host' : '/guest';
+
+    switch (notification.type) {
+      case 'booking':
+      case 'booking_confirmed':
+      case 'booking_reminder':
+        if (notification.subjectId) {
+          navigate(`${rolePrefix}/bookings/${notification.subjectId}`);
+        } else {
+          navigate(`${rolePrefix}/bookings`);
+        }
+        break;
+      case 'message':
+        navigate(`${rolePrefix}/messages`);
+        break;
+      case 'property':
+        if (notification.subjectId) {
+          navigate(`/properties/${notification.subjectId}`);
+        } else {
+          navigate(`${rolePrefix}/units`);
+        }
+        break;
+      case 'payment':
+      case 'payment_received':
+        navigate(`${rolePrefix}/payments`);
+        break;
+      case 'review_reminder':
+        // Review reminder - go to write review page
+        if (user?.role === 'guest' && notification.subjectId) {
+          navigate(`/guest/bookings/${notification.subjectId}/review`);
+        } else {
+          navigate(`${rolePrefix}/bookings`);
+        }
+        break;
+      case 'review_reply':
+        if (user?.role === 'host') {
+          navigate('/host/reviews');
+          break;
+        }
+
+        if (notification.subjectId) {
+          navigate(`/guest/bookings/${notification.subjectId}?scrollTo=review`);
+        } else {
+          navigate('/guest/bookings');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'booking':
@@ -87,7 +146,7 @@ const RealtimeNotifications = () => {
                   className={`p-4 hover:bg-gray-50 cursor-pointer ${
                     !notification.read ? 'bg-blue-50' : ''
                   }`}
-                  onClick={() => markNotificationAsRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3 flex-1">

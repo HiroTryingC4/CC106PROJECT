@@ -37,16 +37,31 @@ const HostNotifications = () => {
     // Navigate based on notification type
     switch (notification.type) {
       case 'booking':
-        navigate('/host/bookings');
+      case 'booking_confirmed':
+      case 'booking_reminder':
+        if (notification.subjectId) {
+          navigate(`/host/bookings/${notification.subjectId}`);
+        } else {
+          navigate('/host/bookings');
+        }
         break;
       case 'message':
         navigate('/host/messages');
         break;
       case 'property':
-        navigate('/host/units');
+        if (notification.subjectId) {
+          navigate(`/properties/${notification.subjectId}`);
+        } else {
+          navigate('/host/units');
+        }
         break;
       case 'payment':
+      case 'payment_received':
         navigate('/host/payments');
+        break;
+      case 'review':
+      case 'review_received':
+        navigate('/host/reviews');
         break;
       default:
         break;

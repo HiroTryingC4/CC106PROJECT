@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role VARCHAR(50) NOT NULL DEFAULT 'guest',
   verification_status VARCHAR(50) NOT NULL DEFAULT 'not_required',
+  email_verified BOOLEAN NOT NULL DEFAULT false,
+  verification_token TEXT,
+  verification_token_expires TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   CONSTRAINT users_role_check CHECK (role IN ('admin', 'communication_admin', 'host', 'guest')),
@@ -42,20 +45,4 @@ CREATE TABLE IF NOT EXISTS host_verifications (
 CREATE INDEX IF NOT EXISTS idx_host_verifications_status ON host_verifications (status);
 CREATE INDEX IF NOT EXISTS idx_host_verifications_host_user_id ON host_verifications (host_user_id);
 
-INSERT INTO users (
-  first_name,
-  last_name,
-  email,
-  phone,
-  company,
-  password_hash,
-  role,
-  verification_status
-)
-VALUES
-  ('Admin', 'User', 'admin@smartstay.com', '', '', '$2a$10$zMYzZMgMLwpkULlXaoVDau9CYgd/c4PiX8YOjz4AMaiwfsm.t/GkS', 'admin', 'verified'),
-  ('Communication', 'Admin', 'comadmin@smartstay.com', '', '', '$2a$10$3tyOE5SwPGxMKFtaDuhPreFeDEnBbIcVJjRgJL8WE2CSGXbLtXz26', 'communication_admin', 'verified'),
-  ('John', 'Host', 'host@smartstay.com', '', 'Host Properties LLC', '$2a$10$RHV7dO.FrPTSgx6sdT.hA.dOJQ9f3dGq7xRqIXRHwnNYJmMAbDtIW', 'host', 'verified'),
-  ('Sarah', 'NewHost', 'newhost@smartstay.com', '', '', '$2a$10$wcWn1YxEcHJuOnSa2LIlDugbETSpjSYde1ITq7dfu5AAiSzSKLPeu', 'host', 'not_submitted'),
-  ('Jane', 'Guest', 'guest@smartstay.com', '', '', '$2a$10$Rh4a43hm0NKet3MbfwWrxum4OqOBNdzoK3rXd4UTQ..y2s8TnQNzi', 'guest', 'not_required')
-ON CONFLICT (email) DO NOTHING;
+-- Default users removed - manage users through application or manual SQL

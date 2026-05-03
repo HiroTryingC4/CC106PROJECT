@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Star, MapPin, Users, Bed, Bath } from 'lucide-react';
 import API_CONFIG from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const PropertySearch = () => {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const apiBaseUrl = API_CONFIG.BASE_URL;
   const [properties, setProperties] = useState([]);
   const [filteredProperties, setFilteredProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [favorites, setFavorites] = useState(new Set());
   
   // Search filters
   const [searchCity, setSearchCity] = useState('');
@@ -20,7 +23,8 @@ const PropertySearch = () => {
 
   useEffect(() => {
     fetchProperties();
-  }, []);
+    if (token) fetchFavorites();
+  }, [token]);
 
   const fetchProperties = async () => {
     try {
@@ -36,6 +40,54 @@ const PropertySearch = () => {
       console.error('Fetch error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFavorites = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/properties/favorites`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setFavorites(new Set(data.favorites.map(f => f.id)));
+      }
+    } catch (err) {
+      console.error('Failed to fetch favorites:', err);
+    }
+  };
+
+  const toggleFavorite = async (propertyId, e) => {
+    e.stopPropagation();
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const isFavorited = favorites.has(propertyId);
+    const method = isFavorited ? 'DELETE' : 'POST';
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/properties/${propertyId}/favorite`, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          if (isFavorited) {
+            newFavorites.delete(propertyId);
+          } else {
+            newFavorites.add(propertyId);
+          }
+          return newFavorites;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
     }
   };
 
@@ -200,9 +252,16 @@ const PropertySearch = () => {
                     className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                   />
                   <button
-                    className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100"
+                    onClick={(e) => toggleFavorite(property.id, e)}
+                    className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
                   >
-                    <Heart className="w-5 h-5 text-red-500" />
+                    <Heart
+                      className={`w-5 h-5 transition-colors ${
+                        favorites.has(property.id)
+                          ? 'text-red-500 fill-red-500'
+                          : 'text-gray-400'
+                      }`}
+                    />
                   </button>
                   <div className="absolute bottom-4 left-4 bg-white rounded-full px-3 py-1 text-sm font-semibold">
                     {property.type}

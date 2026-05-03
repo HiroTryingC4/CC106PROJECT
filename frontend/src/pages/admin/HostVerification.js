@@ -233,7 +233,56 @@ const HostVerification = () => {
 
         {/* Verification Requests Table */}
         {!loading && !error && verificationRequests.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <>
+          {/* Mobile Card View */}
+          <div className="space-y-4 sm:hidden">
+            {verificationRequests.map((request) => (
+              <div key={request.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600">
+                      <span className="text-white text-lg font-bold">
+                        {request.displayName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">{request.displayName}</h3>
+                      <p className="text-sm text-gray-600 truncate">{request.displayEmail}</p>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
+                    {getStatusIcon(request.status)}
+                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                  <div>
+                    <p className="text-gray-500">ID</p>
+                    <p className="font-medium text-gray-900">#{request.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Business</p>
+                    <p className="font-medium text-gray-900 truncate">{request.displayBusinessName}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-500">Submitted</p>
+                    <p className="font-medium text-gray-900">{request.submitted}</p>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => handleViewDetails(request)}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                >
+                  View Details
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden sm:block bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50">
@@ -275,256 +324,28 @@ const HostVerification = () => {
             </table>
           </div>
         </div>
+        </>
         )}
 
-        {/* Verification Details Modal */}
-        {showDetailsModal && selectedHost && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b">
-                <h3 className="text-xl font-semibold text-gray-900">Verification Details</h3>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="p-6 space-y-6">
-                {/* Host Information */}
-                <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Host Information</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-600">Name:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.displayName}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-600">Email:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.displayEmail}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-sm text-gray-600">Submitted:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.submitted}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Business Information */}
-                <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Business Information</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm text-gray-600">Business Name:</label>
-                      <p className="font-medium text-gray-900">{selectedHost.displayBusinessName}</p>
-                    </div>
-                    {selectedHost.details && (
-                      <>
-                        <div>
-                          <label className="text-sm text-gray-600">Address:</label>
-                          <p className="font-medium text-gray-900">{selectedHost.details.businessAddress}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm text-gray-600">Type:</label>
-                          <p className="font-medium text-gray-900">{selectedHost.details.businessType}</p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Identification */}
-                {selectedHost.details && (
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Identification</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-gray-600">ID Type:</label>
-                        <p className="font-medium text-gray-900">{selectedHost.details.idType}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600">ID Number:</label>
-                        <p className="font-medium text-gray-900">{selectedHost.details.idNumber}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-sm text-gray-600">Tax ID:</label>
-                        <p className="font-medium text-gray-900">{selectedHost.details.taxId}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ID Photo Verification */}
-                {selectedHost.details && (
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">ID Photo Verification</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="text-sm text-gray-600 mb-2 block">ID Document Photo:</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <img 
-                            src={selectedHost.details.files?.idDocumentPhoto?.fileUrl || selectedHost.details.idPhoto} 
-                            alt="ID Document" 
-                            className="w-full h-40 object-cover rounded-lg bg-gray-200"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              if (e.target.nextElementSibling) {
-                                e.target.nextElementSibling.style.display = 'flex';
-                              }
-                            }}
-                          />
-                          <div className="hidden w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
-                            <div className="text-center text-gray-500">
-                              <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <p className="text-sm">ID Document Photo</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 mb-2 block">Owner Holding ID Photo:</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <img 
-                            src={selectedHost.details.files?.ownerHoldingIdPhoto?.fileUrl || selectedHost.details.ownerIdPhoto} 
-                            alt="Owner Holding ID" 
-                            className="w-full h-40 object-cover rounded-lg bg-gray-200"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              if (e.target.nextElementSibling) {
-                                e.target.nextElementSibling.style.display = 'flex';
-                              }
-                            }}
-                          />
-                          <div className="hidden w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
-                            <div className="text-center text-gray-500">
-                              <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
-                              <p className="text-sm">Owner Holding ID Photo</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                      <p className="font-medium text-blue-900 mb-1">Verification Instructions:</p>
-                      <p className="text-blue-800">
-                        Please verify that the ID document is clear and readable, and that the person in the second photo 
-                        is clearly holding the same ID document. Check that the information matches across both photos.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Property Documents */}
-                {selectedHost.details && (
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Property Documents</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm text-gray-600">Proof of Ownership:</label>
-                        <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
-                          {selectedHost.details.files?.proofOfOwnership?.fileUrl ? (
-                            <a
-                              href={selectedHost.details.files.proofOfOwnership.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              {selectedHost.details.files.proofOfOwnership.originalName || 'Open proof of ownership'}
-                            </a>
-                          ) : (
-                            <span>{selectedHost.details.proofOfOwnership || 'No file uploaded'}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600">Additional Documents:</label>
-                        <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
-                          {selectedHost.details.files?.additionalDocuments?.fileUrl ? (
-                            <a
-                              href={selectedHost.details.files.additionalDocuments.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              {selectedHost.details.files.additionalDocuments.originalName || 'Open additional document'}
-                            </a>
-                          ) : (
-                            <span>{selectedHost.details.additionalDocs || 'No additional document uploaded'}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Verification Status */}
-                <div>
-                  <label className="text-sm text-gray-600">Verification Status:</label>
-                  <div className="mt-2">
-                    <span className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedHost.status)}`}>
-                      {getStatusIcon(selectedHost.status)}
-                      {selectedHost.status === 'pending' ? 'Pending Verification' : selectedHost.status.charAt(0).toUpperCase() + selectedHost.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Edit User
-                </button>
-                <button
-                  onClick={() => {
-                    handleApprove(selectedHost.id);
-                    setShowDetailsModal(false);
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Verify Host
-                </button>
-                <button
-                  onClick={() => {
-                    handleReject(selectedHost.id);
-                    setShowDetailsModal(false);
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Deactivate User
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         {/* Enhanced Verification Details Modal */}
         {showDetailsModal && selectedHost && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+            <div className="flex h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:h-auto sm:max-h-[95vh] sm:rounded-2xl">
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
-                <div className="flex items-center justify-between">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-5 text-white sm:px-8 sm:py-6">
+                <div className="flex items-start justify-between gap-3 sm:items-center">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
                       <UserCircleIcon className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold">Verification Details</h3>
-                      <p className="text-blue-100 text-sm">Review host verification information</p>
+                      <h3 className="text-xl font-bold sm:text-2xl">Verification Details</h3>
+                      <p className="text-sm text-blue-100">Review host verification information</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowDetailsModal(false)}
-                    className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center hover:bg-opacity-30 transition-colors"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 transition-colors hover:bg-white/30"
                   >
                     <XMarkIcon className="w-6 h-6 text-white" />
                   </button>
@@ -532,33 +353,33 @@ const HostVerification = () => {
               </div>
 
               {/* Modal Content */}
-              <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
-                <div className="p-8 space-y-8">
+              <div className="flex-1 overflow-y-auto">
+                <div className="space-y-6 p-4 sm:space-y-8 sm:p-8">
                   {/* Host Information Card */}
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
-                    <div className="flex items-center space-x-4 mb-6">
-                      <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center">
+                  <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 p-5 sm:p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600">
                         <span className="text-white text-xl font-bold">
                           {selectedHost.hostName.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </span>
                       </div>
-                      <div>
-                        <h4 className="text-2xl font-bold text-gray-900">{selectedHost.hostName}</h4>
-                        <p className="text-gray-600 flex items-center mt-1">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xl font-bold text-gray-900 sm:text-2xl">{selectedHost.hostName}</h4>
+                        <p className="mt-1 flex items-center text-gray-600">
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                           </svg>
                           {selectedHost.email}
                         </p>
-                        <p className="text-gray-500 flex items-center mt-1">
+                        <p className="mt-1 flex items-center text-gray-500">
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0l-2 13a2 2 0 002 2h6a2 2 0 002-2L16 7" />
                           </svg>
                           Submitted: {selectedHost.submitted}
                         </p>
                       </div>
-                      <div className="ml-auto">
-                        <span className={`inline-flex items-center px-4 py-2 text-sm font-semibold rounded-full ${getStatusColor(selectedHost.status)}`}>
+                      <div className="sm:ml-auto">
+                        <span className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${getStatusColor(selectedHost.status)}`}>
                           {getStatusIcon(selectedHost.status)}
                           {selectedHost.status === 'pending' ? 'Pending Review' : selectedHost.status.charAt(0).toUpperCase() + selectedHost.status.slice(1)}
                         </span>
@@ -568,15 +389,15 @@ const HostVerification = () => {
 
                   {/* Business Information Card */}
                   <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-                    <div className="flex items-center space-x-3 mb-6">
-                      <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <div className="mb-6 flex items-center space-x-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
                         <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                       </div>
                       <h4 className="text-xl font-bold text-gray-900">Business Information</h4>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Business Name</label>
@@ -601,15 +422,15 @@ const HostVerification = () => {
                   {/* Identification Card */}
                   {selectedHost.details && (
                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-                      <div className="flex items-center space-x-3 mb-6">
-                        <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                      <div className="mb-6 flex items-center space-x-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
                           <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                           </svg>
                         </div>
                         <h4 className="text-xl font-bold text-gray-900">Identification Details</h4>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
                         <div className="bg-gray-50 rounded-xl p-4">
                           <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">ID Type</label>
                           <p className="text-lg font-semibold text-gray-900 mt-2">{selectedHost.details.idType}</p>
@@ -628,9 +449,9 @@ const HostVerification = () => {
 
                   {/* ID Photo Verification Card */}
                   {selectedHost.details && (
-                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-                      <div className="flex items-center space-x-3 mb-6">
-                        <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                      <div className="mb-6 flex items-center space-x-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100">
                           <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -642,7 +463,7 @@ const HostVerification = () => {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
                         <div className="space-y-4">
                           <div className="flex items-center space-x-2">
                             <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
@@ -710,9 +531,9 @@ const HostVerification = () => {
                         </div>
                       </div>
                       
-                      <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+                      <div className="mt-6 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 sm:p-6">
                         <div className="flex items-start space-x-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-1">
+                          <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100">
                             <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -733,9 +554,9 @@ const HostVerification = () => {
 
                   {/* Property Documents Card */}
                   {selectedHost.details && (
-                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-                      <div className="flex items-center space-x-3 mb-6">
-                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                      <div className="mb-6 flex items-center space-x-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
                           <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
@@ -784,8 +605,8 @@ const HostVerification = () => {
               </div>
 
               {/* Enhanced Modal Footer */}
-              <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
-                <div className="flex items-center justify-between">
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 sm:px-8 sm:py-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center space-x-3">
                     <span className="text-sm text-gray-500">Verification Status:</span>
                     <span className={`inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(selectedHost.status)}`}>
@@ -793,10 +614,10 @@ const HostVerification = () => {
                       {selectedHost.status === 'pending' ? 'Pending Verification' : selectedHost.status.charAt(0).toUpperCase() + selectedHost.status.slice(1)}
                     </span>
                   </div>
-                  <div className="flex space-x-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
                     <button
                       onClick={() => setShowDetailsModal(false)}
-                      className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                      className="w-full rounded-xl border border-gray-300 px-6 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto"
                     >
                       Edit User
                     </button>
@@ -805,7 +626,7 @@ const HostVerification = () => {
                         handleApprove(selectedHost.id);
                         setShowDetailsModal(false);
                       }}
-                      className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-medium transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2"
+                      className="flex w-full items-center justify-center space-x-2 rounded-xl bg-green-600 px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-green-700 hover:shadow-xl sm:w-auto"
                     >
                       <CheckIcon className="w-5 h-5" />
                       <span>Verify Host</span>
@@ -815,7 +636,7 @@ const HostVerification = () => {
                         handleReject(selectedHost.id);
                         setShowDetailsModal(false);
                       }}
-                      className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2"
+                      className="flex w-full items-center justify-center space-x-2 rounded-xl bg-red-600 px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-red-700 hover:shadow-xl sm:w-auto"
                     >
                       <XMarkIcon className="w-5 h-5" />
                       <span>Deactivate User</span>

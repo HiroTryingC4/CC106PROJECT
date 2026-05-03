@@ -32,6 +32,7 @@ const mapPropertyRow = (row) => {
     extraGuestFee,
     houseRules,
     timeAvailability,
+    paymentMethods: row.payment_methods || { cash: true, gcash: false, paymaya: false, bankTransfer: false },
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -140,7 +141,8 @@ const createPropertiesRepository = (pool) => {
       hourlyRate = null,
       extraGuestFee = 0,
       houseRules = '',
-      timeAvailability = { checkInTime: '15:00', checkOutTime: '11:00' }
+      timeAvailability = { checkInTime: '15:00', checkOutTime: '11:00' },
+      paymentMethods = { cash: true, gcash: false, paymaya: false, bankTransfer: false }
     } = propertyData;
 
     const mergedTimeAvailability = {
@@ -167,10 +169,11 @@ const createPropertiesRepository = (pool) => {
           images,
           availability,
           time_availability,
+          payment_methods,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13::jsonb, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13::jsonb, $14::jsonb, NOW(), NOW())
         RETURNING *
       `,
       [
@@ -186,7 +189,8 @@ const createPropertiesRepository = (pool) => {
         amenities,
         images,
         availability,
-        JSON.stringify(mergedTimeAvailability)
+        JSON.stringify(mergedTimeAvailability),
+        JSON.stringify(paymentMethods)
       ]
     );
 
@@ -200,7 +204,7 @@ const createPropertiesRepository = (pool) => {
 
     Object.entries(propertyData).forEach(([key, value]) => {
       const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-      if (dbKey === 'address' || dbKey === 'time_availability') {
+      if (dbKey === 'address' || dbKey === 'time_availability' || dbKey === 'payment_methods') {
         fields.push(`${dbKey} = $${paramCount}::jsonb`);
         params.push(JSON.stringify(value));
       } else if (dbKey === 'amenities' || dbKey === 'images') {

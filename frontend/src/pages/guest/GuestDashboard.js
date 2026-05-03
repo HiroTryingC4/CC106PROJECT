@@ -134,17 +134,17 @@ const GuestDashboard = () => {
         {/* Trial Banner */}
         {user?.isTrial && (
           <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="text-2xl">🎯</div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center space-x-3">
+                <div className="text-2xl flex-shrink-0">🎯</div>
                 <div>
-                  <h3 className="text-lg font-semibold text-yellow-800">Trial Mode Active</h3>
-                  <p className="text-yellow-700 text-sm">You're exploring Smart Stay with sample data. Create an account to start booking real properties!</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-yellow-800">Trial Mode Active</h3>
+                  <p className="text-yellow-700 text-xs sm:text-sm">You're exploring Smart Stay with sample data. Create an account to start booking real properties!</p>
                 </div>
               </div>
               <Link 
                 to="/register"
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 font-medium"
+                className="w-full sm:w-auto text-center bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 font-medium text-sm"
               >
                 Sign Up Now
               </Link>
@@ -153,43 +153,43 @@ const GuestDashboard = () => {
         )}
 
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Guest Dashboard</h1>
-          <p className="text-gray-600 mt-2">
+        <div className="rounded-2xl border border-green-100 bg-gradient-to-r from-white to-green-50/70 p-4 sm:p-6 shadow-sm">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Guest Dashboard</h1>
+          <p className="text-gray-600 mt-2 text-sm sm:text-base max-w-2xl">
             Welcome back, {user?.firstName || 'Guest'}! Here's your booking overview.
           </p>
         </div>
 
         {/* Stats Cards — all from real DB data */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Total Bookings</h3>
-            <p className="text-3xl font-bold text-blue-600">{stats.totalBookings}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Total Bookings</h3>
+            <p className="text-2xl sm:text-3xl font-bold text-blue-600">{stats.totalBookings}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Upcoming</h3>
-            <p className="text-3xl font-bold text-green-600">{stats.upcoming}</p>
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Upcoming</h3>
+            <p className="text-2xl sm:text-3xl font-bold text-green-600">{stats.upcoming}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Completed</h3>
-            <p className="text-3xl font-bold text-blue-600">{stats.completed}</p>
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Completed</h3>
+            <p className="text-2xl sm:text-3xl font-bold text-blue-600">{stats.completed}</p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Total Spent</h3>
-            <p className="text-3xl font-bold text-purple-600">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Total Spent</h3>
+            <p className="text-xl sm:text-3xl font-bold text-purple-600">
               ₱{stats.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </p>
           </div>
         </div>
 
         {/* Recent Bookings */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Bookings</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Bookings</h2>
               <button
                 onClick={() => navigate('/guest/bookings')}
-                className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                className="self-start text-xs sm:text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
               >
                 View all →
               </button>
@@ -221,23 +221,30 @@ const GuestDashboard = () => {
           {!loading && bookings.length > 0 && (
             <div className="divide-y divide-gray-200">
               {bookings.slice(0, 5).map((booking) => (
-                <div key={booking.rawId} className="p-6 flex justify-between items-center">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <h3 className="font-medium text-gray-900">{booking.propertyTitle}</h3>
-                        <p className="text-xs text-gray-400">{booking.id}</p>
-                        <p className="text-sm text-gray-500">{booking.dates}</p>
-                        <p className="text-sm font-medium text-blue-600">{booking.price}</p>
+                <div key={booking.rawId} className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+                  <div className="flex-1 w-full sm:w-auto">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between sm:block">
+                          <div>
+                            <h3 className="font-medium text-gray-900 text-sm sm:text-base">{booking.propertyTitle}</h3>
+                            <p className="text-xs text-gray-400">{booking.id}</p>
+                          </div>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full sm:hidden ${booking.statusColor}`}>
+                            {booking.status}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">{booking.dates}</p>
+                        <p className="text-sm font-medium text-blue-600 mt-1">{booking.price}</p>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.statusColor}`}>
+                      <span className={`hidden sm:inline-block px-2 py-1 text-xs font-medium rounded-full ${booking.statusColor}`}>
                         {booking.status}
                       </span>
                     </div>
                   </div>
                   <button
                     onClick={() => navigate(`/guest/bookings/${booking.rawId}`)}
-                    className="text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90"
+                    className="w-full sm:w-auto text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90"
                     style={{backgroundColor: '#4E7B22'}}
                   >
                     View
@@ -250,13 +257,13 @@ const GuestDashboard = () => {
 
         {/* Booking Stats — real data from DB */}
         {!loading && stats.totalBookings > 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
             <div className="flex items-center mb-4">
               <span className="text-blue-500 mr-2">📊</span>
-              <h2 className="text-xl font-semibold text-gray-900">Your Booking Stats</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Your Booking Stats</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Booking Breakdown</h3>
                 <div className="space-y-1">
@@ -293,7 +300,7 @@ const GuestDashboard = () => {
 
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Spending Summary</h3>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-xl sm:text-2xl font-bold text-purple-600">
                   ₱{stats.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">

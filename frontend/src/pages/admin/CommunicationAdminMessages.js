@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CommunicationAdminLayout from '../../components/common/CommunicationAdminLayout';
 import { 
   MagnifyingGlassIcon, 
@@ -21,10 +21,11 @@ import {
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import API_CONFIG from '../../config/api';
 
 const CommunicationAdminMessages = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState('messages');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -127,13 +128,54 @@ const CommunicationAdminMessages = () => {
   };
 
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Load messages from localStorage and merge with static messages
-  React.useEffect(() => {
-    loadMessages();
-  }, []);
+  // Load messages from backend
+  useEffect(() => {
+    fetchMessages();
+  }, [token, searchTerm, filterStatus]);
 
-  const loadMessages = () => {
+  const fetchMessages = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (filterStatus !== 'all') params.append('status', filterStatus);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/comm-admin/messages?${params.toString()}`, {
+        credentials: 'include',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+
+      const data = await response.json();
+      
+      // Merge backend messages with localStorage messages
+      const storedMessages = JSON.parse(localStorage.getItem('adminMessages') || '[]');
+      const allMessages = [...data, ...storedMessages];
+      
+      setMessages(allMessages);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+      setError(err.message);
+      // Fallback to localStorage if backend fails
+      loadMessagesFromLocalStorage();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMessagesFromLocalStorage = () => {
     const staticMessages = [
       {
         id: 1,
@@ -231,6 +273,10 @@ const CommunicationAdminMessages = () => {
     setMessages(allMessages);
   };
 
+  const loadMessages = () => {
+    fetchMessages();
+  };
+
   const filteredMessages = messages.filter(message => {
     const matchesSearch = message.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          message.to.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -295,63 +341,67 @@ const CommunicationAdminMessages = () => {
     }
   };
 
-  const handleSendReply = () => {
-    if (replyMessage.trim()) {
-      // Get current admin number based on user email or role
-      const getAdminNumber = (user) => {
-        if (user?.email === 'comm-admin@smartstay.com') return 'adm1';
-        if (user?.email === 'comm-admin2@smartstay.com') return 'adm2';
-        // Default fallback based on user name or generate number
-        return user?.firstName === 'Admin 1' ? 'adm1' : 'adm2';
-      };
-      
-      const adminLabel = getAdminNumber(user);
-      const currentTime = new Date().toLocaleString();
-      
-      // Handle sending reply to guest
-      alert(`Reply sent to ${selectedMessage?.fromName || 'guest'}: "${replyMessage}"`);
-      
-      // Update message status to show it was replied to
-      const updatedMessages = messages.map(message =>
-        message.id === selectedMessage.id
-          ? {
-              ...message,
-              replyStatus: 'replied',
-              repliedBy: adminLabel,
-              repliedAt: currentTime,
-              status: 'read'
-            }
-          : message
-      );
-      
-      setMessages(updatedMessages);
-      
-      // Update localStorage if this message came from website contact
-      if (selectedMessage.source === 'website_contact') {
-        const storedMessages = JSON.parse(localStorage.getItem('adminMessages') || '[]');
-        const updatedStoredMessages = storedMessages.map(message =>
-          message.id === selectedMessage.id
-            ? {
-                ...message,
-                replyStatus: 'replied',
-                repliedBy: adminLabel,
-                repliedAt: currentTime,
-                status: 'read'
-              }
-            : message
-        );
-        localStorage.setItem('adminMessages', JSON.stringify(updatedStoredMessages));
+  const handleSendReply = async () => {
+    if (replyMessage.trim() && selectedMessage) {
+      try {
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_CONFIG.BASE_URL}/comm-admin/messages/${selectedMessage.id}/reply`, {
+          method: 'POST',
+          credentials: 'include',
+          headers,
+          body: JSON.stringify({ reply: replyMessage })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send reply');
+        }
+
+        // Refresh messages
+        await fetchMessages();
+        
+        setReplyMessage('');
+        setShowReplyModal(false);
+        setSelectedMessage(null);
+        alert('Reply sent successfully!');
+      } catch (error) {
+        console.error('Error sending reply:', error);
+        alert('Failed to send reply: ' + error.message);
       }
-      
-      setReplyMessage('');
-      setShowReplyModal(false);
     }
   };
 
-  const handleMarkAsRead = () => {
+  const handleMarkAsRead = async () => {
     if (selectedMessage) {
-      alert(`Message "${selectedMessage.subject}" marked as read`);
-      setSelectedMessage(null);
+      try {
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_CONFIG.BASE_URL}/comm-admin/messages/${selectedMessage.id}/read`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to mark message as read');
+        }
+
+        // Refresh messages
+        await fetchMessages();
+        setSelectedMessage(null);
+        alert('Message marked as read');
+      } catch (error) {
+        console.error('Error marking message as read:', error);
+        alert('Failed to mark message as read: ' + error.message);
+      }
     }
   };
 
@@ -362,11 +412,33 @@ const CommunicationAdminMessages = () => {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedMessage) {
       if (window.confirm(`Are you sure you want to delete the message "${selectedMessage.subject}"?`)) {
-        alert(`Message "${selectedMessage.subject}" deleted`);
-        setSelectedMessage(null);
+        try {
+          const headers = {};
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+
+          const response = await fetch(`${API_CONFIG.BASE_URL}/comm-admin/messages/${selectedMessage.id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to delete message');
+          }
+
+          // Refresh messages
+          await fetchMessages();
+          setSelectedMessage(null);
+          alert('Message deleted successfully');
+        } catch (error) {
+          console.error('Error deleting message:', error);
+          alert('Failed to delete message: ' + error.message);
+        }
       }
     }
   };
@@ -477,26 +549,39 @@ const CommunicationAdminMessages = () => {
           <div className="space-y-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-sm font-medium text-gray-500">Total Messages</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{messages.length}</p>
-                <p className="text-sm text-green-600 mt-1">All conversations</p>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-sm font-medium text-gray-500">Unread Messages</h3>
-                <p className="text-3xl font-bold text-green-600 mt-2">{messages.filter(m => m.status === 'unread').length}</p>
-                <p className="text-sm text-green-600 mt-1">Needs attention</p>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-sm font-medium text-gray-500">Guest Messages</h3>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{messages.filter(m => m.userType === 'guest').length}</p>
-                <p className="text-sm text-blue-600 mt-1">From guests</p>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-sm font-medium text-gray-500">Response Time</h3>
-                <p className="text-3xl font-bold text-green-600 mt-2">2.4h</p>
-                <p className="text-sm text-green-600 mt-1">Average</p>
-              </div>
+              {loading ? (
+                <div className="col-span-4 text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading messages...</p>
+                </div>
+              ) : error ? (
+                <div className="col-span-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-600">{error}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-sm font-medium text-gray-500">Total Messages</h3>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{messages.length}</p>
+                    <p className="text-sm text-green-600 mt-1">All conversations</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-sm font-medium text-gray-500">Unread Messages</h3>
+                    <p className="text-3xl font-bold text-green-600 mt-2">{messages.filter(m => m.status === 'unread').length}</p>
+                    <p className="text-sm text-green-600 mt-1">Needs attention</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-sm font-medium text-gray-500">Guest Messages</h3>
+                    <p className="text-3xl font-bold text-blue-600 mt-2">{messages.filter(m => m.userType === 'guest').length}</p>
+                    <p className="text-sm text-blue-600 mt-1">From guests</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-sm font-medium text-gray-500">Response Time</h3>
+                    <p className="text-3xl font-bold text-green-600 mt-2">2.4h</p>
+                    <p className="text-sm text-green-600 mt-1">Average</p>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Search and Filter */}

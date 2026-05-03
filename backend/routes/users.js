@@ -407,8 +407,17 @@ router.post('/messages', async (req, res) => {
 
     const createdMessage = mapMessageRow(insertResult.rows[0]);
 
-    // Create notification for receiver
+    // Send real-time message via WebSocket to conversation room
     const websocket = req.app.locals.websocket;
+    if (websocket) {
+      // Emit to conversation room so both users get the message
+      websocket.sendToRoom(`conversation:${normalizedConversationId}`, 'message:new', {
+        conversationId: normalizedConversationId,
+        message: createdMessage
+      });
+    }
+
+    // Create notification for receiver
     try {
       // Get sender info
       const senderResult = await pool.query(
@@ -435,14 +444,8 @@ router.post('/messages', async (req, res) => {
 
       const notification = notificationResult.rows[0];
 
-      // Send real-time notification via WebSocket
+      // Send notification via WebSocket
       if (websocket) {
-        websocket.sendToUser(parsedReceiverId, 'message:received', {
-          conversationId: normalizedConversationId,
-          message: normalizedMessage,
-          senderId
-        });
-
         websocket.sendToUser(parsedReceiverId, 'notification', {
           id: notification.id,
           type: notification.type,

@@ -117,12 +117,11 @@ const EditUnit = () => {
           unitRules: unitData.houseRules || unitData.timeAvailability?.houseRules || '',
           amenities: unitData.amenities || [],
           autoConfirmation: true,
-          paymentMethods: {
+          paymentMethods: unitData.paymentMethods || {
             cash: true,
-            bankTransfer: false,
             gcash: false,
             paymaya: false,
-            paypal: false
+            bankTransfer: false
           },
           qrCodes: {
             gcash: null,
@@ -343,6 +342,7 @@ const EditUnit = () => {
         amenities: formData.amenities,
         images: uploadedImages,
         availability: true,
+        paymentMethods: formData.paymentMethods,
         timeAvailability: {
           checkInTime: '15:00',
           checkOutTime: '11:00',
@@ -727,21 +727,8 @@ const EditUnit = () => {
                       className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                     />
                     <div>
-                      <span className="text-sm font-medium text-gray-900">Cash Payment</span>
+                      <span className="text-sm font-medium text-gray-900">Physical Payment</span>
                       <p className="text-xs text-gray-500">Accept cash payments on-site</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={formData.paymentMethods.bankTransfer}
-                      onChange={() => handlePaymentMethodChange('bankTransfer')}
-                      className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-900">Bank Transfer</span>
-                      <p className="text-xs text-gray-500">Direct bank account transfer</p>
                     </div>
                   </label>
 
@@ -766,7 +753,7 @@ const EditUnit = () => {
                       className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                     />
                     <div>
-                      <span className="text-sm font-medium text-gray-900">PayMaya</span>
+                      <span className="text-sm font-medium text-gray-900">Maya</span>
                       <p className="text-xs text-gray-500">Digital wallet payment</p>
                     </div>
                   </label>
@@ -774,157 +761,28 @@ const EditUnit = () => {
                   <label className="flex items-center space-x-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
                     <input
                       type="checkbox"
-                      checked={formData.paymentMethods.paypal}
-                      onChange={() => handlePaymentMethodChange('paypal')}
+                      checked={formData.paymentMethods.bankTransfer}
+                      onChange={() => handlePaymentMethodChange('bankTransfer')}
                       className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                     />
                     <div>
-                      <span className="text-sm font-medium text-gray-900">PayPal</span>
-                      <p className="text-xs text-gray-500">International online payment</p>
+                      <span className="text-sm font-medium text-gray-900">Card</span>
+                      <p className="text-xs text-gray-500">Credit/Debit card payment</p>
                     </div>
                   </label>
                 </div>
 
-                {/* QR Code Upload Section */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-700">QR Codes for Online Payments</h4>
-                  <p className="text-xs text-gray-500">Upload QR codes for selected online payment methods to make it easier for guests to pay</p>
-                  
-                  {/* GCash QR Code */}
-                  {formData.paymentMethods.gcash && (
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="text-sm font-medium text-gray-900">GCash QR Code</h5>
-                        {formData.qrCodes.gcash && (
-                          <button
-                            type="button"
-                            onClick={() => removeQRCode('gcash')}
-                            className="text-red-600 hover:text-red-800 text-xs"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                      {formData.qrCodes.gcash ? (
-                        <div className="flex items-center space-x-4">
-                          <img 
-                            src={formData.qrCodes.gcash} 
-                            alt="GCash QR Code" 
-                            className="w-20 h-20 object-cover rounded border"
-                          />
-                          <div>
-                            <p className="text-sm text-green-600 font-medium">QR Code uploaded</p>
-                            <p className="text-xs text-gray-500">Guests can scan this code to pay via GCash</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleQRCodeUpload('gcash', e.target.files[0])}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Upload your GCash QR code image</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* PayMaya QR Code */}
-                  {formData.paymentMethods.paymaya && (
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="text-sm font-medium text-gray-900">PayMaya QR Code</h5>
-                        {formData.qrCodes.paymaya && (
-                          <button
-                            type="button"
-                            onClick={() => removeQRCode('paymaya')}
-                            className="text-red-600 hover:text-red-800 text-xs"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                      {formData.qrCodes.paymaya ? (
-                        <div className="flex items-center space-x-4">
-                          <img 
-                            src={formData.qrCodes.paymaya} 
-                            alt="PayMaya QR Code" 
-                            className="w-20 h-20 object-cover rounded border"
-                          />
-                          <div>
-                            <p className="text-sm text-green-600 font-medium">QR Code uploaded</p>
-                            <p className="text-xs text-gray-500">Guests can scan this code to pay via PayMaya</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleQRCodeUpload('paymaya', e.target.files[0])}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Upload your PayMaya QR code image</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* PayPal QR Code */}
-                  {formData.paymentMethods.paypal && (
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="text-sm font-medium text-gray-900">PayPal QR Code</h5>
-                        {formData.qrCodes.paypal && (
-                          <button
-                            type="button"
-                            onClick={() => removeQRCode('paypal')}
-                            className="text-red-600 hover:text-red-800 text-xs"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                      {formData.qrCodes.paypal ? (
-                        <div className="flex items-center space-x-4">
-                          <img 
-                            src={formData.qrCodes.paypal} 
-                            alt="PayPal QR Code" 
-                            className="w-20 h-20 object-cover rounded border"
-                          />
-                          <div>
-                            <p className="text-sm text-green-600 font-medium">QR Code uploaded</p>
-                            <p className="text-xs text-gray-500">Guests can scan this code to pay via PayPal</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleQRCodeUpload('paypal', e.target.files[0])}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Upload your PayPal QR code image</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Payment Methods Info */}
+                {/* Info about PayMongo */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
                     <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-blue-800 mb-2">Payment Method Tips:</h4>
+                      <h4 className="font-medium text-blue-800 mb-2">About Payment Methods:</h4>
                       <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• Select multiple payment methods to give guests more options</li>
-                        <li>• QR codes make online payments faster and more convenient</li>
-                        <li>• Cash payments are processed on check-in/check-out</li>
-                        <li>• Online payments are processed immediately upon booking</li>
+                        <li>• <strong>GCash, Maya, Card:</strong> Processed automatically through PayMongo - instant & secure</li>
+                        <li>• <strong>Physical Payment:</strong> Flexible option for cash on arrival or direct arrangements</li>
+                        <li>• PayMongo methods are recommended for faster, automated payments</li>
+                        <li>• Physical payments can be arranged directly with guests</li>
                       </ul>
                     </div>
                   </div>

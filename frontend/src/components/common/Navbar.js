@@ -40,8 +40,12 @@ const Navbar = () => {
   // Check if we're on a public page (landing page, units, etc.)
   const isPublicPage = !isAuthenticated || location.pathname === '/' || location.pathname === '/units' || location.pathname === '/recommendations' || location.pathname === '/faqs' || location.pathname === '/login' || location.pathname === '/register';
 
+  if (!isPublicPage) {
+    return null;
+  }
+
   return (
-    <nav className="shadow-sm" style={{backgroundColor: isPublicPage ? 'white' : '#F8FFD3'}}>
+    <nav className="sticky top-0 z-50 shadow-sm" style={{backgroundColor: isPublicPage ? 'white' : '#F8FFD3'}}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}

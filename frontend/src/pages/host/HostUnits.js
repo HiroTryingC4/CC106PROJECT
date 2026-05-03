@@ -303,9 +303,9 @@ const HostUnits = () => {
         </div>
 
         {/* Properties Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
           {filteredProperties.map((property) => (
-            <div key={property.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
+            <div key={property.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200 flex flex-col h-full">
               {/* Property Image */}
               <div className="relative h-64 bg-gray-100">
                 {property.image ? (
@@ -357,7 +357,7 @@ const HostUnits = () => {
               </div>
 
               {/* Property Details */}
-              <div className="p-6">
+              <div className="p-6 flex flex-col flex-1">
                 {/* Property Name and Location */}
                 <div className="mb-4">
                   <div className="flex items-center space-x-2 mb-2">
@@ -399,19 +399,21 @@ const HostUnits = () => {
                 </div>
 
                 {/* Reviews */}
-                {property.reviews > 0 && (
+                <div className="mb-6 min-h-6">
                   <Link
                     to={`/host/units/${property.id}/reviews`}
-                    className="flex items-center space-x-2 text-gray-600 hover:text-green-600 mb-6"
+                    className="flex items-center space-x-2 text-gray-600 hover:text-green-600"
                   >
                     <StarIcon className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm font-medium">{property.rating} ({property.reviews} reviews)</span>
+                    <span className="text-sm font-medium">
+                      {property.reviews > 0 ? `${property.rating} (${property.reviews} reviews)` : '0.0 (0 reviews)'}
+                    </span>
                     <ChatBubbleLeftRightIcon className="w-4 h-4" />
                   </Link>
-                )}
+                </div>
 
                 {/* Action Buttons */}
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 mt-auto">
                   <Link
                     to={`/host/units/edit/${property.id}`}
                     className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"

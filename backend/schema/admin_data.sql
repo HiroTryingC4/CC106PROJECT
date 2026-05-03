@@ -33,20 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_admin_notifications_type ON admin_notifications(t
 CREATE INDEX IF NOT EXISTS idx_admin_activity_action ON admin_activity_logs(action);
 CREATE INDEX IF NOT EXISTS idx_admin_activity_created_at ON admin_activity_logs(created_at DESC);
 
-INSERT INTO admin_notifications (type, title, message, target_user_id, priority, is_read, created_at)
-VALUES
-  ('host_verification', 'New Host Verification Pending', 'Sarah NewHost has submitted verification documents for review.', 4, 'high', false, '2024-03-15T10:30:00.000Z'::timestamp),
-  ('payment_issue', 'Payment Processing Delay', 'Booking #1234 payment is experiencing processing delays.', NULL, 'medium', false, '2024-03-14T16:20:00.000Z'::timestamp),
-  ('review_flagged', 'Review Flagged for Moderation', 'A review for Property #567 has been flagged by the host.', NULL, 'low', true, '2024-03-13T09:15:00.000Z'::timestamp)
-ON CONFLICT DO NOTHING;
-
-INSERT INTO admin_activity_logs (actor_user_id, action, description, ip_address, user_agent, target_user_id, target_property_id, created_at)
-VALUES
-  (1, 'user_login', 'Admin user logged in', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', NULL, NULL, '2024-03-16T08:00:00.000Z'::timestamp),
-  (1, 'host_verification_approved', 'Approved host verification for John Host', '', '', 3, NULL, '2024-03-15T14:30:00.000Z'::timestamp),
-  (2, 'property_suspended', 'Suspended property #789 due to policy violation', '', '', NULL, 789, '2024-03-14T11:45:00.000Z'::timestamp),
-  (1, 'user_banned', 'Banned user for violating terms of service', '', '', NULL, NULL, '2024-03-13T16:20:00.000Z'::timestamp)
-ON CONFLICT DO NOTHING;
+-- Sample data removed - manage through application
 
 INSERT INTO system_settings (id, settings, updated_at)
 VALUES (

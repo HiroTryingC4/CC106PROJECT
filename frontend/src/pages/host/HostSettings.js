@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const HostSettings = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
@@ -35,8 +36,7 @@ const HostSettings = () => {
   const [security, setSecurity] = useState({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: '',
-    twoFactorEnabled: false
+    confirmPassword: ''
   });
 
   const [faqResponses, setFaqResponses] = useState([
@@ -84,23 +84,6 @@ const HostSettings = () => {
     }
   ]);
 
-  const [activeSessions] = useState([
-    {
-      id: 1,
-      device: 'MacBook Pro - Chrome',
-      location: 'San Francisco, CA',
-      status: 'current',
-      lastActive: 'Active now'
-    },
-    {
-      id: 2,
-      device: 'iPhone 14 - Safari',
-      location: 'San Francisco, CA',
-      status: 'active',
-      lastActive: '2 hours ago'
-    }
-  ]);
-
   const tabs = [
     { key: 'profile', label: 'Profile' },
     { key: 'chatbot', label: 'Chatbot' },
@@ -109,6 +92,21 @@ const HostSettings = () => {
 
   const handleProfileSave = () => {
     console.log('Saving profile:', profile);
+    setIsEditingProfile(false);
+  };
+
+  const handleProfileCancel = () => {
+    setIsEditingProfile(false);
+    if (user) {
+      setProfile({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        company: user.company || '',
+        bio: user.bio || 'Share more about yourself and your hosting experience.'
+      });
+    }
   };
 
   const handleSecurityUpdate = () => {
@@ -156,7 +154,17 @@ const HostSettings = () => {
           {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div className="p-8 space-y-8">
-              <h2 className="text-xl font-semibold text-gray-900">Profile Information</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-900">Profile Information</h2>
+                {!isEditingProfile && (
+                  <button
+                    onClick={() => setIsEditingProfile(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
               
               {/* Profile Photo */}
               <div className="flex items-center space-x-6">
@@ -189,7 +197,8 @@ const HostSettings = () => {
                     type="text"
                     value={profile.firstName}
                     onChange={(e) => setProfile({...profile, firstName: e.target.value})}
-                    className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium"
+                    disabled={!isEditingProfile}
+                    className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
                 
@@ -199,7 +208,8 @@ const HostSettings = () => {
                     type="text"
                     value={profile.lastName}
                     onChange={(e) => setProfile({...profile, lastName: e.target.value})}
-                    className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium"
+                    disabled={!isEditingProfile}
+                    className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -210,7 +220,8 @@ const HostSettings = () => {
                   type="email"
                   value={profile.email}
                   onChange={(e) => setProfile({...profile, email: e.target.value})}
-                  className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium"
+                  disabled={!isEditingProfile}
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
@@ -220,7 +231,8 @@ const HostSettings = () => {
                   type="tel"
                   value={profile.phone}
                   onChange={(e) => setProfile({...profile, phone: e.target.value})}
-                  className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium"
+                  disabled={!isEditingProfile}
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 font-medium disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
@@ -229,22 +241,28 @@ const HostSettings = () => {
                 <textarea
                   value={profile.bio}
                   onChange={(e) => setProfile({...profile, bio: e.target.value})}
+                  disabled={!isEditingProfile}
                   rows={5}
-                  className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 resize-none font-medium"
+                  className="w-full px-4 py-4 bg-gray-50 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all duration-200 text-gray-900 placeholder-gray-500 resize-none font-medium disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
-              <div className="flex space-x-4 pt-4 border-t border-gray-100">
-                <button 
-                  onClick={handleProfileSave}
-                  className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-medium transition-colors duration-200 shadow-sm hover:shadow-md"
-                >
-                  Save Changes
-                </button>
-                <button className="px-8 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors duration-200">
-                  Cancel
-                </button>
-              </div>
+              {isEditingProfile && (
+                <div className="flex space-x-4 pt-4 border-t border-gray-100">
+                  <button 
+                    onClick={handleProfileSave}
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-medium transition-colors duration-200 shadow-sm hover:shadow-md"
+                  >
+                    Save Changes
+                  </button>
+                  <button 
+                    onClick={handleProfileCancel}
+                    className="px-8 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -337,52 +355,6 @@ const HostSettings = () => {
                 >
                   Update Password
                 </button>
-              </div>
-
-              {/* Two Factor Authentication */}
-              <div className="border-t border-gray-100 pt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Two Factor Authentication</h3>
-                <div className="flex items-center justify-between p-6 bg-gray-50 rounded-xl border-2 border-gray-300">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-1">Enable 2FA</h4>
-                    <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={security.twoFactorEnabled}
-                      onChange={(e) => setSecurity({...security, twoFactorEnabled: e.target.checked})}
-                      className="sr-only peer"
-                    />
-                    <div className="w-12 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 shadow-sm border-2 border-gray-300"></div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Active Sessions */}
-              <div className="border-t border-gray-100 pt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Sessions</h3>
-                <div className="space-y-4">
-                  {activeSessions.map((session) => (
-                    <div key={session.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-xl border-2 border-gray-300 hover:shadow-sm transition-shadow duration-200 hover:border-gray-400">
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-1">{session.device}</h4>
-                        <p className="text-sm text-gray-600 font-medium">{session.location} • {session.lastActive}</p>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        {session.status === 'current' ? (
-                          <span className="px-4 py-2 bg-green-100 text-green-800 text-sm font-medium rounded-full border-2 border-green-300">
-                            Current
-                          </span>
-                        ) : (
-                          <button className="text-red-600 hover:text-red-800 text-sm font-medium px-4 py-2 rounded-md hover:bg-red-50 transition-colors duration-200 border-2 border-red-200 hover:border-red-300">
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           )}

@@ -36,7 +36,8 @@ const mapNotification = (notification, scope) => ({
   isRead: notification.isRead ?? notification.read ?? false,
   createdAt: notification.createdAt || notification.timestamp || new Date().toISOString(),
   priority: notification.priority || 'medium',
-  userId: notification.userId ?? null
+  userId: notification.userId ?? null,
+  subjectId: notification.subjectId ?? notification.subject_id ?? null
 });
 
 export const useNotifications = ({ scope }) => {
