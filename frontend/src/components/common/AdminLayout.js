@@ -28,7 +28,6 @@ const AdminLayout = ({ children }) => {
     { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Reviews', href: '/admin/reviews', icon: StarIcon },
-    { name: 'Activity Logs', href: '/admin/activity-logs', icon: ClipboardDocumentListIcon },
     { name: 'Financial', href: '/admin/financial', icon: CurrencyDollarIcon },
   ];
 
@@ -221,7 +220,6 @@ const AdminLayout = ({ children }) => {
               <div>
                 <h4 className="font-semibold mb-4">System</h4>
                 <ul className="space-y-2 text-sm text-gray-300">
-                  <li><Link to="/admin/activity-logs" className="hover:text-white">Activity Logs</Link></li>
                   <li><Link to="/admin/financial" className="hover:text-white">Financial</Link></li>
                   <li><Link to="/admin/reports" className="hover:text-white">Reports</Link></li>
                 </ul>

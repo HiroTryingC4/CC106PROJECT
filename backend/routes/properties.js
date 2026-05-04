@@ -596,11 +596,6 @@ router.post('/', async (req, res) => {
 
     const property = await repo.createProperty(propertyData);
 
-    res.status(201).json({
-      message: 'Property created successfully',
-      property
-    });
-
     logActivity(req.app.locals.db, {
       actorUserId: hostId,
       action: 'property_created',
@@ -608,6 +603,11 @@ router.post('/', async (req, res) => {
       ipAddress: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
       targetPropertyId: property.id
+    });
+
+    res.status(201).json({
+      message: 'Property created successfully',
+      property
     });
   } catch (error) {
     console.error('Error creating property:', error);
@@ -707,11 +707,6 @@ router.put('/:id', async (req, res) => {
 
     const updatedProperty = await repo.updateProperty(propertyId, sanitizedPayload);
 
-    res.json({
-      message: 'Property updated successfully',
-      property: updatedProperty
-    });
-
     logActivity(req.app.locals.db, {
       actorUserId: hostId,
       action: 'property_updated',
@@ -719,6 +714,11 @@ router.put('/:id', async (req, res) => {
       ipAddress: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
       targetPropertyId: propertyId
+    });
+
+    res.json({
+      message: 'Property updated successfully',
+      property: updatedProperty
     });
   } catch (error) {
     console.error('Error updating property:', error);

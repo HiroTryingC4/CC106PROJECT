@@ -70,7 +70,6 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import AdminReports from './pages/admin/AdminReports';
 import AdminReviews from './pages/admin/AdminReviews';
-import ActivityLogs from './pages/admin/ActivityLogs';
 import AdminMessages from './pages/admin/AdminMessages';
 import Financial from './pages/admin/Financial';
 import HostVerification from './pages/admin/HostVerification';
@@ -224,7 +223,6 @@ function App() {
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/reviews" element={<AdminReviews />} />
-                <Route path="/admin/activity-logs" element={<ActivityLogs />} />
                 <Route path="/admin/messages" element={<AdminMessages />} />
                 <Route path="/admin/chatbot-analytics" element={<ChatbotAnalytics />} />
                 <Route path="/admin/financial" element={<Financial />} />
