@@ -50,7 +50,9 @@ const Navbar = () => {
             </Link>
 
             <div className="flex items-center space-x-3">
-              <RealtimeNotifications />
+              <div className="hidden sm:block">
+                <RealtimeNotifications />
+              </div>
 
               <div className="relative" ref={dropdownRef}>
                 <button
