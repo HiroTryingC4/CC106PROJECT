@@ -42,7 +42,7 @@ const Navbar = () => {
 
   if (!isPublicPage) {
     return (
-      <nav className="sticky top-0 z-50 bg-white shadow-sm">
+      <nav className="hidden sm:block sticky top-0 z-50 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex-shrink-0">
