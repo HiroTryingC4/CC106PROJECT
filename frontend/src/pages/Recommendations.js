@@ -142,12 +142,12 @@ const Recommendations = () => {
               : null;
 
             return (
-              <div key={property.id} className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative">
+              <div key={property.id} className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+                <div className="relative flex-shrink-0">
                   {image ? (
-                    <img src={image} alt={title} className="w-full h-64 object-cover" />
+                    <img src={image} alt={title} className="w-full h-48 object-cover" />
                   ) : (
-                    <div className="w-full h-64 bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+                    <div className="w-full h-48 bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
                       <HomeIcon className="w-16 h-16 text-white" />
                     </div>
                   )}
@@ -157,30 +157,28 @@ const Recommendations = () => {
                     </span>
                   </div>
                   <div className="absolute top-4 right-4 flex items-center bg-white bg-opacity-95 px-3 py-1.5 rounded-full shadow-sm">
-                    <StarIcon className="w-5 h-5 text-yellow-400 fill-current" />
-                    <span className="text-lg font-bold ml-1">{rating > 0 ? rating.toFixed(1) : 'New'}</span>
-                    {reviewCount > 0 && <span className="text-gray-500 ml-1">({reviewCount})</span>}
+                    <StarIcon className="w-4 h-4 text-yellow-400 fill-current" />
+                    <span className="text-sm font-bold ml-1">{rating > 0 ? rating.toFixed(1) : 'New'}</span>
+                    {reviewCount > 0 && <span className="text-gray-500 text-xs ml-1">({reviewCount})</span>}
                   </div>
                 </div>
-                <div className="p-6">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3 border-b-2 border-[#4E7B22] pb-2 inline-block">
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1 border-b-2 border-[#4E7B22] pb-1">
                     {title}
                   </h3>
-                  <p className="text-gray-600 text-base mb-6 leading-relaxed line-clamp-2">
-                    {description}
+                  <p className="text-gray-600 text-sm mb-3 leading-relaxed line-clamp-2">
+                    {description || ' '}
                   </p>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <span className="text-3xl font-bold text-[#4E7B22]">₱{price.toLocaleString()}</span>
-                      <span className="text-gray-500 text-lg ml-1">/night</span>
-                    </div>
-                    <div className="text-gray-500 text-base">
-                      {bedrooms} bed • {bathrooms} bath • {guests} guests
-                    </div>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-2xl font-bold text-[#4E7B22]">₱{price.toLocaleString()}</span>
+                    <span className="text-gray-500 text-sm">/night</span>
+                  </div>
+                  <div className="text-gray-500 text-sm mb-4">
+                    {bedrooms} bed • {bathrooms} bath • {guests} guests
                   </div>
                   <Link
                     to={`/guest/units/${property.id}`}
-                    className="mt-4 block w-full text-center bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    className="mt-auto block w-full text-center bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
                   >
                     View Details
                   </Link>

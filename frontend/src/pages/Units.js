@@ -223,8 +223,8 @@ const Units = () => {
               : null;
 
             return (
-            <div key={property.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-              <div className="relative h-48 bg-gray-200">
+            <div key={property.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 flex flex-col">
+              <div className="relative h-48 bg-gray-200 flex-shrink-0">
                 {image ? (
                   <img src={image} alt={title} className="w-full h-full object-cover" />
                 ) : (
@@ -240,10 +240,10 @@ const Units = () => {
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="p-6 flex flex-col flex-1">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{title}</h3>
-                  <div className="flex items-center space-x-1 text-sm">
+                  <div className="flex items-center space-x-1 text-sm flex-shrink-0 ml-2">
                     <span className="text-yellow-400">★</span>
                     <span className="font-medium">{rating > 0 ? rating.toFixed(1) : 'New'}</span>
                     {reviewCount > 0 && <span className="text-gray-500">({reviewCount})</span>}
@@ -251,13 +251,13 @@ const Units = () => {
                 </div>
 
                 <div className="flex items-center space-x-1 text-gray-600 mb-3">
-                  <MapPinIcon className="w-4 h-4" />
-                  <span className="text-sm">{location}</span>
+                  <MapPinIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm line-clamp-1">{location}</span>
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{description}</p>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2 flex-shrink-0">{description}</p>
 
-                <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
+                <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4 flex-shrink-0">
                   <div className="flex items-center space-x-1">
                     <UserGroupIcon className="w-4 h-4" />
                     <span>{guests} guests</span>
@@ -269,18 +269,16 @@ const Units = () => {
                   <span>{bathrooms} bath</span>
                 </div>
 
-                {amenities.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {amenities.slice(0, 3).map((amenity, index) => (
-                      <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{amenity}</span>
-                    ))}
-                    {amenities.length > 3 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">+{amenities.length - 3} more</span>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2 mb-4 min-h-[28px]">
+                  {amenities.slice(0, 3).map((amenity, index) => (
+                    <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{amenity}</span>
+                  ))}
+                  {amenities.length > 3 && (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">+{amenities.length - 3} more</span>
+                  )}
+                </div>
 
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 mt-auto">
                   <Link
                     to={`/guest/units/${property.id}/reviews`}
                     className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors font-medium text-center block"

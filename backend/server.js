@@ -106,7 +106,8 @@ const isOriginAllowed = (origin) => {
 app.use(cors({
   origin: (origin, callback) => {
     if (isOriginAllowed(origin)) return callback(null, true);
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
+    console.warn(`CORS blocked for origin: ${origin}`);
+    return callback(null, false);
   },
   credentials: true
 }));
@@ -114,7 +115,8 @@ app.use(cors({
 app.options('*', cors({
   origin: (origin, callback) => {
     if (isOriginAllowed(origin)) return callback(null, true);
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
+    console.warn(`CORS blocked for origin: ${origin}`);
+    return callback(null, false);
   },
   credentials: true
 }));
