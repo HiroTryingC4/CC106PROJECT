@@ -354,7 +354,7 @@ router.get('/activity-logs', async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const { action, userId: filterUserId, startDate, endDate, limit = 50 } = req.query;
+    const { action, userId: filterUserId, startDate, endDate, limit = 200 } = req.query;
     const db = req.app.locals.db;
 
     const where = [];

@@ -4,6 +4,7 @@ const { createPropertiesRepository } = require('../repo/propertiesRepo');
 const { uploadStreamToCloudinary, isCloudinaryConfigured } = require('../utils/cloudinary');
 const { parseMultipartForm } = require('../utils/multipart');
 const { getAuthUserId } = require('../utils/authMiddleware');
+const { logActivity } = require('../utils/activityLogger');
 
 const getPropertiesRepo = (req) => createPropertiesRepository(req.app.locals.db);
 
@@ -599,6 +600,15 @@ router.post('/', async (req, res) => {
       message: 'Property created successfully',
       property
     });
+
+    logActivity(req.app.locals.db, {
+      actorUserId: hostId,
+      action: 'property_created',
+      description: `Host created new property "${propertyData.title}" (ID: ${property.id})`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      targetPropertyId: property.id
+    });
   } catch (error) {
     console.error('Error creating property:', error);
     res.status(500).json({ message: 'Failed to create property' });
@@ -701,6 +711,15 @@ router.put('/:id', async (req, res) => {
       message: 'Property updated successfully',
       property: updatedProperty
     });
+
+    logActivity(req.app.locals.db, {
+      actorUserId: hostId,
+      action: 'property_updated',
+      description: `Host updated property "${property.title}" (ID: ${propertyId})`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      targetPropertyId: propertyId
+    });
   } catch (error) {
     console.error('Error updating property:', error);
     res.status(500).json({ message: 'Failed to update property' });
@@ -750,6 +769,15 @@ router.delete('/:id', async (req, res) => {
     await repo.deleteProperty(propertyId);
 
     res.json({ message: 'Property deleted successfully' });
+
+    logActivity(req.app.locals.db, {
+      actorUserId: hostId,
+      action: 'property_deleted',
+      description: `Host deleted property "${property.title}" (ID: ${propertyId})`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      targetPropertyId: propertyId
+    });
   } catch (error) {
     console.error('Error deleting property:', error);
     res.status(500).json({ message: 'Failed to delete property' });

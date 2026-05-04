@@ -77,7 +77,6 @@ import HostVerification from './pages/admin/HostVerification';
 import ChatbotAnalytics from './pages/admin/ChatbotAnalytics';
 import AdminProfile from './pages/admin/AdminProfile';
 import AdminNotifications from './pages/admin/AdminNotifications';
-import CommunicationAdminManagement from './pages/admin/CommunicationAdminManagement';
 
 // Communication Admin components
 import CommunicationAdminDashboard from './pages/admin/CommunicationAdminDashboard';
@@ -233,7 +232,6 @@ function App() {
                 <Route path="/admin/host-verification" element={<HostVerification />} />
                 <Route path="/admin/profile" element={<AdminProfile />} />
                 <Route path="/admin/notifications" element={<AdminNotifications />} />
-                <Route path="/admin/comm-admin-management" element={<CommunicationAdminManagement />} />
               </Route>
               
               {/* Communication Admin routes */}

@@ -8,7 +8,6 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   BanknotesIcon,
-  CreditCardIcon,
   ChartBarIcon,
   CalendarIcon,
   ArrowDownTrayIcon
@@ -143,7 +142,7 @@ const Financial = () => {
       value: `₱${financialData.stats.pendingPayouts.toLocaleString()}`, 
       change: '-', 
       trend: 'down', 
-      icon: CreditCardIcon 
+      icon: BanknotesIcon 
     },
     { 
       name: 'Transaction Volume', 
@@ -266,7 +265,7 @@ const Financial = () => {
         <div className="bg-white rounded-lg shadow-sm">
           <div className="border-b border-gray-200">
             <nav className="flex min-w-max space-x-6 overflow-x-auto px-4 sm:space-x-8 sm:px-6">
-              {['overview', 'transactions', 'payouts', 'reports'].map((tab) => (
+              {['overview', 'transactions'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -286,15 +285,44 @@ const Financial = () => {
             {activeTab === 'overview' && (
               <div className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-                  {/* Revenue Chart Placeholder */}
+                  {/* Revenue Trend Chart */}
                   <div className="rounded-2xl bg-gray-50 p-4 sm:p-6">
                     <h3 className="mb-4 text-lg font-semibold text-gray-900">Revenue Trend</h3>
-                    <div className="flex h-52 items-center justify-center text-gray-500 sm:h-64">
-                      <div className="text-center">
-                        <ChartBarIcon className="w-16 h-16 mx-auto mb-4" />
-                        <p>Revenue chart would be displayed here</p>
+                    {financialData.monthlyData.length > 0 ? (
+                      <div className="space-y-3">
+                        {(() => {
+                          const maxRevenue = Math.max(...financialData.monthlyData.map(d => d.revenue), 1);
+                          return financialData.monthlyData.map((month, index) => (
+                            <div key={index}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="font-medium text-gray-700">{month.month}</span>
+                                <span className="font-semibold text-green-600">₱{month.revenue.toLocaleString()}</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3">
+                                <div
+                                  className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                                  style={{ width: `${(month.revenue / maxRevenue) * 100}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">{month.transactions} transactions</p>
+                            </div>
+                          ));
+                        })()}
+                        <div className="pt-3 border-t border-gray-200 flex justify-between text-sm">
+                          <span className="text-gray-500">Total Commission</span>
+                          <span className="font-semibold text-blue-600">
+                            ₱{financialData.monthlyData.reduce((s, d) => s + d.commission, 0).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex h-52 items-center justify-center text-gray-400 sm:h-64">
+                        <div className="text-center">
+                          <ChartBarIcon className="w-12 h-12 mx-auto mb-3" />
+                          <p className="text-sm">No revenue data for this period</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Top Performing Units */}
@@ -426,41 +454,6 @@ const Financial = () => {
               </div>
             )}
 
-            {activeTab === 'payouts' && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Host Payouts</h3>
-                <div className="bg-gray-50 rounded-lg p-8 text-center">
-                  <CreditCardIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">Payout Management</h4>
-                  <p className="text-gray-600 mb-4">Manage host payouts and commission distributions</p>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                    Process Payouts
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'reports' && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Financial Reports</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h4 className="font-medium text-gray-900 mb-3">Monthly Revenue Report</h4>
-                    <p className="text-sm text-gray-600 mb-4">Detailed breakdown of monthly revenue and commissions</p>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
-                      Generate Report
-                    </button>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h4 className="font-medium text-gray-900 mb-3">Tax Summary</h4>
-                    <p className="text-sm text-gray-600 mb-4">Annual tax summary for financial reporting</p>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
-                      Download Summary
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

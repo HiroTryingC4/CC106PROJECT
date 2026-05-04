@@ -29,7 +29,6 @@ const AdminLayout = ({ children }) => {
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Reviews', href: '/admin/reviews', icon: StarIcon },
     { name: 'Activity Logs', href: '/admin/activity-logs', icon: ClipboardDocumentListIcon },
-    { name: 'Comm Admins', href: '/admin/comm-admin-management', icon: ChatBubbleLeftRightIcon },
     { name: 'Financial', href: '/admin/financial', icon: CurrencyDollarIcon },
   ];
 

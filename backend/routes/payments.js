@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getAuthUserId, getUserRole } = require('../utils/authMiddleware');
+const { logActivity } = require('../utils/activityLogger');
 const { 
   isPayMongoConfigured, 
   createPaymentIntent, 
@@ -881,6 +882,14 @@ const createPayment = async (req, res) => {
         ? bookingTotals.remainingAmount
         : parseFloat((remainingAmount - parsedAmount).toFixed(2))
     });
+
+    logActivity(pool, {
+      actorUserId: userId,
+      action: 'payment_created',
+      description: `Payment of ₱${parsedAmount.toFixed(2)} submitted for Booking #${parsedBookingId} via ${paymentMethod || 'gcash'}`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
+    });
   } catch (error) {
     console.error('Error creating payment:', error);
     return res.status(500).json({ message: 'Failed to process payment' });
@@ -1004,6 +1013,14 @@ const updatePaymentStatus = async (req, res, forcedStatus = null) => {
       payment: mapPaymentRow(updatedPayment),
       bookingPaymentStatus: bookingTotals?.bookingPaymentStatus || null,
       remainingBalance: bookingTotals?.remainingAmount ?? null
+    });
+
+    logActivity(pool, {
+      actorUserId: userId,
+      action: `payment_${nextStatus}`,
+      description: `Payment #${paymentId} of ₱${parseFloat(payment.amount).toFixed(2)} marked as ${nextStatus} for Booking #${payment.booking_id}`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || ''
     });
   } catch (error) {
     console.error('Error updating payment status:', error);

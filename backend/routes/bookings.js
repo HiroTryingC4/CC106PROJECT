@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getAuthUserId, getUserRole } = require('../utils/authMiddleware');
+const { logActivity } = require('../utils/activityLogger');
 
 const getPool = (req) => req.app.locals.db;
 
@@ -527,6 +528,16 @@ router.post('/', async (req, res) => {
       message: 'Booking created successfully',
       booking: mapBookingRow(newBooking)
     });
+
+    // Log activity
+    logActivity(pool, {
+      actorUserId: guestId,
+      action: 'booking_created',
+      description: `Guest booked "${propertyTitle}" (Booking #${newBooking.id}) from ${checkInDate.toLocaleDateString()} to ${checkOutDate.toLocaleDateString()}`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      targetPropertyId: parsedPropertyId
+    });
   } catch (error) {
     console.error('Error creating booking:', error);
     return res.status(500).json({ message: 'Failed to create booking' });
@@ -587,6 +598,18 @@ router.put('/:id', async (req, res) => {
       message: 'Booking updated successfully',
       booking: responseData
     });
+
+    // Log status change
+    if (nextStatus !== row.status) {
+      logActivity(pool, {
+        actorUserId: userId,
+        action: `booking_${nextStatus}`,
+        description: `Booking #${bookingId} status changed from "${row.status}" to "${nextStatus}"`,
+        ipAddress: req.ip || '',
+        userAgent: req.headers['user-agent'] || '',
+        targetPropertyId: row.property_id
+      });
+    }
 
     // Fire-and-forget: run notification + websocket logic asynchronously
     (async () => {
@@ -803,6 +826,16 @@ router.delete('/:id', async (req, res) => {
         refundAmount,
         totalPaid: effectiveTotalPaid
       }
+    });
+
+    // Log cancellation
+    logActivity(pool, {
+      actorUserId: userId,
+      action: 'booking_cancelled',
+      description: `Booking #${bookingId} cancelled by ${role}. Refund: ₱${refundAmount.toFixed(2)} (${refundPercentage}%)`,
+      ipAddress: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      targetPropertyId: row.property_id
     });
 
     // Fire-and-forget: Send notifications asynchronously
