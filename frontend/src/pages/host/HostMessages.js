@@ -417,215 +417,153 @@ const HostMessages = () => {
     return () => clearTimeout(timer);
   }, [messages, isOtherUserTyping]);
 
-  const ConversationList = () => (
-    <div className={`border-gray-200 border-b md:border-b-0 md:border-r flex-col ${showConversationListOnMobile ? 'flex' : 'hidden'} md:flex md:w-80 lg:w-[34%]`}>
-      <div className="p-4 sm:p-5 border-b border-gray-200 bg-white">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Messages</h2>
-        <div className="relative">
-          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search conversations..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto max-h-[50vh] md:max-h-none">
-        {conversations.length === 0 && !isVerified ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No messages available</h3>
-              <p className="text-gray-600 mb-6">Complete verification to start communicating with guests.</p>
-              <a
-                href="/host/verification"
-                className="text-white px-6 py-3 rounded-lg hover:opacity-90 inline-flex items-center space-x-2 font-medium"
-                style={{ backgroundColor: '#4E7B22' }}
-              >
-                <span>Complete Verification</span>
-              </a>
-            </div>
-          </div>
-        ) : messagesLoading ? (
-          <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
-        ) : filteredConversations.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500">No conversations yet.</div>
-        ) : (
-          filteredConversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              type="button"
-              onClick={() => {
-                setSelectedConversation(conversation.id);
-                setShowConversationListOnMobile(false);
-              }}
-              className={`w-full text-left p-4 sm:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                selectedConversation === conversation.id ? 'border-l-4' : ''
-              }`}
-              style={selectedConversation === conversation.id ? {
-                backgroundColor: '#f0f9f0',
-                borderLeftColor: '#4E7B22'
-              } : {}}
-            >
-              <div className="flex items-start space-x-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium" style={{ backgroundColor: '#4E7B22' }}>
-                  {conversation.guest.avatar}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-sm font-medium text-gray-900 truncate">{conversation.guest.name}</h3>
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                      <span className="text-xs text-gray-500">{conversation.timestamp}</span>
-                      {conversation.unread > 0 && (
-                        <span className="text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center" style={{ backgroundColor: '#4E7B22' }}>
-                          {conversation.unread}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-1 truncate">{conversation.property}</p>
-                  <p className="text-sm text-gray-600 mt-1 truncate">{conversation.lastMessage}</p>
-                </div>
-              </div>
-            </button>
-          ))
-        )}
-      </div>
-    </div>
-  );
-
-  const ChatPane = () => (
-    <div className={`flex-1 flex flex-col min-w-0 h-full ${showConversationListOnMobile ? 'hidden md:flex' : 'flex'}`}>
-      {selectedConversationData ? (
-        <>
-          <div className="md:hidden shrink-0 border-b border-gray-200 bg-white/95 backdrop-blur-sm shadow-sm">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <button
-                onClick={() => setShowConversationListOnMobile(true)}
-                className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                aria-label="Back to conversations"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </button>
-
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium text-white" style={{ backgroundColor: '#4E7B22' }}>
-                  {selectedConversationData.guest.avatar}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-gray-900">{selectedConversationData.guest.name}</h3>
-                  <p className="truncate text-xs text-gray-500">{selectedConversationData.property}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="hidden md:block shrink-0 p-4 sm:p-5 border-b border-gray-200 bg-white sticky top-0 z-10">
-            <div className="flex justify-between items-center gap-3">
-              <div className="flex items-center space-x-3 min-w-0">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0" style={{ backgroundColor: '#4E7B22' }}>
-                  {selectedConversationData.guest.avatar}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-medium text-gray-900 truncate">{selectedConversationData.guest.name}</h3>
-                  <p className="text-sm text-gray-600 truncate">{selectedConversationData.property}</p>
-                </div>
-              </div>
-              <button className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0">
-                <EllipsisVerticalIcon className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-gray-50" style={{ scrollBehavior: 'smooth' }}>
-            {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>}
-
-            {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-4 py-2 rounded-2xl break-words shadow-sm ${
-                    message.senderId === currentUserId ? 'text-white' : 'bg-gray-100 text-gray-900'
-                  }`}
-                  style={message.senderId === currentUserId ? { backgroundColor: '#4E7B22' } : {}}
-                >
-                  <p className="text-sm break-words">{message.content}</p>
-                  <p className={`text-xs mt-1 ${message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'}`}>
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            {isOtherUserTyping && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 px-4 py-3 rounded-lg">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} style={{ height: '1px' }} />
-          </div>
-
-          <div className="shrink-0 border-t border-gray-200 bg-white p-4 sm:p-5">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={handleTyping}
-                onBlur={handleStopTyping}
-                placeholder="Type your message..."
-                className="flex-1 min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSendMessage();
-                    handleStopTyping();
-                  }
-                }}
-              />
-              <button
-                onClick={() => {
-                  handleSendMessage();
-                  handleStopTyping();
-                }}
-                className="text-white p-2 rounded-lg hover:opacity-90 flex-shrink-0"
-                style={{ backgroundColor: '#4E7B22' }}
-              >
-                <PaperAirplaneIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center max-w-sm">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ChatBubbleLeftRightIcon className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
-            <p className="text-gray-600">Choose a conversation from the list to start messaging with your guests</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <HostLayout>
       <div className="h-[calc(100vh-200px)] min-h-[560px] bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
         <div className="flex h-full min-h-0 flex-col md:flex-row">
-          <ConversationList />
-          <ChatPane />
+          {/* Conversation List */}
+          <div className={`border-gray-200 border-b md:border-b-0 md:border-r flex-col ${showConversationListOnMobile ? 'flex' : 'hidden'} md:flex md:w-80 lg:w-[34%]`}>
+            <div className="p-4 sm:p-5 border-b border-gray-200 bg-white">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Messages</h2>
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search conversations..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[50vh] md:max-h-none">
+              {conversations.length === 0 && !isVerified ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <ExclamationTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No messages available</h3>
+                    <p className="text-gray-600 mb-6">Complete verification to start communicating with guests.</p>
+                    <a href="/host/verification" className="text-white px-6 py-3 rounded-lg hover:opacity-90 inline-flex items-center space-x-2 font-medium" style={{ backgroundColor: '#4E7B22' }}>
+                      <span>Complete Verification</span>
+                    </a>
+                  </div>
+                </div>
+              ) : messagesLoading ? (
+                <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
+              ) : filteredConversations.length === 0 ? (
+                <div className="p-4 text-sm text-gray-500">No conversations yet.</div>
+              ) : (
+                filteredConversations.map((conversation) => (
+                  <button
+                    key={conversation.id}
+                    type="button"
+                    onClick={() => { setSelectedConversation(conversation.id); setShowConversationListOnMobile(false); }}
+                    className={`w-full text-left p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedConversation === conversation.id ? 'border-l-4' : ''}`}
+                    style={selectedConversation === conversation.id ? { backgroundColor: '#f0f9f0', borderLeftColor: '#4E7B22' } : {}}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium" style={{ backgroundColor: '#4E7B22' }}>{conversation.guest.avatar}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">{conversation.guest.name}</h3>
+                          <div className="flex items-center space-x-2 flex-shrink-0">
+                            <span className="text-xs text-gray-500">{conversation.timestamp}</span>
+                            {conversation.unread > 0 && (
+                              <span className="text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center" style={{ backgroundColor: '#4E7B22' }}>{conversation.unread}</span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1 truncate">{conversation.property}</p>
+                        <p className="text-sm text-gray-600 mt-1 truncate">{conversation.lastMessage}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Chat Pane */}
+          <div className={`flex-1 flex flex-col min-w-0 h-full ${showConversationListOnMobile ? 'hidden md:flex' : 'flex'}`}>
+            {selectedConversationData ? (
+              <>
+                <div className="md:hidden shrink-0 border-b border-gray-200 bg-white/95 backdrop-blur-sm shadow-sm">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <button onClick={() => setShowConversationListOnMobile(true)} className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      Back
+                    </button>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium text-white" style={{ backgroundColor: '#4E7B22' }}>{selectedConversationData.guest.avatar}</div>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-gray-900">{selectedConversationData.guest.name}</h3>
+                        <p className="truncate text-xs text-gray-500">{selectedConversationData.property}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="hidden md:block shrink-0 p-4 sm:p-5 border-b border-gray-200 bg-white sticky top-0 z-10">
+                  <div className="flex justify-between items-center gap-3">
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0" style={{ backgroundColor: '#4E7B22' }}>{selectedConversationData.guest.avatar}</div>
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">{selectedConversationData.guest.name}</h3>
+                        <p className="text-sm text-gray-600 truncate">{selectedConversationData.property}</p>
+                      </div>
+                    </div>
+                    <button className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0"><EllipsisVerticalIcon className="w-5 h-5 text-gray-500" /></button>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-gray-50" style={{ scrollBehavior: 'smooth' }}>
+                  {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>}
+                  {messages.map((message) => (
+                    <div key={message.id} className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-4 py-2 rounded-2xl break-words shadow-sm ${message.senderId === currentUserId ? 'text-white' : 'bg-gray-100 text-gray-900'}`} style={message.senderId === currentUserId ? { backgroundColor: '#4E7B22' } : {}}>
+                        <p className="text-sm break-words">{message.content}</p>
+                        <p className={`text-xs mt-1 ${message.senderId === currentUserId ? 'text-green-100' : 'text-gray-500'}`}>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {isOtherUserTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-100 px-4 py-3 rounded-lg">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} style={{ height: '1px' }} />
+                </div>
+                <div className="shrink-0 border-t border-gray-200 bg-white p-4 sm:p-5">
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={handleTyping}
+                      onBlur={handleStopTyping}
+                      placeholder="Type your message..."
+                      className="flex-1 min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleSendMessage(); handleStopTyping(); } }}
+                    />
+                    <button onClick={() => { handleSendMessage(); handleStopTyping(); }} className="text-white p-2 rounded-lg hover:opacity-90 flex-shrink-0" style={{ backgroundColor: '#4E7B22' }}>
+                      <PaperAirplaneIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center max-w-sm">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><ChatBubbleLeftRightIcon className="w-8 h-8 text-gray-400" /></div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
+                  <p className="text-gray-600">Choose a conversation from the list to start messaging with your guests</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </HostLayout>
