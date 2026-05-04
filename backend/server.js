@@ -123,14 +123,17 @@ app.options('*', cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 500,
   skip: (req) => (
     req.method === 'OPTIONS' ||
-    (req.method === 'GET' && req.path.startsWith('/api/properties')) ||
-    (req.method === 'GET' && req.path.startsWith('/api/bookings')) ||
-    req.path === '/api/host/verification-status' ||
-    req.path === '/api/auth/me'
+    req.path.startsWith('/api/auth') ||
+    req.path.startsWith('/api/chat') ||
+    req.path.startsWith('/api/notifications') ||
+    req.path.startsWith('/api/properties') ||
+    req.path.startsWith('/api/bookings') ||
+    req.path.startsWith('/api/host') ||
+    req.path.startsWith('/api/faqs')
   )
 });
 app.use(limiter);
