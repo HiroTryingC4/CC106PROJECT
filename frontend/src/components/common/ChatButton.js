@@ -8,8 +8,8 @@ const ChatButton = () => {
 
   return (
     <>
-      {/* Floating Chat Button - hidden on mobile to avoid overlap with bottom nav */}
-      <div className="hidden sm:fixed bottom-6 right-6 z-50">
+      {/* Floating Chat Button */}
+      <div className="fixed bottom-6 right-6 z-40">
         <button 
           onClick={() => setIsChatOpen((prev) => !prev)}
           className="text-white p-4 rounded-full shadow-lg hover:opacity-90 flex items-center space-x-2 transition-all hover:scale-105" 

@@ -208,7 +208,7 @@ const HostLayout = ({ children }) => {
 
       {/* ── Main Content ── */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-24 lg:pb-8">
+        <div className="flex-1 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <PageTransition>{children}</PageTransition>
         </div>
 
@@ -253,26 +253,7 @@ const HostLayout = ({ children }) => {
       </div>
 
       {/* ── Mobile Bottom Tab Bar ── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
-        <div className="grid grid-cols-5">
-          {bottomNavItems.map(({ name, href, icon: Icon }) => {
-            const active = href ? isActive(href) : false;
-            return (
-              <button
-                key={name}
-                onClick={() => href ? navigate(href) : setIsMobileMenuOpen(o => !o)}
-                className={`flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium transition-colors ${
-                  active ? 'text-[#4E7B22]' : 'text-gray-400'
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${active ? 'text-[#4E7B22]' : 'text-gray-400'}`} />
-                <span>{name}</span>
-                {active && <span className="w-1 h-1 rounded-full bg-[#4E7B22]" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Removed to prevent overlap with chatbot - use hamburger menu instead */}
 
       {/* ── Logout Modal ── */}
       {showLogoutModal && (
