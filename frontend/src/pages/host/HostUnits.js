@@ -416,6 +416,11 @@ const HostUnits = () => {
                   </Link>
                 </div>
 
+                {/* Description (reserve space so action buttons stay aligned) */}
+                <div className="mb-4">
+                  <p className="text-sm text-gray-700 min-h-[48px]">{property.description || '\u00A0'}</p>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex space-x-3 mt-auto">
                   <Link
