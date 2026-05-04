@@ -875,20 +875,20 @@ const createPayment = async (req, res) => {
 
     const bookingTotals = await syncBookingPaymentStatus(pool, parsedBookingId);
 
-    return res.status(201).json({
-      message: 'Payment submitted successfully',
-      payment: mapPaymentRow(paymentResult.rows[0]),
-      remainingBalance: bookingTotals
-        ? bookingTotals.remainingAmount
-        : parseFloat((remainingAmount - parsedAmount).toFixed(2))
-    });
-
     logActivity(pool, {
       actorUserId: userId,
       action: 'payment_created',
       description: `Payment of ₱${parsedAmount.toFixed(2)} submitted for Booking #${parsedBookingId} via ${paymentMethod || 'gcash'}`,
       ipAddress: req.ip || '',
       userAgent: req.headers['user-agent'] || ''
+    });
+
+    return res.status(201).json({
+      message: 'Payment submitted successfully',
+      payment: mapPaymentRow(paymentResult.rows[0]),
+      remainingBalance: bookingTotals
+        ? bookingTotals.remainingAmount
+        : parseFloat((remainingAmount - parsedAmount).toFixed(2))
     });
   } catch (error) {
     console.error('Error creating payment:', error);
@@ -1008,19 +1008,19 @@ const updatePaymentStatus = async (req, res, forcedStatus = null) => {
       }
     }
 
-    return res.json({
-      message: `Payment marked as ${nextStatus}`,
-      payment: mapPaymentRow(updatedPayment),
-      bookingPaymentStatus: bookingTotals?.bookingPaymentStatus || null,
-      remainingBalance: bookingTotals?.remainingAmount ?? null
-    });
-
     logActivity(pool, {
       actorUserId: userId,
       action: `payment_${nextStatus}`,
       description: `Payment #${paymentId} of ₱${parseFloat(payment.amount).toFixed(2)} marked as ${nextStatus} for Booking #${payment.booking_id}`,
       ipAddress: req.ip || '',
       userAgent: req.headers['user-agent'] || ''
+    });
+
+    return res.json({
+      message: `Payment marked as ${nextStatus}`,
+      payment: mapPaymentRow(updatedPayment),
+      bookingPaymentStatus: bookingTotals?.bookingPaymentStatus || null,
+      remainingBalance: bookingTotals?.remainingAmount ?? null
     });
   } catch (error) {
     console.error('Error updating payment status:', error);

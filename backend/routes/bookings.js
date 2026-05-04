@@ -524,11 +524,6 @@ router.post('/', async (req, res) => {
       });
     }
 
-    return res.status(201).json({
-      message: 'Booking created successfully',
-      booking: mapBookingRow(newBooking)
-    });
-
     // Log activity
     logActivity(pool, {
       actorUserId: guestId,
@@ -537,6 +532,11 @@ router.post('/', async (req, res) => {
       ipAddress: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
       targetPropertyId: parsedPropertyId
+    });
+
+    return res.status(201).json({
+      message: 'Booking created successfully',
+      booking: mapBookingRow(newBooking)
     });
   } catch (error) {
     console.error('Error creating booking:', error);
