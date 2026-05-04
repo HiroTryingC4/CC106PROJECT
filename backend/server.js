@@ -254,6 +254,42 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Debug: test activity log insert directly
+app.get('/api/debug/activity-log-test', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    // Check if table exists
+    const tableCheck = await db.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'admin_activity_logs'
+      ) AS exists`
+    );
+    const tableExists = tableCheck.rows[0]?.exists;
+
+    if (!tableExists) {
+      return res.json({ tableExists: false, message: 'admin_activity_logs table does NOT exist in DB' });
+    }
+
+    // Try inserting a test log
+    await db.query(
+      `INSERT INTO admin_activity_logs (actor_user_id, action, description, ip_address, user_agent, created_at)
+       VALUES (NULL, 'debug_test', 'Test log from debug endpoint', '', '', NOW())`
+    );
+
+    // Count total logs
+    const countResult = await db.query('SELECT COUNT(*)::int AS total FROM admin_activity_logs');
+    return res.json({
+      tableExists: true,
+      insertSuccess: true,
+      totalLogs: countResult.rows[0]?.total,
+      message: 'Table exists and insert succeeded'
+    });
+  } catch (err) {
+    return res.json({ tableExists: 'unknown', insertSuccess: false, error: err.message });
+  }
+});
+
 // SMTP test endpoint (temporary debug)
 app.get('/api/debug/smtp', async (req, res) => {
   const nodemailer = require('nodemailer');
