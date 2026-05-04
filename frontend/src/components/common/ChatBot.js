@@ -167,17 +167,17 @@ const ChatBot = ({ isOpen, onClose, userRole = 'guest' }) => {
 
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-end p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-end sm:p-4">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black bg-opacity-25" 
+      <div
+        className="absolute inset-0 bg-black bg-opacity-25"
         onClick={onClose}
       ></div>
-      
-      {/* Chat Window */}
-      <div className="relative w-96 h-[600px] bg-white rounded-t-2xl shadow-2xl flex flex-col overflow-hidden">
+
+      {/* Chat Window — full screen on mobile, floating on desktop */}
+      <div className="relative w-full h-full sm:w-96 sm:h-[600px] sm:rounded-t-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 text-white flex items-center justify-between" style={{backgroundColor: '#4E7B22'}}>
+        <div className="px-6 py-4 text-white flex items-center justify-between flex-shrink-0" style={{backgroundColor: '#4E7B22'}}>
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -189,7 +189,7 @@ const ChatBot = ({ isOpen, onClose, userRole = 'guest' }) => {
               <p className="text-sm text-white text-opacity-80">Online</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-white hover:text-gray-200 transition-colors"
           >
