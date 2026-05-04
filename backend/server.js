@@ -86,18 +86,26 @@ app.use(compression());
 const allowedOrigins = [
   process.env.LOCAL_REACT_ORIGIN,
   process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_2,
+  'https://smartstay-rho.vercel.app',
+  'https://smartstay-kxl6.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:5173',
   'http://127.0.0.1:5173'
 ].filter(Boolean);
 
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  // Allow any Vercel preview/production deployment for this project
+  if (/^https:\/\/smartstay[a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
+    if (isOriginAllowed(origin)) return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true
@@ -105,10 +113,7 @@ app.use(cors({
 
 app.options('*', cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
+    if (isOriginAllowed(origin)) return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true
