@@ -376,7 +376,7 @@ const HostFinancial = () => {
                         <ArrowTrendingUpIcon className="w-5 h-5 text-green-600" />
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-green-700 mb-1">{financialData.revenue}</p>
+                    <p className="text-2xl font-bold text-green-700 mb-1 break-all">{financialData.revenue}</p>
                     <p className="text-sm text-green-600">Total earnings</p>
                   </div>
                   
@@ -387,7 +387,7 @@ const HostFinancial = () => {
                         <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-red-700 mb-1">{financialData.expenses}</p>
+                    <p className="text-2xl font-bold text-red-700 mb-1 break-all">{financialData.expenses}</p>
                     <p className="text-sm text-red-600">Actual costs</p>
                   </div>
                   
@@ -398,7 +398,7 @@ const HostFinancial = () => {
                         <ArrowTrendingUpIcon className="w-5 h-5 text-blue-600" />
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-blue-700 mb-1">{financialData.netProfit}</p>
+                    <p className="text-2xl font-bold text-blue-700 mb-1 break-all">{financialData.netProfit}</p>
                     <p className="text-sm text-blue-600">{financialData.profitMargin} Margin</p>
                   </div>
                 </div>
@@ -744,7 +744,6 @@ const HostFinancial = () => {
                       required
                     />
                     <BanknotesIcon className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-                    <span className="absolute left-12 top-3.5 text-gray-500 font-medium">₱</span>
                   </div>
                 </div>
 

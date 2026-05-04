@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { 
   PlusIcon,
   PencilIcon,
@@ -303,6 +304,9 @@ const HostUnits = () => {
         </div>
 
         {/* Properties Grid */}
+        {loading ? (
+          <LoadingSpinner text="Loading properties..." />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
           {filteredProperties.map((property) => (
             <div key={property.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200 flex flex-col h-full">
@@ -434,8 +438,10 @@ const HostUnits = () => {
           ))}
         </div>
 
+        )}
+
         {/* Empty State */}
-        {filteredProperties.length === 0 && (
+        {!loading && filteredProperties.length === 0 && (
           <div className="text-center py-12">
             {!isVerified ? (
               <>

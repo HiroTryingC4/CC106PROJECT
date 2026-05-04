@@ -69,7 +69,6 @@ import HostVerificationForm from './pages/host/HostVerificationForm';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import AdminReports from './pages/admin/AdminReports';
-import AdminUnits from './pages/admin/AdminUnits';
 import AdminReviews from './pages/admin/AdminReviews';
 import ActivityLogs from './pages/admin/ActivityLogs';
 import AdminMessages from './pages/admin/AdminMessages';
@@ -225,7 +224,6 @@ function App() {
               <Route element={<RequireAuth allowedRoles={['admin']} />}>
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/admin/units" element={<AdminUnits />} />
                 <Route path="/admin/reviews" element={<AdminReviews />} />
                 <Route path="/admin/activity-logs" element={<ActivityLogs />} />
                 <Route path="/admin/messages" element={<AdminMessages />} />

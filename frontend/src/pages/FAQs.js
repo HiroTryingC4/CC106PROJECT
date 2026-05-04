@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import API_CONFIG from '../config/api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const FAQs = () => {
   const [faqs, setFaqs] = useState([]);
@@ -32,10 +33,7 @@ const FAQs = () => {
     return (
       <div className="min-h-screen bg-gray-100 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading FAQs...</p>
-          </div>
+          <LoadingSpinner text="Loading FAQs..." />
         </div>
       </div>
     );

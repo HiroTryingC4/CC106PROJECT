@@ -6,6 +6,7 @@ import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import axios from 'axios';
 import API_CONFIG from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const GuestUnits = () => {
   const navigate = useNavigate();
@@ -395,10 +396,7 @@ const GuestUnits = () => {
         {/* Units Grid */}
         {loading && (
           <div className="flex justify-center items-center py-24">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-              <p className="mt-3 text-gray-500">Loading properties...</p>
-            </div>
+            <LoadingSpinner text="Loading properties..." />
           </div>
         )}
 

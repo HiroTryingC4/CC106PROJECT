@@ -10,6 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import API_CONFIG from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const ActivityLogs = () => {
   const { token } = useAuth();
@@ -117,10 +118,7 @@ const ActivityLogs = () => {
 
         {/* Loading State */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading activity logs...</p>
-          </div>
+          <LoadingSpinner text="Loading activity logs..." />
         ) : (
           <>
             {/* Date Range Filter */}

@@ -44,269 +44,102 @@ const Navbar = () => {
     return null;
   }
 
+  const navLinks = [
+    { to: '/', label: 'Home' },
+    { to: '/units', label: 'Units' },
+    { to: '/recommendations', label: 'Explore' },
+    { to: '/faqs', label: 'FAQs' },
+  ];
+
   return (
-    <nav className="sticky top-0 z-50 shadow-sm" style={{backgroundColor: isPublicPage ? 'white' : '#F8FFD3'}}>
+    <nav className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <span className="font-bold" style={{color: '#4E7B22', fontSize: '35px'}}>Smart Stay</span>
+          <Link to="/" className="flex-shrink-0">
+            <span className="font-bold" style={{color: '#4E7B22', fontSize: '28px'}}>Smart Stay</span>
+          </Link>
+
+          {/* Desktop nav links */}
+          <div className="hidden md:flex items-center space-x-1">
+            {navLinks.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname === to
+                    ? 'bg-green-50 text-[#4E7B22]'
+                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-green-50'
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            <Link
+              to="/login"
+              className="hidden sm:inline-flex text-gray-700 hover:text-[#4E7B22] px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:border-[#4E7B22] transition-colors"
+            >
+              Log In
+            </Link>
+            <Link
+              to="/register"
+              className="hidden sm:inline-flex bg-[#4E7B22] text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Sign Up
+            </Link>
+
+            {/* Mobile: compact auth buttons */}
+            <Link
+              to="/login"
+              className="sm:hidden text-[#4E7B22] px-3 py-1.5 text-sm font-medium border border-[#4E7B22] rounded-lg"
+            >
+              Log In
+            </Link>
+            <Link
+              to="/register"
+              className="sm:hidden bg-[#4E7B22] text-white px-3 py-1.5 text-sm font-medium rounded-lg"
+            >
+              Sign Up
             </Link>
           </div>
-
-          {/* Navigation Links - Show only on public pages */}
-          {isPublicPage && (
-            <div className="hidden md:flex items-center space-x-8">
-              <Link 
-                to="/" 
-                className={`px-3 py-2 text-sm font-medium ${
-                  location.pathname === '/' 
-                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
-                    : 'text-gray-500 hover:text-[#4E7B22]'
-                }`}
-              >
-                Home
-              </Link>
-              <Link 
-                to="/units" 
-                className={`px-3 py-2 text-sm font-medium ${
-                  location.pathname === '/units' 
-                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
-                    : 'text-gray-500 hover:text-[#4E7B22]'
-                }`}
-              >
-                Units
-              </Link>
-              <Link 
-                to="/recommendations" 
-                className={`px-3 py-2 text-sm font-medium ${
-                  location.pathname === '/recommendations' 
-                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
-                    : 'text-gray-500 hover:text-[#4E7B22]'
-                }`}
-              >
-                Recommendations
-              </Link>
-              <Link 
-                to="/faqs" 
-                className={`px-3 py-2 text-sm font-medium ${
-                  location.pathname === '/faqs' 
-                    ? 'text-gray-900 border-b-2 border-[#4E7B22]' 
-                    : 'text-gray-500 hover:text-[#4E7B22]'
-                }`}
-              >
-                FAQS
-              </Link>
-            </div>
-          )}
-
-          {/* Right side icons */}
-          <div className="flex items-center space-x-3">
-            {isAuthenticated && user && !isPublicPage ? (
-              <>
-                {/* Real-time Notification Component */}
-                <RealtimeNotifications />
-
-                {/* Date Display with Calendar Icon */}
-                <div className="text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center" style={{backgroundColor: '#4E7B22'}}>
-                  <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.1 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
-                  </svg>
-                  Oct 24, 2023
-                </div>
-
-                {/* User Profile Icon with Dropdown */}
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={toggleProfileDropdown}
-                    className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    style={{backgroundColor: '#B8C5A0'}}
-                  >
-                    <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                  </button>
-
-                  {/* Profile Dropdown */}
-                  {showProfileDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                      {/* User Info */}
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-sm font-medium text-gray-900">{user?.firstName || user?.name || 'User'}</p>
-                        <p className="text-xs text-gray-500">{user?.email || 'user@smartstay.com'}</p>
-                        {user?.isTrial && (
-                          <span className="inline-block mt-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                            Trial Account
-                          </span>
-                        )}
-                        {user?.role === 'admin' && (
-                          <span className="inline-block mt-1 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">
-                            Administrator
-                          </span>
-                        )}
-                        {user?.role === 'comm-admin' && (
-                          <span className="inline-block mt-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                            💬 Communication Manager
-                          </span>
-                        )}
-                        {user?.role === 'host' && (
-                          <span className="inline-block mt-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                            Host Account
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Menu Items */}
-                      <div className="py-1">
-                        {/* Profile */}
-                        <button
-                          onClick={() => {
-                            setShowProfileDropdown(false);
-                            if (user?.role === 'admin') {
-                              navigate('/admin/dashboard');
-                            } else if (user?.role === 'comm-admin') {
-                              navigate('/comm-admin/profile');
-                            } else if (user?.role === 'host') {
-                              navigate('/host/dashboard');
-                            } else {
-                              navigate('/guest/profile');
-                            }
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                          </svg>
-                          <span>{user?.role === 'admin' ? 'Admin Panel' : user?.role === 'comm-admin' ? 'Profile' : user?.role === 'host' ? 'Host Dashboard' : 'Profile'}</span>
-                        </button>
-
-                        {/* System/Settings */}
-                        <button
-                          onClick={() => {
-                            setShowProfileDropdown(false);
-                            if (user?.role === 'admin') {
-                              navigate('/admin/security');
-                            } else if (user?.role === 'comm-admin') {
-                              navigate('/comm-admin/settings');
-                            } else if (user?.role === 'host') {
-                              navigate('/host/settings');
-                            } else {
-                              navigate('/guest/settings');
-                            }
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-                          </svg>
-                          <span>{user?.role === 'admin' ? 'Security' : 'Settings'}</span>
-                        </button>
-
-                        {/* Divider */}
-                        <div className="border-t border-gray-100 my-1"></div>
-
-                        {/* Log out */}
-                        <button
-                          onClick={handleLogout}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-3"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-                          </svg>
-                          <span>Log out</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <Link 
-                  to="/login" 
-                  className="text-gray-700 hover:text-[#4E7B22] px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:border-[#4E7B22] transition-colors"
-                >
-                  Log In
-                </Link>
-                <Link 
-                  to="/register" 
-                  className="bg-[#4E7B22] text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
-
-            {/* Mobile menu button - Show only on public pages */}
-            {isPublicPage && (
-              <div className="md:hidden">
-                <button 
-                  onClick={() => setIsOpen(!isOpen)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  {isOpen ? (
-                    <XMarkIcon className="h-6 w-6" />
-                  ) : (
-                    <Bars3Icon className="h-6 w-6" />
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
         </div>
+      </div>
 
-        {/* Mobile menu - Show only on public pages */}
-        {isPublicPage && isOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
-              <Link 
-                to="/" 
-                className={`block px-3 py-2 text-base font-medium ${
-                  location.pathname === '/' 
-                    ? 'text-[#4E7B22] bg-green-50' 
-                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
+      {/* Mobile bottom tab bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
+        <div className="grid grid-cols-4">
+          {navLinks.map(({ to, label }) => {
+            const active = location.pathname === to;
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={`flex flex-col items-center justify-center py-2 text-xs font-medium transition-colors ${
+                  active ? 'text-[#4E7B22]' : 'text-gray-400'
                 }`}
-                onClick={() => setIsOpen(false)}
               >
-                Home
+                {to === '/' && (
+                  <svg className={`w-5 h-5 mb-0.5 ${ active ? 'fill-[#4E7B22]' : 'fill-gray-400'}`} viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                )}
+                {to === '/units' && (
+                  <svg className={`w-5 h-5 mb-0.5 ${ active ? 'fill-[#4E7B22]' : 'fill-gray-400'}`} viewBox="0 0 24 24"><path d="M17 11V3H7v4H3v14h8v-4h2v4h8V11h-4zm-8 4H7v-2h2v2zm0-4H7V9h2v2zm0-4H7V5h2v2zm4 8h-2v-2h2v2zm0-4h-2V9h2v2zm0-4h-2V5h2v2zm4 8h-2v-2h2v2zm0-4h-2V9h2v2z"/></svg>
+                )}
+                {to === '/recommendations' && (
+                  <svg className={`w-5 h-5 mb-0.5 ${ active ? 'fill-[#4E7B22]' : 'fill-gray-400'}`} viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                )}
+                {to === '/faqs' && (
+                  <svg className={`w-5 h-5 mb-0.5 ${ active ? 'fill-[#4E7B22]' : 'fill-gray-400'}`} viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+                )}
+                <span>{label}</span>
+                {active && <span className="absolute bottom-0 w-8 h-0.5 rounded-full bg-[#4E7B22]" />}
               </Link>
-              <Link 
-                to="/units" 
-                className={`block px-3 py-2 text-base font-medium ${
-                  location.pathname === '/units' 
-                    ? 'text-[#4E7B22] bg-green-50' 
-                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                Units
-              </Link>
-              <Link 
-                to="/recommendations" 
-                className={`block px-3 py-2 text-base font-medium ${
-                  location.pathname === '/recommendations' 
-                    ? 'text-[#4E7B22] bg-green-50' 
-                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                Recommendations
-              </Link>
-              <Link 
-                to="/faqs" 
-                className={`block px-3 py-2 text-base font-medium ${
-                  location.pathname === '/faqs' 
-                    ? 'text-[#4E7B22] bg-green-50' 
-                    : 'text-gray-500 hover:text-[#4E7B22] hover:bg-gray-50'
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                FAQS
-              </Link>
-            </div>
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     </nav>
   );

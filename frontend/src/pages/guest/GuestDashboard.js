@@ -4,6 +4,7 @@ import GuestLayout from '../../components/common/GuestLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import API_CONFIG from '../../config/api';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const API_BASE = API_CONFIG.BASE_URL;
 
@@ -198,8 +199,7 @@ const GuestDashboard = () => {
           
           {loading && (
             <div className="p-12 text-center text-gray-500">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              <p className="mt-2">Loading bookings...</p>
+              <LoadingSpinner text="Loading bookings..." />
             </div>
           )}
           

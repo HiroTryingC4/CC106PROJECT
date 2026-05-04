@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import HostLayout from '../../components/common/HostLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import API_CONFIG from '../../config/api';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import {
   Bars3Icon,
   CalendarDaysIcon,
@@ -669,9 +670,7 @@ const HostBookings = () => {
           />
         </div>
 
-        {loading && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-600">Loading bookings...</div>
-        )}
+        {loading && <LoadingSpinner text="Loading bookings..." />}
 
         {!loading && fetchError && (
           <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">{fetchError}</div>

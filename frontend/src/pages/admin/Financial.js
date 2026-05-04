@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/common/AdminLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import API_CONFIG from '../../config/api';
 import { 
   CurrencyDollarIcon, 
   ArrowTrendingUpIcon,
@@ -39,7 +41,7 @@ const Financial = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`http://localhost:5000/api/admin/financial?period=${selectedPeriod}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/admin/financial?period=${selectedPeriod}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -176,12 +178,7 @@ const Financial = () => {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading financial data...</p>
-          </div>
-        </div>
+        <LoadingSpinner text="Loading financial data..." />
       </AdminLayout>
     );
   }

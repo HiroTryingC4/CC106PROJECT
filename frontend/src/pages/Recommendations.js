@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StarIcon, ChatBubbleLeftRightIcon, XMarkIcon, HomeIcon } from '@heroicons/react/24/outline';
 import API_CONFIG from '../config/api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const Recommendations = () => {
   const [showReportModal, setShowReportModal] = useState(false);
@@ -114,9 +115,7 @@ const Recommendations = () => {
 
         {/* Loading */}
         {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
+          <LoadingSpinner text="Fetching recommendations..." />
         ) : properties.length === 0 ? (
           <div className="text-center py-20 text-gray-500">
             <HomeIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />

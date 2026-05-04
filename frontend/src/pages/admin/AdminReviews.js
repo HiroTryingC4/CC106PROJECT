@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import API_CONFIG from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const AdminReviews = () => {
   const { token } = useAuth();
@@ -220,10 +221,7 @@ const AdminReviews = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading reviews...</p>
-          </div>
+          <LoadingSpinner text="Loading reviews..." />
         ) : error ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600">{error}</p>

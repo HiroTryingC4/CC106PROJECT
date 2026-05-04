@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import HostLayout from '../../components/common/HostLayout';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useAuth } from '../../contexts/AuthContext';
 import API_CONFIG from '../../config/api';
 import { 
@@ -470,6 +471,9 @@ const HostDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Loading */}
+        {loading && <LoadingSpinner text="Loading dashboard..." />}
 
         {/* Host Profile Card */}
         {!loading && getHostProfileCard()}

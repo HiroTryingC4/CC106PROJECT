@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, Star, MapPin, Users, Bed, Bath } from 'lucide-react';
 import API_CONFIG from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const PropertySearch = () => {
   const navigate = useNavigate();

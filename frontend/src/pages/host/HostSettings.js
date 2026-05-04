@@ -39,54 +39,9 @@ const HostSettings = () => {
     confirmPassword: ''
   });
 
-  const [faqResponses, setFaqResponses] = useState([
-    {
-      id: 1,
-      question: 'How do I book a unit?',
-      answer: 'To book a unit, browse available properties, select your desired unit, choose your check-in and check-out dates, and complete the booking with payment.',
-      tags: ['Book', 'Booking', 'Reserve', 'Reservation', 'How to book']
-    },
-    {
-      id: 2,
-      question: 'What payment methods do you accept?',
-      answer: 'We accept payments via QR code. After booking, you\'ll receive a QR code to scan and complete your payment securely.',
-      tags: ['pay', 'qr code', 'payment', 'payment method']
-    },
-    {
-      id: 3,
-      question: 'What is the cancellation policy?',
-      answer: 'You can cancel your booking up to 48 hours before check-in for a full refund. Cancellations within 48 hours are subject to a 50% fee.',
-      tags: ['cancel', 'refund', 'policy', 'cancellation']
-    },
-    {
-      id: 4,
-      question: 'How do I check in?',
-      answer: 'Check-in instructions will be sent to your email 24 hours before your arrival. You\'ll receive the unit access code and any special instructions.',
-      tags: ['arrival', 'check in', 'access code']
-    },
-    {
-      id: 5,
-      question: 'What about security deposits?',
-      answer: 'A security deposit is required for all bookings. It will be returned within 7 days after checkout if there are no damages or issues.',
-      tags: ['fee', 'deposit', 'refund', 'security deposit']
-    },
-    {
-      id: 6,
-      question: 'Can I modify my booking?',
-      answer: 'Yes, you can modify your booking dates from your dashboard. Changes are subject to availability and may affect the total price.',
-      tags: ['change', 'modify', 'edit booking', 'update booking']
-    },
-    {
-      id: 7,
-      question: 'How do I contact the host?',
-      answer: 'You can message the host directly through your booking details page. The host will receive your message and respond promptly.',
-      tags: []
-    }
-  ]);
 
   const tabs = [
     { key: 'profile', label: 'Profile' },
-    { key: 'chatbot', label: 'Chatbot' },
     { key: 'security', label: 'Security' }
   ];
 
@@ -111,14 +66,6 @@ const HostSettings = () => {
 
   const handleSecurityUpdate = () => {
     console.log('Updating security:', security);
-  };
-
-  const handleFaqEdit = (id) => {
-    console.log('Editing FAQ:', id);
-  };
-
-  const handleFaqDelete = (id) => {
-    setFaqResponses(faqResponses.filter(faq => faq.id !== id));
   };
 
   return (
@@ -263,52 +210,6 @@ const HostSettings = () => {
                   </button>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Chatbot Tab */}
-          {activeTab === 'chatbot' && (
-            <div className="p-8 space-y-8">
-              <h2 className="text-xl font-semibold text-gray-900">FAQ Responses</h2>
-              
-              <div className="space-y-6">
-                {faqResponses.map((faq) => (
-                  <div key={faq.id} className="border-2 border-gray-300 rounded-xl p-6 hover:shadow-sm transition-shadow duration-200 bg-white hover:border-gray-400">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">{faq.question}</h3>
-                      <div className="flex space-x-3">
-                        <button 
-                          onClick={() => handleFaqEdit(faq.id)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-blue-50 transition-colors duration-200 border border-blue-200 hover:border-blue-300"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => handleFaqDelete(faq.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-red-50 transition-colors duration-200 border border-red-200 hover:border-red-300"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <p className="text-gray-700 mb-4 leading-relaxed font-medium">{faq.answer}</p>
-                    
-                    {faq.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {faq.tags.map((tag, index) => (
-                          <span 
-                            key={index}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full font-medium border-2 border-yellow-300"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 

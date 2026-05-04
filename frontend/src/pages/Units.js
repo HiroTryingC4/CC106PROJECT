@@ -8,6 +8,7 @@ import {
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import API_CONFIG from '../config/api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const Units = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,9 +200,7 @@ const Units = () => {
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
+          <LoadingSpinner text="Fetching properties..." />
         ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProperties.map((property) => {

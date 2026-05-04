@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/common/AdminLayout';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { 
   UsersIcon,
   UserGroupIcon,
@@ -103,13 +104,7 @@ const AdminDashboard = () => {
 
         {/* Loading State */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 animate-pulse">
-                <div className="h-20 bg-gray-200 rounded"></div>
-              </div>
-            ))}
-          </div>
+          <LoadingSpinner text="Loading dashboard..." />
         ) : (
           /* Stats Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
